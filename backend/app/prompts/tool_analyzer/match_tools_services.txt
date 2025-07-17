@@ -1,0 +1,21 @@
+Match the required tools with existing services. Be flexible with naming but strict with functionality.
+
+Required Tools:
+{required_tools}
+
+Available Services (including inactive ones that can be activated):
+{available_services}
+
+For each required tool, determine if any existing service can fulfill its purpose.
+Consider:
+1. Functional equivalence (does it do what we need?)
+2. Parameter compatibility (can we provide required inputs?)
+3. Output compatibility (does it return useful data?)
+4. Inactive services can be activated if they match
+
+Return ONLY a JSON object mapping required tool names to service IDs (or null if no match):
+{{
+    "tool_name_1": "service_id_or_null",
+    "tool_name_2": "service_id_or_null",
+    ...
+}}

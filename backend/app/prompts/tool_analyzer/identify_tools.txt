@@ -1,0 +1,26 @@
+Analyze what tools/services this agent needs to fulfill its purpose.
+
+Agent Description: {description}
+
+Based on this description, identify the MINIMAL set of tools needed.
+
+For each required capability:
+1. What specific functionality is needed?
+2. Is this a tool (action), resource (data), or prompt (template)?
+3. What parameters would it need?
+4. What should it return?
+
+Be specific and practical. Only include tools that are absolutely necessary.
+
+Return a JSON array of required tools with detailed specifications.
+
+Example:
+[
+    {{
+        "name": "get_weather",
+        "type": "tool",
+        "purpose": "Get current weather for a location",
+        "parameters": ["city", "units"],
+        "returns": "weather data with temperature, conditions"
+    }}
+]

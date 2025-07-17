@@ -1,0 +1,28 @@
+Evaluate if this service can fulfill the requirement:
+
+Requirement: {requirement}
+
+Service Details:
+- Name: {service_name}
+- Type: {service_type}
+- Description: {service_description}
+- Route: {service_route}
+- Parameters: {service_params}
+- Documentation: {service_documentation}
+
+Analyze:
+1. Functional match (0-100): Does it do what's needed?
+2. Parameter match (0-100): Can we provide required inputs?
+3. Output usefulness (0-100): Is the output format useful?
+4. Overall compatibility (0-100): Would this work for the requirement?
+
+Return ONLY a JSON object:
+{{
+    "functional_match": 0-100,
+    "parameter_match": 0-100,
+    "output_usefulness": 0-100,
+    "overall_compatibility": 0-100,
+    "can_use": true/false,
+    "adaptation_needed": "description of any adaptations needed",
+    "reasoning": "brief explanation"
+}}

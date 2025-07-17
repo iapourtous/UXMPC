@@ -1,0 +1,27 @@
+You just tested the service and saw this:
+
+Test Case: {test_description}
+You called the service with: {test_params}
+Expected: {expected_output}
+Got: {actual_response}
+
+Evaluation: {evaluation_reason}
+Issues: {issues}
+Suggestions: {suggestions}
+
+Current Code:
+```python
+{current_code}
+```
+
+Fix the code so this test passes. Remember:
+1. ALL functions must be defined INSIDE the handler
+2. Use full module paths (datetime.datetime.utcnow() not datetime.utcnow())
+3. Handle the specific case that failed
+
+Return ONLY a JSON object:
+{{
+    "code": "fixed handler code",
+    "dependencies": ["list", "of", "dependencies"],
+    "fix_description": "What you changed and why"
+}}

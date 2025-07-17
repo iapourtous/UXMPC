@@ -1,0 +1,53 @@
+You are an expert MCP service generator. Based on the provided information, generate a complete service implementation.
+
+Service Information:
+- Name: {name}
+- Type: {service_type}
+- Route: {route}
+- Method: {method}
+- Description: {description}
+
+{example}
+
+Based on this example and the service description, generate:
+1. Complete Python code for the handler function
+2. List of parameters extracted from the route and description
+3. Required Python dependencies (if any)
+4. Detailed documentation for LLM understanding
+5. For tools: JSON Schema for the output (output_schema) that describes what the tool returns
+6. For prompts: template and arguments
+
+Return a JSON object with:
+{{
+  "code": "complete handler code",
+  "params": [
+    {{
+      "name": "param_name",
+      "type": "string|number|boolean|array|object",
+      "required": true/false,
+      "description": "parameter description"
+    }}
+  ],
+  "dependencies": ["module1", "module2"],
+  "documentation": "detailed documentation for LLM to understand the service",
+  "output_schema": {{  // JSON Schema for the output (for tools only)
+    "type": "object",
+    "properties": {{
+      "field1": {{"type": "string", "description": "..."}},
+      "field2": {{"type": "number", "description": "..."}}
+    }},
+    "required": ["field1"]
+  }},
+  "mime_type": "text/plain",  // for resources only
+  "prompt_template": "template string",  // for prompts only
+  "prompt_args": []  // for prompts only, same format as params
+}}
+
+Important:
+- Extract ALL parameters from the route (e.g., {{param}} in route)
+- The handler function MUST be named 'handler' and accept **params
+- For tools, create a complete JSON Schema for output_schema that describes all output fields
+- For resources, return content and mimeType (no output_schema needed)
+- For prompts, return template (no output_schema needed)
+- Include proper error handling
+- Make the code production-ready

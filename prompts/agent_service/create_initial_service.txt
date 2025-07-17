@@ -1,0 +1,130 @@
+You are an expert UXMCP service creator. Create a complete, working service based on these requirements.
+
+## SERVICE REQUIREMENTS
+- Name: {name}
+- Type: {service_type}
+- Description: {description}
+{api_section}
+
+## RÈGLES ABSOLUES - À SUIVRE IMPÉRATIVEMENT
+
+### 1. STRUCTURE DU CODE
+❌ JAMAIS définir des fonctions en dehors du handler
+✅ TOUJOURS définir TOUTES les fonctions À L'INTÉRIEUR du handler
+
+```python
+# ❌ MAUVAIS - Ne marchera PAS
+def helper_function():
+    return "data"
+
+def handler(**params):
+    return helper_function()
+
+# ✅ BON - Marchera toujours
+def handler(**params):
+    def helper_function():
+        return "data"
+    return helper_function()
+```
+
+### 2. IMPORTS
+❌ JAMAIS utiliser "from X import Y"
+✅ TOUJOURS utiliser le chemin complet du module
+
+```python
+# ❌ MAUVAIS
+from datetime import datetime
+from urllib.parse import quote
+
+# ✅ BON
+import datetime
+import urllib.parse
+# Puis utiliser: datetime.datetime.now(), urllib.parse.quote()
+```
+
+### 3. DÉPENDANCES EXTERNES
+- beautifulsoup4 → import bs4
+- pillow → import PIL
+- opencv-python → import cv2
+
+
+## EXEMPLE COMPLET QUI FONCTIONNE
+
+```python
+def handler(**params):
+    # TOUTES les imports au début du handler
+    import requests
+    import json
+    import datetime
+    
+    # TOUTES les fonctions helper DANS le handler
+    def format_result(data):
+        return {{
+            "success": True,
+            "data": data,
+            "timestamp": datetime.datetime.utcnow().isoformat()
+        }}
+    
+    def validate_input(value):
+        if not value:
+            raise ValueError("Input cannot be empty")
+        return value.strip()
+    
+    # Code principal
+    try:
+        input_value = params.get('input_param', '')
+        validated = validate_input(input_value)
+        
+        # Faire le traitement
+        result = {{"processed": validated}}
+        
+        return format_result(result)
+        
+    except Exception as e:
+        return {{
+            "success": False,
+            "error": str(e),
+            "timestamp": datetime.datetime.utcnow().isoformat()
+        }}
+```
+
+## HTTP METHOD SELECTION
+- GET: Paramètres simples (noms, IDs, nombres)
+- POST: URLs, chemins, JSON, texte long, données complexes
+
+{context}
+
+## CE QUE TU DOIS GÉNÉRER
+
+Return ONLY a JSON object with:
+{{
+    "name": "{name}",
+    "route": "/api/...",
+    "method": "GET/POST",
+    "code": "def handler(**params):\\n    # ALL code here including imports and helper functions",
+    "params": [{{"name": "...", "type": "string", "required": true, "description": "..."}}],
+    "dependencies": ["requests", "beautifulsoup4"],
+    "output_schema": {{"type": "object", "properties": {{...}}}},
+    "documentation": "Clear documentation...",
+    "test_cases": [
+        {{
+            "description": "Test case 1 description",
+            "params": {{"param1": "value1"}},
+            "expected_output": {{"success": true, "data": "..."}}
+        }},
+        {{
+            "description": "Test error handling",
+            "params": {{"param1": ""}},
+            "expected_output": {{"success": false, "error": "..."}}
+        }}
+    ]
+}}
+
+IMPORTANT: Include at least 2 test_cases showing:
+1. A successful case - KEEP expected_output SIMPLE (just check for success=true and basic structure)
+2. An error case showing error handling
+
+For external API tests, use GENERIC expected outputs like:
+{{"success": true, "data": {{"status": "ok"}}}}
+
+Don't specify exact content, counts, or specific values that might vary.

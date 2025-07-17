@@ -1,0 +1,28 @@
+Match required tools with existing services in the system.
+
+Required Tools:
+{required_tools}
+
+Available Services:
+{available_services}
+
+For each required tool:
+1. Find the BEST matching existing service (if any)
+2. Consider partial matches and similar functionality
+3. Assess compatibility (0-100%)
+4. Note any missing features
+
+Be generous in matching - if a service can potentially fulfill the need with minor adaptation, match it!
+
+Return JSON with matches and analysis:
+{{
+    "matches": [
+        {{
+            "required_tool": "tool_name",
+            "matched_service": "service_name",
+            "compatibility": 85,
+            "notes": "why it matches or what's missing"
+        }}
+    ],
+    "unmatched_tools": ["list of tools with no good matches"]
+}}

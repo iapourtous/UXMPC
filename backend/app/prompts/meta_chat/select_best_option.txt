@@ -1,0 +1,18 @@
+Based on your analysis, select the SINGLE BEST option for handling this request.
+
+User intent: {intent}
+Available options: {options}
+
+You must choose exactly ONE agent or service that would best fulfill the user's request.
+Consider:
+- Which option most directly addresses the user's need
+- Simplicity over complexity when possible
+- User's likely expectations
+
+Return a JSON object with:
+{{
+  "selected": "agent_or_service_name",
+  "type": "agent|service",
+  "confidence": 0.0-1.0,
+  "reasoning": "Brief explanation"
+}}

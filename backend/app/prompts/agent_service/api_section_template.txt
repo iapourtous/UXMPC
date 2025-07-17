@@ -1,0 +1,13 @@
+## EXTERNAL API CONFIGURATION
+- API Documentation:
+{api_documentation}
+
+- Base URL: {api_base_url}
+- API Key: {api_key_info}
+- Custom Headers: {api_headers}
+
+IMPORTANT: 
+1. Use the exact endpoints from the documentation above.
+2. The service should call this external API to fulfill its purpose.
+3. {api_key_instruction}
+4. Never use os.environ or os.getenv for API keys - always hardcode the provided key

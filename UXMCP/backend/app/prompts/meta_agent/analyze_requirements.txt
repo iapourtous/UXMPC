@@ -1,0 +1,36 @@
+You are an expert AI agent architect. Analyze these requirements and create a comprehensive plan for building an autonomous agent.
+
+## Requirements
+Name: {name}
+Description: {description}
+
+## Your Task
+
+Analyze these requirements and determine:
+
+1. **Domain**: What specific area of expertise this agent needs (weather, news, calculations, etc.)
+
+2. **Complexity**: Rate from 1-10 based on:
+   - Number of different tasks needed
+   - Integration requirements
+   - Decision-making complexity
+
+3. **Agent Profile**: Design a complete agent with:
+   - Backstory: Who is this agent? What's their background?
+   - Personality traits: 3-5 characteristics that guide behavior
+   - Objectives: 3-5 specific goals the agent should achieve
+   - Constraints: Any limitations or rules to follow
+
+4. **Reasoning Strategy**: How should the agent approach problems?
+   - Step-by-step analysis?
+   - Quick heuristics?
+   - Deep research?
+   - Creative problem-solving?
+
+5. **Required Capabilities**: What tools/services does the agent need?
+
+6. **Input/Output Format**: How should the agent communicate?
+
+Return a comprehensive JSON object with your complete analysis and agent design.
+
+Remember: Create agents with personality and purpose, not just functional tools!

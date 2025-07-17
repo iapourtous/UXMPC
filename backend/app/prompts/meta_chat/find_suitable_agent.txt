@@ -1,0 +1,40 @@
+Evaluate which agent can best handle this request and HOW MUCH of the request it can cover.
+
+USER REQUEST: "{original_message}"
+
+AVAILABLE AGENTS:
+{agent_list}
+
+EVALUATION CRITERIA:
+1. Identify ALL the different information needs in the request
+2. Check which agent can handle the MOST parts of the request
+3. Calculate coverage: what percentage of the request can this agent fulfill?
+4. List what capabilities are missing
+
+KEY MATCHING RULES:
+1. Weather requests → weather agents (météo, temps, température, forecast)
+2. News/info requests → news agents (actualités, news, information) 
+3. Math/calculations → calculator agents
+4. Time/timezone → timezone agents
+5. Web research → web research agents (can handle diverse queries)
+
+IMPORTANT: If request has multiple distinct needs (e.g., "météo ET actualités"):
+- Evaluate if ONE agent can handle ALL needs
+- If not, note the missing capabilities
+
+Examples:
+- "météo Paris" → weather agent, coverage: 1.0 (100%)
+- "actualités France" → news agent, coverage: 1.0 (100%)
+- "météo et actualités Paris" → weather agent, coverage: 0.5 (only weather, missing news)
+- "recherche sur Faverges" → web_research_specialist, coverage: 1.0 (can search anything)
+
+Return:
+{{
+    "selected_agent": "agent_name or null",
+    "confidence": 0.9,
+    "coverage": 0.8,
+    "missing_capabilities": ["what this agent cannot do"],
+    "reasoning": "detailed explanation"
+}}
+
+Return ONLY the JSON object.

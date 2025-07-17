@@ -1,0 +1,13 @@
+Convert this response into a well-formatted HTML response.
+
+Raw response data:
+{response_data}
+
+Create an HTML response that:
+1. Is visually appealing and easy to read
+2. Uses appropriate HTML tags and styling
+3. Highlights important information
+4. Handles different data types appropriately (lists, objects, text)
+5. Includes any error messages clearly
+
+Return ONLY the HTML content, no markdown or explanations.

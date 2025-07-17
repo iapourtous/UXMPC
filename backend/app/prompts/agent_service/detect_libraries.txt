@@ -1,0 +1,24 @@
+Analyze the following service description and identify any libraries, frameworks, or external APIs that will be needed.
+
+Service Description: {description}
+Service Type: {service_type}
+
+Look for:
+1. Explicit library mentions (e.g., "using FastAPI", "with requests library")
+2. API service names (e.g., "NewsAPI", "OpenWeather", "Stripe")
+3. Frameworks implied by functionality (e.g., "web scraping" → BeautifulSoup)
+4. Data processing libraries (e.g., "parse JSON" → json, "analyze data" → pandas)
+5. Common utilities based on the task
+
+Return ONLY a JSON object with the detected libraries:
+{{
+    "libraries": [
+        {{
+            "name": "library_name",
+            "reason": "why this library is needed",
+            "confidence": "high|medium|low"
+        }}
+    ],
+    "primary_library": "main library if there is one",
+    "topic_focus": "specific topic to search docs for"
+}}

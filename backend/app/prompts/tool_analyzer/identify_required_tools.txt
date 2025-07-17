@@ -1,0 +1,35 @@
+Based on this agent requirement, identify the MINIMAL set of tools needed:
+
+Purpose: {purpose}
+Domain: {domain}
+Use Cases:
+{use_cases}
+
+IMPORTANT: Only identify tools that are ABSOLUTELY NECESSARY for the core functionality.
+- For weather: typically just a weather API fetcher
+- For search: just a search tool
+- For calculations: just a calculator
+
+DO NOT include:
+- Translation tools (the LLM can translate)
+- Formatting tools (the LLM can format)
+- Recommendation tools (the LLM can recommend)
+- Multiple variations of the same tool
+
+Identify ONLY the essential tools. For each tool:
+1. A clear name (e.g., "weather_fetcher", "web_search")
+2. A description of what it does
+3. The service type (usually "tool")
+4. Required parameters
+
+Return ONLY a JSON array of tool requirements:
+[
+    {{
+        "name": "tool_name",
+        "description": "What this tool does",
+        "service_type": "tool",
+        "parameters": [
+            {{"name": "param1", "type": "string", "required": true, "description": "..."}}
+        ]
+    }}
+]

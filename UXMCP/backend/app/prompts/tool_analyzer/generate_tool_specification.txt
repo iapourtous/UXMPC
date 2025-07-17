@@ -1,0 +1,33 @@
+Generate a detailed specification for creating this tool:
+
+Tool Requirement:
+- Name: {tool_name}
+- Description: {tool_description}
+- Type: {tool_type}
+- Parameters: {tool_parameters}
+
+Agent Context:
+- Purpose: {agent_purpose}
+- Domain: {agent_domain}
+
+Generate a specification that includes:
+1. A clear, detailed description for the AI Service Creator
+2. Specific examples of how the tool should work
+3. Expected input/output formats
+4. Any special requirements or error handling
+
+Return ONLY a JSON object:
+{{
+    "name": "{tool_name}",
+    "description": "Detailed description for AI Service Creator...",
+    "service_type": "{tool_type}",
+    "examples": [
+        "Example 1: If input X, output Y",
+        "Example 2: Handle case Z"
+    ],
+    "special_requirements": [
+        "Requirement 1",
+        "Requirement 2"
+    ],
+    "error_handling": "How to handle common errors"
+}}

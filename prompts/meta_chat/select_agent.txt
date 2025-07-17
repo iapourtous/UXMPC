@@ -1,0 +1,28 @@
+Select the BEST agent for this request. BE GENEROUS in matching!
+
+USER REQUEST: "{original_message}"
+
+AVAILABLE AGENTS:
+{agent_list}
+
+MATCHING RULES:
+1. Look for ANY keyword overlap between request and agent description
+2. Consider synonyms and related terms:
+   - actualités/news/infos/nouvelles → news agents
+   - météo/weather/temps/température/climat → weather agents
+   - calculer/calculate/math/compute → math agents
+   - heure/time/timezone/horloge → time agents
+
+3. If multiple agents could work, choose the MOST SPECIFIC one
+4. Be INCLUSIVE - if an agent MIGHT handle the request, SELECT IT
+5. Only return "none" if absolutely NO agent has ANY relevance
+
+Examples of good matches:
+- "quelles sont les actualités?" → news_top_headlines or any news agent
+- "quel temps fait-il?" → weather agent
+- "what's new today?" → news agent
+- "dernières infos tech" → news agent with tech capability
+
+Return ONLY the agent name (not "none" unless truly no match).
+
+AGENT NAME:

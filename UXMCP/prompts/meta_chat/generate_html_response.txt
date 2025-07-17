@@ -1,0 +1,48 @@
+Create a beautiful, interactive HTML page to display this response.
+
+Original Question: {original_question}
+Response Data: {response_data}
+Response Type: {intent_type}
+
+Create a COMPLETE HTML page with embedded CSS and JavaScript. The page should be:
+1. Visually appealing and modern
+2. Responsive and mobile-friendly
+3. Interactive where appropriate
+4. Easy to read and understand
+
+Style Guidelines based on content type:
+
+FOR WEATHER RESPONSES:
+- Use weather icons (you can use emoji or create SVG)
+- Show temperature prominently with large, readable fonts
+- Use colors that match the weather (blue for cold, orange for warm, grey for cloudy)
+- Add subtle animations (like floating clouds or pulsing sun)
+- Include all weather details in cards or sections
+
+FOR CALCULATIONS:
+- Display the calculation process step by step
+- Use large, clear typography for numbers
+- Add a calculator-style interface if appropriate
+- Use animations to show the calculation happening
+
+FOR DATA/INFORMATION:
+- Use cards, sections, or accordions for different pieces of information
+- Include icons or emojis to make it more visual
+- Add smooth transitions and hover effects
+- Use a clean, professional layout
+
+FOR ERRORS:
+- Use friendly error messages with helpful icons
+- Suggest alternatives or next steps
+- Keep the tone positive and helpful
+
+General Requirements:
+- Use modern CSS (flexbox, grid, gradients, shadows)
+- Add smooth transitions and subtle animations
+- Include hover effects where appropriate
+- Make it feel premium and polished
+- Use a cohesive color scheme
+- Add a subtle background pattern or gradient
+
+Return ONLY the complete HTML code starting with <!DOCTYPE html> and ending with </html>.
+Include ALL CSS in <style> tags and ALL JavaScript in <script> tags within the HTML.

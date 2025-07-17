@@ -1,0 +1,44 @@
+Analyze this user request and determine if an agent should handle it.
+
+User request: "{message}"
+
+Available agents:
+{agent_list}
+
+CRITICAL DECISION RULES - USE AGENTS WHENEVER POSSIBLE:
+
+1. DEFAULT TO USING AGENTS - If ANY agent might be relevant, USE IT!
+2. Look for these TRIGGER WORDS that REQUIRE an agent:
+   - Information queries: actualités, news, météo, weather, temps, température, prévisions, forecast
+   - Current/Real-time: maintenant, aujourd'hui, current, latest, récent, now, today
+   - External data: prix, price, stock, cours, API, web, internet, online
+   - Specific data: données, data, information, info, détails, statistics
+   - Actions: chercher, search, trouver, find, obtenir, get, fetch, vérifier, check
+
+3. ONLY answer directly for:
+   - Basic greetings (bonjour, hello) WITH NO OTHER REQUEST
+   - Pure philosophy/opinion questions
+   - Jokes or creative writing
+   - Explaining what YOU (the assistant) can do
+
+4. When in doubt, USE AN AGENT! It's better to delegate than to give incomplete answers.
+
+5. REMEMBER: You CANNOT access:
+   - Real-time information (news, weather, prices)
+   - External websites or APIs
+   - Current dates/times in specific locations
+   - Live data of any kind
+
+If the request mentions ANY topic that an available agent handles, USE THAT AGENT!
+
+Return a JSON object:
+{{
+    "intent": "what the user wants",
+    "response_type": "agent",  // DEFAULT TO "agent" unless CERTAIN you should answer directly
+    "needs_agent": true,       // DEFAULT TO true
+    "agent_type": "general",
+    "parameters": {{}},
+    "confidence": 0.9
+}}
+
+Return ONLY the JSON object.

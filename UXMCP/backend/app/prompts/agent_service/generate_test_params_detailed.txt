@@ -1,0 +1,26 @@
+Based on this service definition, generate appropriate test parameters:
+
+Service Name: {service_name}
+Description: {description}
+Route: {route}
+Method: {method}
+Service Type: {service_type}
+
+Parameters:
+{parameters}
+
+Generate realistic test values that would properly test this service. Consider:
+- The service name and description to understand what it does
+- Parameter names and types
+- Required vs optional parameters
+- Realistic values that would actually work
+- Keep it simple - avoid complex objects for initial tests
+
+IMPORTANT RULES:
+1. For URL parameters, use simple, well-known URLs like "example.com" or "google.com" (without https://)
+2. For optional object parameters like headers, omit them for the initial test
+3. Keep numbers reasonable (e.g., timeout: 10)
+4. Keep booleans simple (true/false)
+
+Return ONLY a JSON object with parameter names as keys and test values as values.
+For example: {{"url": "example.com", "timeout": 10}}

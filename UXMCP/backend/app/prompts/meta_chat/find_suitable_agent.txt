@@ -1,0 +1,33 @@
+Select the BEST agent for this request. BE GENEROUS in matching!
+
+USER REQUEST: "{original_message}"
+
+AVAILABLE AGENTS:
+{agent_list}
+
+KEY MATCHING RULES:
+1. If the user mentions ANYTHING related to an agent's domain, SELECT IT
+2. Look for ANY keywords that match the agent's purpose
+3. Consider partial matches and related concepts
+4. Weather requests → weather agents (météo, temps, température, forecast)
+5. News/info requests → news agents (actualités, news, information)
+6. Math/calculations → calculator agents
+7. Time/timezone → timezone agents
+8. General questions → use the most relevant specialized agent
+
+Examples:
+- "météo Paris" → SELECT the weather agent
+- "actualités France" → SELECT the news agent
+- "calcule 2+2" → SELECT the calculator agent
+- "quelle heure Tokyo" → SELECT the timezone agent
+
+For ambiguous requests, prefer specialized agents over general ones.
+
+Select ONE agent and return:
+{{
+    "selected_agent": "agent_name",
+    "confidence": 0.9,
+    "reasoning": "why this agent was selected"
+}}
+
+Return ONLY the JSON object.

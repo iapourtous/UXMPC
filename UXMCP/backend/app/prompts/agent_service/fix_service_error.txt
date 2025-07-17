@@ -1,0 +1,38 @@
+The service is active but tests are failing:
+
+Test Error: {test_error}
+Response: {response}
+Status Code: {status_code}
+
+Current Code:
+```python
+{current_code}
+```
+
+Expected Output Schema:
+{output_schema}
+
+Error Analysis:
+{error_analysis}
+
+Recent Logs:
+{logs}
+
+IMPORTANT FIXES:
+1. If the error is "module 'datetime' has no attribute 'utcnow'", replace ALL occurrences of `datetime.utcnow()` with `datetime.datetime.utcnow()`
+2. If the error is "name 'unquote' is not defined" or similar, remove ALL "from X import Y" statements and use full module paths:
+   - Change: from urllib.parse import unquote → Remove this line
+   - Change: unquote(url) → urllib.parse.unquote(url)
+   - Same for datetime, os, and other modules
+3. If the error is "name 'urllib' is not defined":
+   - Add 'urllib' to the dependencies list
+   - Make sure to use full paths like urllib.parse.urlparse()
+4. For BeautifulSoup: use bs4.BeautifulSoup() not just BeautifulSoup()
+5. Check that ALL imports are in the dependencies list
+
+Fix the code to make tests pass. Return ONLY a JSON object with:
+{{
+    "code": "fixed code here",
+    "output_schema": {{"type": "object", ...}},
+    "fix_description": "What was fixed"
+}}

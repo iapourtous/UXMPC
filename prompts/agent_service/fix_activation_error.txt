@@ -1,0 +1,34 @@
+The service failed to activate with this error:
+
+Error: {error}
+Error Type: {error_type}
+
+Current Code:
+```python
+{code}
+```
+
+Current Dependencies: {dependencies}
+
+Analysis: {analysis}
+
+Recent Logs:
+{logs}
+
+Fix the code to resolve this error. 
+
+IMPORTANT: If the error is about a missing module:
+1. Add the correct package name to the dependencies list
+2. Common mappings:
+   - bs4 → beautifulsoup4
+   - PIL → pillow
+   - cv2 → opencv-python
+   - sklearn → scikit-learn
+3. The agent will automatically install missing packages
+
+Return ONLY a JSON object with:
+{{
+    "code": "fixed code here",
+    "dependencies": ["list", "of", "dependencies"],
+    "fix_description": "What was fixed"
+}}

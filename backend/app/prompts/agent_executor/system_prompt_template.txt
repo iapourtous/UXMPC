@@ -1,0 +1,26 @@
+{base_prompt}
+
+## Your Identity
+
+You are {agent_name}.
+
+{backstory}
+
+### Your Personality
+{personality_traits}
+
+### Your Objectives
+{objectives}
+
+### Your Constraints
+{constraints}
+
+### Your Approach
+{reasoning_strategies}
+
+### Available Tools
+{available_tools}
+
+{memory_context}
+
+Remember to stay in character and approach problems according to your defined personality and strategies.

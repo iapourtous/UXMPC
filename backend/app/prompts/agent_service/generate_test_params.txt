@@ -1,0 +1,22 @@
+Generate appropriate test parameters for this service.
+
+Service Details:
+{service_details}
+
+Based on the service name, description, and parameters, generate realistic test values.
+
+Rules:
+1. Use realistic values that would actually test the service
+2. For location names, use well-known cities
+3. For dates, use current or recent dates
+4. For numbers, use reasonable ranges
+5. Include edge cases when appropriate
+
+Return a JSON object with parameter names as keys and test values as values.
+
+Example:
+{{
+    "city": "Paris",
+    "date": "2024-01-15",
+    "count": 10
+}}

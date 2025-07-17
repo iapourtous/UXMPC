@@ -1,0 +1,36 @@
+Evaluate this test result:
+
+Test Case: {test_description}
+Input Parameters: {input_params}
+Expected Output: {expected_output}
+
+Actual Result:
+- Success: {actual_success}
+- Response: {actual_response}
+- Error: {actual_error}
+
+Does the actual result match the expected output? Be LENIENT in your evaluation:
+
+IMPORTANT EVALUATION RULES:
+1. If the service returned success=true and has data, consider it PASSED
+2. For external API services (like NewsAPI), accept ANY valid response format
+3. Don't fail tests for minor differences like:
+   - Different number of results than expected
+   - Additional fields in the response
+   - Different content in articles (for news APIs)
+   - Timestamps or dynamic values
+4. ONLY fail if:
+   - The service returns an error (success=false)
+   - The service crashes or times out
+   - Required fields are completely missing
+   - The response structure is completely wrong
+
+BE LENIENT - if the service works and returns data, it should PASS!
+
+Return ONLY a JSON object:
+{{
+    "passed": true/false,
+    "reason": "Why it passed or failed",
+    "issues": ["list", "of", "specific", "issues"],
+    "suggestions": ["list", "of", "fixes", "to", "try"]
+}}

@@ -1,0 +1,53 @@
+Analyze this agent requirement and create a comprehensive plan.
+
+User Request: {description}
+Suggested Name: {suggested_name}
+Examples: {examples}
+Constraints: {constraints}
+
+Analyze and provide:
+1. What you understand the agent should do (clear purpose statement)
+2. The domain/category (weather, travel, research, etc.)
+3. Core use cases (2-3 MAIN examples only)
+4. Focus on essential functions only
+5. Complexity assessment (simple/moderate/complex/advanced)
+6. Suggested agent profile
+
+For the agent profile, consider:
+- Appropriate personality for the task
+- Backstory that gives context
+- Clear objectives
+- Necessary constraints
+- Whether memory is needed
+- Reasoning strategy
+- Decision policies
+
+Return a comprehensive JSON response following this structure:
+{{
+    "understood_purpose": "Clear statement of what the agent should do",
+    "domain": "Category like travel, research, etc.",
+    "use_cases": ["Use case 1", "Use case 2", ...],
+    "complexity": "simple/moderate/complex/advanced",
+    "required_capabilities": ["capability 1", "capability 2", ...],
+    "suggested_name": "agent_name",
+    "suggested_endpoint": "/api/agent/name",
+    "suggested_profile": {{
+        "backstory": "Agent identity and background",
+        "objectives": ["Objective 1", "Objective 2"],
+        "constraints": ["Constraint 1", "Constraint 2"],
+        "memory_enabled": true/false,
+        "reasoning_strategy": "standard/chain-of-thought/tree-of-thought",
+        "personality_traits": {{
+            "tone": "professional/friendly/casual",
+            "verbosity": "concise/balanced/detailed",
+            "empathy": "low/moderate/high",
+            "humor": "none/subtle/moderate"
+        }},
+        "decision_policies": {{
+            "confidence_threshold": 0.8,
+            "require_confirmation": ["critical_actions"],
+            "auto_correct_errors": true,
+            "explain_decisions": false
+        }}
+    }}
+}}

@@ -1,0 +1,30 @@
+Evaluate if this test result is acceptable.
+
+Test Case:
+{test_case}
+
+Actual Result:
+{actual_result}
+
+Expected Output:
+{expected_output}
+
+BE VERY LENIENT in your evaluation. The test passes if:
+1. The service returned a successful response (no errors)
+2. The basic structure matches (e.g., has 'success' field if expected)
+3. The service performed its intended function
+4. For external APIs: ANY valid response is acceptable
+
+DO NOT FAIL if:
+- Exact values differ (counts, specific data)
+- Timestamps vary
+- External API returns different but valid data
+- Field order is different
+- Extra fields are present
+
+Return JSON:
+{{
+    "passed": true/false,
+    "reason": "why it passed or failed",
+    "suggestions": "how to fix if failed"
+}}

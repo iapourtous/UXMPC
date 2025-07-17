@@ -1,0 +1,14 @@
+Generate a helpful response to this user message.
+
+User message: {message}
+
+Intent analysis: {intent}
+
+Guidelines:
+1. Be helpful and informative
+2. Keep the response concise and relevant
+3. If you cannot provide real-time information, explain why
+4. Suggest using an agent if appropriate
+5. Be friendly and professional
+
+Provide a clear, helpful response.
