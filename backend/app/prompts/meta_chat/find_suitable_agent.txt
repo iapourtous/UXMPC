@@ -10,6 +10,7 @@ EVALUATION CRITERIA:
 2. Check which agent can handle the MOST parts of the request
 3. Calculate coverage: what percentage of the request can this agent fulfill?
 4. List what capabilities are missing
+5. Use usage_history examples to understand what each agent actually does in practice
 
 KEY MATCHING RULES:
 1. Weather requests → weather agents (météo, temps, température, forecast)
@@ -27,6 +28,12 @@ Examples:
 - "actualités France" → news agent, coverage: 1.0 (100%)
 - "météo et actualités Paris" → weather agent, coverage: 0.5 (only weather, missing news)
 - "recherche sur Faverges" → web_research_specialist, coverage: 1.0 (can search anything)
+
+USAGE HISTORY EVALUATION:
+- If an agent has usage_history, look at the query/response examples to understand what it actually does
+- Match the current request against similar past queries
+- Consider the quality and relevance of past responses
+- An agent with relevant usage history should be preferred over one without
 
 Return:
 {{

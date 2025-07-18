@@ -107,6 +107,14 @@ class AgentExecutor:
                     agent_logger=agent_logger
                 )
             
+            # Update usage history for meta-chat selection
+            await self._update_usage_history(
+                agent=agent,
+                query=execution_request.input if isinstance(execution_request.input, str) else json.dumps(execution_request.input),
+                response=result["output"] if isinstance(result["output"], str) else json.dumps(result["output"]),
+                agent_logger=agent_logger
+            )
+            
             return AgentExecutionResponse(
                 success=True,
                 output=result["output"],
@@ -550,6 +558,52 @@ class AgentExecutor:
         except Exception as e:
             await agent_logger.error(f"Failed to save to memory: {str(e)}")
             # Don't fail the execution if memory save fails
+    
+    async def _update_usage_history(
+        self,
+        agent: Agent,
+        query: str,
+        response: str,
+        agent_logger: ServiceLogger
+    ):
+        """Update agent's usage history with the latest query/response"""
+        try:
+            # Ensure usage_history exists and is a list
+            if not hasattr(agent, 'usage_history') or agent.usage_history is None:
+                agent.usage_history = []
+            
+            # Add new entry
+            new_entry = {
+                "query": query[:200],  # Limit query length to avoid too much data
+                "response": response[:500]  # Limit response length
+            }
+            
+            # Add to beginning of list (most recent first)
+            agent.usage_history.insert(0, new_entry)
+            
+            # Keep only the last 3 entries
+            if len(agent.usage_history) > 3:
+                agent.usage_history = agent.usage_history[:3]
+            
+            # Recalculate response embedding with the updated history
+            from app.services.agent_embedding_service import agent_embedding_service
+            new_embedding = agent_embedding_service.calculate_agent_embedding(agent.usage_history)
+            agent.response_embedding = new_embedding
+            
+            # Save agent to database with both usage_history and response_embedding
+            from app.services.agent_crud import agent_crud
+            from app.models.agent import AgentUpdate
+            update_data = AgentUpdate(
+                usage_history=agent.usage_history,
+                response_embedding=agent.response_embedding
+            )
+            await agent_crud.update(agent.id, update_data)
+            
+            await agent_logger.info(f"Updated usage history ({len(agent.usage_history)} entries) and response embedding")
+            
+        except Exception as e:
+            await agent_logger.error(f"Failed to update usage history: {str(e)}")
+            # Don't fail the execution if usage history update fails
 
 
 # Singleton instance

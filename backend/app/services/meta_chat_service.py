@@ -138,16 +138,19 @@ class MetaChatService:
         raise ValueError("No response from LLM")
     
     async def _find_suitable_agent(self, intent: ChatIntent, original_message: str) -> Optional[Agent]:
-        """Find an existing agent that can handle the intent using LLM evaluation"""
+        """Find an existing agent that can handle the intent using semantic similarity + LLM evaluation"""
         # Get all active agents
-        agents = await agent_crud.list(active_only=True)
+        all_agents = await agent_crud.list(active_only=True)
         
-        if not agents:
+        if not all_agents:
             return None
+        
+        # Pre-select agents using semantic similarity
+        selected_agents = await self._preselect_agents_by_similarity(all_agents, original_message)
         
         # Prepare agent list with full descriptions for LLM evaluation
         agent_list = []
-        for agent in agents:
+        for agent in selected_agents:
             agent_info = {
                 "name": agent.name,
                 "description": agent.description or "No description",
@@ -158,6 +161,10 @@ class MetaChatService:
             # Add objectives if available
             if hasattr(agent, 'objectives') and agent.objectives:
                 agent_info["objectives"] = agent.objectives[:3]  # First 3 objectives
+            
+            # Add usage history for better selection
+            if hasattr(agent, 'usage_history') and agent.usage_history:
+                agent_info["usage_history"] = agent.usage_history[:3]  # Recent usage examples
                 
             agent_list.append(agent_info)
         
@@ -184,8 +191,8 @@ class MetaChatService:
                 if selected_agent and selected_agent.lower() not in ["none", "null"]:
                     agent_name = selected_agent
                     
-                    # Find the agent by name
-                    for agent in agents:
+                    # Find the agent by name in selected agents
+                    for agent in selected_agents:
                         if agent.name.lower() == agent_name.lower():
                             logger.info(f"LLM selected agent: {agent.name} (coverage: {coverage})")
                             # Store coverage info in agent object for later use
@@ -194,7 +201,7 @@ class MetaChatService:
                             return agent
                     
                     # If exact match not found, try partial match
-                    for agent in agents:
+                    for agent in selected_agents:
                         if agent_name.lower() in agent.name.lower() or agent.name.lower() in agent_name.lower():
                             logger.info(f"LLM selected agent (partial match): {agent.name} (coverage: {coverage})")
                             agent._coverage = coverage
@@ -205,6 +212,56 @@ class MetaChatService:
         
         logger.info("No suitable agent found by LLM")
         return None
+    
+    async def _preselect_agents_by_similarity(self, all_agents: List[Agent], query: str) -> List[Agent]:
+        """Pre-select agents using semantic similarity, limiting to top 10 most relevant"""
+        from app.services.agent_embedding_service import agent_embedding_service
+        
+        # Calculate query embedding
+        query_embedding = agent_embedding_service.calculate_query_embedding(query)
+        
+        if not query_embedding:
+            logger.warning("Could not calculate query embedding, returning all agents")
+            return all_agents
+        
+        # Separate agents with and without embeddings
+        agents_with_embeddings = []
+        agents_without_embeddings = []
+        
+        for agent in all_agents:
+            if hasattr(agent, 'response_embedding') and agent.response_embedding:
+                agents_with_embeddings.append(agent)
+            else:
+                agents_without_embeddings.append(agent)
+        
+        # Calculate similarities for agents with embeddings
+        scored_agents = []
+        for agent in agents_with_embeddings:
+            similarity = agent_embedding_service.cosine_similarity(
+                query_embedding, 
+                agent.response_embedding
+            )
+            scored_agents.append((agent, similarity))
+        
+        # Sort by similarity (descending)
+        scored_agents.sort(key=lambda x: x[1], reverse=True)
+        
+        # Take top 10 most similar agents
+        top_agents = [agent for agent, _ in scored_agents[:10]]
+        
+        # Add agents without embeddings (new agents) to ensure we have candidates
+        # But limit total to 10 agents
+        remaining_slots = 10 - len(top_agents)
+        if remaining_slots > 0:
+            top_agents.extend(agents_without_embeddings[:remaining_slots])
+        
+        logger.info(f"Pre-selected {len(top_agents)} agents out of {len(all_agents)} total agents")
+        
+        # Log similarity scores for debugging
+        for agent, similarity in scored_agents[:5]:  # Log top 5
+            logger.info(f"Agent {agent.name}: similarity={similarity:.3f}")
+        
+        return top_agents
     
     async def _create_agent_for_intent(self, intent: ChatIntent, original_message: str) -> Optional[Agent]:
         """Create a new agent using Meta Agent based on the original user request"""

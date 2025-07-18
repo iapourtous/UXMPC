@@ -77,3 +77,10 @@ backup/
 coverage.xml
 *.cover
 .hypothesis/
+
+# Claude files
+.claude_chats/
+.claude_logs/
+.claude/
+claude.json
+.claudeignore

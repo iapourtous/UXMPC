@@ -105,6 +105,18 @@ class AgentBase(BaseModel):
         },
         description="Policies for making decisions and taking actions"
     )
+    
+    # Usage history for meta-chat selection
+    usage_history: List[Dict[str, str]] = Field(
+        default=[],
+        description="History of recent queries and responses (max 3 entries)"
+    )
+    
+    # Response embedding for semantic search
+    response_embedding: Optional[List[float]] = Field(
+        default=None,
+        description="Average embedding of responses in usage history for semantic agent selection"
+    )
 
 
 class AgentCreate(AgentBase):
@@ -137,6 +149,8 @@ class AgentUpdate(BaseModel):
     reasoning_config: Optional[Dict[str, Any]] = None
     personality_traits: Optional[Dict[str, str]] = None
     decision_policies: Optional[Dict[str, Any]] = None
+    usage_history: Optional[List[Dict[str, str]]] = None
+    response_embedding: Optional[List[float]] = None
 
 
 class AgentInDB(AgentBase):
