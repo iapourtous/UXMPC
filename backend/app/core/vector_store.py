@@ -52,6 +52,10 @@ class VectorStore:
         Args:
             persist_directory: Directory to persist the ChromaDB data
         """
+        # Ensure imports are available
+        if not _ensure_imports():
+            raise ImportError("Required packages not available for vector store")
+        
         self.persist_directory = persist_directory
         
         # Ensure directory exists
@@ -67,11 +71,15 @@ class VectorStore:
         )
         
         # Initialize sentence transformer for embeddings
-        self.embedding_model = SentenceTransformer('all-MiniLM-L6-v2')
+        if SentenceTransformer:
+            self.embedding_model = SentenceTransformer('all-MiniLM-L6-v2')
+        else:
+            logger.warning("SentenceTransformer not available - using mock embeddings")
+            self.embedding_model = None
         
         logger.info(f"Vector store initialized with persist directory: {persist_directory}")
     
-    def create_collection(self, agent_id: str) -> chromadb.Collection:
+    def create_collection(self, agent_id: str):
         """
         Create or get a collection for an agent
         
@@ -119,7 +127,11 @@ class VectorStore:
         
         # Generate embedding if not provided
         if embedding is None:
-            embedding = self.embedding_model.encode(content).tolist()
+            if self.embedding_model:
+                embedding = self.embedding_model.encode(content).tolist()
+            else:
+                # Fallback to simple hash-based embedding
+                embedding = self._simple_embedding(content)
         
         # Ensure metadata is JSON serializable
         clean_metadata = self._clean_metadata(metadata)
@@ -160,7 +172,10 @@ class VectorStore:
             return []
         
         # Generate query embedding
-        query_embedding = self.embedding_model.encode(query).tolist()
+        if self.embedding_model:
+            query_embedding = self.embedding_model.encode(query).tolist()
+        else:
+            query_embedding = self._simple_embedding(query)
         
         # Search with optional filters
         results = collection.query(
@@ -265,7 +280,10 @@ class VectorStore:
                 update_data["documents"] = [content]
                 if embedding is None:
                     # Generate new embedding for new content
-                    embedding = self.embedding_model.encode(content).tolist()
+                    if self.embedding_model:
+                        embedding = self.embedding_model.encode(content).tolist()
+                    else:
+                        embedding = self._simple_embedding(content)
             
             if embedding is not None:
                 update_data["embeddings"] = [embedding]
@@ -388,6 +406,34 @@ class VectorStore:
                 # Convert other types to string
                 clean[key] = str(value)
         return clean
+    
+    def _simple_embedding(self, text: str) -> List[float]:
+        """
+        Generate a simple hash-based embedding as fallback
+        
+        Args:
+            text: Text to embed
+            
+        Returns:
+            List of float values representing the embedding
+        """
+        import hashlib
+        
+        # Simple hash-based pseudo-embedding
+        hash_obj = hashlib.sha256(text.encode())
+        hash_hex = hash_obj.hexdigest()
+        
+        # Convert to list of floats (0-1) - 384 dimensions to match all-MiniLM-L6-v2
+        embedding = []
+        for i in range(0, min(len(hash_hex), 96), 2):  # 96*2 chars = 384 values
+            value = int(hash_hex[i:i+2], 16) / 255.0
+            embedding.append(value)
+        
+        # Pad to 384 dimensions if needed
+        while len(embedding) < 384:
+            embedding.append(0.0)
+        
+        return embedding
 
 
 # Global instance

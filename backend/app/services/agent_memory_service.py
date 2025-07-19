@@ -14,7 +14,7 @@ from app.models.agent_memory import (
     AgentMemory, AgentMemoryCreate, AgentMemoryUpdate,
     MemorySearchRequest, MemorySearchResult, AgentMemorySummary
 )
-from app.core.vector_store_simple import get_vector_store
+from app.core.memory_config import get_vector_store
 from app.core.database import get_database
 from motor.motor_asyncio import AsyncIOMotorDatabase
 from bson import ObjectId

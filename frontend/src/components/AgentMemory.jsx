@@ -88,9 +88,9 @@ const AgentMemory = () => {
       const data = response.data;
       // Transform the response to match our expected format
       setStats({
-        total_memories: data.memory_summary?.total_memories || 0,
-        conversation_count: data.memory_summary?.content_type_counts?.conversation || 0,
-        avg_importance: data.memory_summary?.avg_importance || 0
+        total_memories: data.total_memories || 0,
+        conversation_count: data.memories_by_type?.conversation || 0,
+        avg_importance: data.average_importance || 0
       });
     } catch (error) {
       console.error('Failed to fetch memory stats');

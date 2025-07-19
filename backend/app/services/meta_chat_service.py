@@ -22,6 +22,7 @@ from app.services.meta_agent_service import create_meta_agent
 from app.models.meta_agent import AgentRequirement
 from app.models.agent import AgentExecution
 from app.core.prompt_manager import load_prompt
+from app.services.html_validator import html_validator
 
 logger = logging.getLogger(__name__)
 
@@ -365,6 +366,8 @@ For example, if user asks for "weather and news", create an agent that can fetch
         try:
             endpoint = self.llm_profile.endpoint or "https://api.openai.com/v1/chat/completions"
             
+            logger.info(f"Calling LLM with endpoint: {endpoint}, model: {self.llm_profile.model}")
+            
             # Check if this is a Groq provider
             if "groq.com" in endpoint:
                 return await self._call_groq_native(prompt)
@@ -407,6 +410,7 @@ For example, if user asks for "weather and news", create an agent that can fetch
         try:
             from groq import AsyncGroq
             
+            logger.info("Using Groq native client")
             client = AsyncGroq(api_key=self.llm_profile.api_key)
             
             messages = [
@@ -451,7 +455,7 @@ For example, if user asks for "weather and news", create an agent that can fetch
         agent_name: Optional[str] = None,
         custom_instruct: Optional[str] = None
     ) -> str:
-        """Generate HTML/CSS/JS visualization for the response"""
+        """Generate HTML/CSS/JS visualization for the response with validation"""
         
         # Prepare context for HTML generation
         context = {
@@ -469,19 +473,86 @@ For example, if user asks for "weather and news", create an agent that can fetch
             custom_instruct=custom_instruct or ""
         )
 
+        # Generate initial HTML
+        logger.info(f"Calling LLM for HTML generation... Prompt length: {len(prompt)} chars")
         response = await self._call_llm(prompt)
         
-        if response:
-            # Extract HTML if it's wrapped in code blocks
-            import re
-            html_match = re.search(r'```html\s*([\s\S]*?)\s*```', response)
-            if html_match:
-                return html_match.group(1)
-            elif response.strip().startswith('<!DOCTYPE'):
-                return response
+        if not response:
+            logger.error(f"LLM returned empty response for HTML generation. Context: {context['intent_type']}, Agent: {context['agent_used']}")
+            # Try with a simpler fallback prompt if the main one fails
+            fallback_prompt = f"""Create a simple HTML page that displays this information:
+
+Question: {original_message}
+
+Response: {response_data.get('agent_output', 'No response available')}
+
+Make it clean and readable with basic CSS styling."""
+            
+            logger.info("Trying fallback prompt...")
+            response = await self._call_llm(fallback_prompt)
+            
+            if not response:
+                logger.error("Fallback prompt also failed")
+                return "<html><body><h1>Error generating visualization</h1></body></html>"
+        
+        logger.info(f"LLM response length: {len(response)} characters")
+        
+        # Extract HTML from response
+        html_content = self._extract_html(response)
+        
+        # Validation loop - for all HTML content
+        max_attempts = 3
+        for attempt in range(max_attempts):
+            logger.info(f"Validating HTML (attempt {attempt + 1}/{max_attempts})")
+            
+            # Test the HTML
+            validation_result = await html_validator.test_html(html_content)
+            
+            if validation_result['success']:
+                logger.info("HTML validation passed!")
+                break
+            
+            # If last attempt, return as is
+            if attempt == max_attempts - 1:
+                logger.warning(f"HTML validation failed after {max_attempts} attempts")
+                break
+            
+            # Build correction prompt - simple and universal
+            errors_text = html_validator.format_errors_for_llm(validation_result['errors'])
+            correction_prompt = f"""Fix the errors in this HTML code:
+
+ERRORS:
+{errors_text}
+
+HTML:
+```html
+{html_content}
+```
+
+Return only the corrected HTML code."""
+            
+            # Get corrected HTML
+            correction_response = await self._call_llm(correction_prompt)
+            if correction_response:
+                html_content = self._extract_html(correction_response)
             else:
-                # Fallback: wrap response in basic HTML
-                return f"""<!DOCTYPE html>
+                break
+        
+        return html_content
+    
+    def _extract_html(self, response: str) -> str:
+        """Extract HTML content from LLM response"""
+        import re
+        
+        # Check if wrapped in code blocks
+        html_match = re.search(r'```html\s*([\s\S]*?)\s*```', response)
+        if html_match:
+            return html_match.group(1)
+        elif response.strip().startswith('<!DOCTYPE'):
+            return response
+        else:
+            # Fallback: wrap response in basic HTML
+            return f"""<!DOCTYPE html>
 <html>
 <head>
     <meta charset="UTF-8">
@@ -509,8 +580,7 @@ For example, if user asks for "weather and news", create an agent that can fetch
     </div>
 </body>
 </html>"""
-        
-        return "<html><body><h1>Error generating visualization</h1></body></html>"
+    
 
 
 # Factory function

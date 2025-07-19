@@ -20,6 +20,60 @@ logger = logging.getLogger(__name__)
 router = APIRouter()
 
 
+@router.get("/system/memory-info")
+async def get_memory_system_info():
+    """
+    Get information about the memory system configuration
+    """
+    from app.core.memory_config import USE_CHROMADB
+    
+    try:
+        from app.core.memory_config import get_vector_store
+        vector_store = get_vector_store()
+        
+        # Determine actual implementation
+        vector_store_impl = type(vector_store).__name__
+        vector_store_module = type(vector_store).__module__
+        
+        # Check if ChromaDB is actually available
+        chromadb_available = False
+        try:
+            import chromadb
+            chromadb_available = True
+        except ImportError:
+            pass
+        
+        # Check if sentence-transformers is available
+        embeddings_available = False
+        try:
+            from sentence_transformers import SentenceTransformer
+            embeddings_available = True
+        except ImportError:
+            pass
+        
+        return {
+            "configuration": {
+                "USE_CHROMADB": USE_CHROMADB,
+                "chromadb_available": chromadb_available,
+                "embeddings_available": embeddings_available
+            },
+            "active_implementation": {
+                "class": vector_store_impl,
+                "module": vector_store_module,
+                "persist_directory": getattr(vector_store, 'persist_directory', 'N/A')
+            },
+            "status": "healthy"
+        }
+    except Exception as e:
+        return {
+            "configuration": {
+                "USE_CHROMADB": USE_CHROMADB
+            },
+            "error": str(e),
+            "status": "error"
+        }
+
+
 @router.get("/{agent_id}/memory", response_model=List[AgentMemory])
 async def get_agent_memories(
     agent_id: str,
@@ -128,7 +182,7 @@ async def delete_agent_memory(
             raise HTTPException(status_code=404, detail="Memory not found")
         
         # Also delete from vector store
-        from app.core.vector_store_simple import get_vector_store
+        from app.core.memory_config import get_vector_store
         vector_store = get_vector_store()
         vector_store.delete_memory(agent_id, memory_id)
         
@@ -270,7 +324,7 @@ async def get_memory_stats(agent_id: str):
         raise HTTPException(status_code=404, detail="Agent not found")
     
     try:
-        from app.core.vector_store_simple import get_vector_store
+        from app.core.memory_config import get_vector_store, USE_CHROMADB
         vector_store = get_vector_store()
         
         # Get stats from vector store
@@ -279,10 +333,14 @@ async def get_memory_stats(agent_id: str):
         # Get summary from memory service
         summary = await agent_memory_service.get_memory_summary(agent_id)
         
+        # Add info about which vector store is being used
+        vector_store_type = "ChromaDB" if USE_CHROMADB else "Simple In-Memory"
+        
         return {
             "agent_id": agent_id,
             "memory_enabled": agent.memory_enabled,
             "memory_config": agent.memory_config,
+            "vector_store_type": vector_store_type,
             "vector_store_stats": vector_stats,
             "memory_summary": summary
         }
