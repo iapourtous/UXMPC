@@ -20,6 +20,7 @@ class MetaChatRequest(BaseModel):
     message: str = Field(..., description="User's message/question")
     llm_profile: str = Field(..., description="LLM profile to use")
     context: Optional[Dict[str, Any]] = Field(default=None, description="Optional context")
+    instruct: Optional[str] = Field(default=None, description="Custom presentation instructions for HTML generation")
 
 
 class ChatIntent(BaseModel):

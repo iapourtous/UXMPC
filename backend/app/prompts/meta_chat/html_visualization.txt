@@ -3,14 +3,27 @@ Create a beautiful, interactive HTML page to display this response.
 Original Question: {original_question}
 Response Data: {response_data}
 Response Type: {intent_type}
-
+{custom_instruct}
 Create a COMPLETE HTML page with embedded CSS and JavaScript. The page should be:
 1. Visually appealing and modern
 2. Responsive and mobile-friendly
 3. Interactive where appropriate
 4. Easy to read and understand
 
+IMPORTANT: If custom presentation instructions are provided above, they take PRIORITY over the default guidelines below. Apply the custom instructions first, then use the default guidelines to fill in any gaps.
+
 Style Guidelines based on content type:
+
+FOR GAME IMPLEMENTATIONS (Tetris, Snake, Pong, etc.):
+- USE p5.js library by including: <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.7.0/p5.min.js"></script>
+- Create a playable game using p5.js canvas
+- Include game controls instructions (keyboard/mouse)
+- Add score display and game state (playing/paused/game over)
+- Use retro styling with pixel fonts if appropriate
+- Implement smooth animations and collision detection
+- Add sound effects using p5.js sound capabilities if needed
+- Make the canvas responsive to window size
+- Include start/pause/restart buttons
 
 FOR WEATHER RESPONSES:
 - Use weather icons (you can use emoji or create SVG)
@@ -43,6 +56,26 @@ General Requirements:
 - Make it feel premium and polished
 - Use a cohesive color scheme
 - Add a subtle background pattern or gradient
+
+SPECIAL INSTRUCTIONS FOR GAMES:
+When the response mentions creating a game (like Tetris, Snake, Pong, etc.), you MUST:
+1. Include p5.js library in the HTML head
+2. Create a fully functional, playable game
+3. Use the p5.js setup() and draw() functions
+4. Implement proper game mechanics and physics
+5. Add keyboard/mouse controls with on-screen instructions
+6. Include score tracking and display
+7. Add game states (start screen, playing, game over)
+8. Make it fun and engaging!
+
+CRITICAL FOR KEYBOARD CONTROLS:
+If your game or interactive demo uses arrow keys or other keyboard controls that normally scroll the page:
+- Add event.preventDefault() to your keyboard event handlers
+- For arrow keys, add a keydown event listener that prevents default behavior
+- Check if the pressed key is ArrowUp, ArrowDown, ArrowLeft, ArrowRight, or Space
+- Call preventDefault() on the event to stop page scrolling
+- This ensures game controls work properly without unwanted page movement
+- Apply this protection to ANY key that might interfere with normal browser behavior
 
 Return ONLY the complete HTML code starting with <!DOCTYPE html> and ending with </html>.
 Include ALL CSS in <style> tags and ALL JavaScript in <script> tags within the HTML.

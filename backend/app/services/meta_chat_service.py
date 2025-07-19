@@ -80,7 +80,8 @@ class MetaChatService:
                 request.message,
                 response_data,
                 intent,
-                agent.name
+                agent.name,
+                request.instruct
             )
             
             return MetaChatResponse(
@@ -361,6 +362,12 @@ For example, if user asks for "weather and news", create an agent that can fetch
         """Call LLM API"""
         try:
             endpoint = self.llm_profile.endpoint or "https://api.openai.com/v1/chat/completions"
+            
+            # Check if this is a Groq provider
+            if "groq.com" in endpoint:
+                return await self._call_groq_native(prompt)
+            
+            # Standard OpenAI-compatible API call
             headers = {
                 "Authorization": f"Bearer {self.llm_profile.api_key}",
                 "Content-Type": "application/json"
@@ -393,12 +400,54 @@ For example, if user asks for "weather and news", create an agent that can fetch
             logger.error(f"LLM call failed: {e}")
             return None
     
+    async def _call_groq_native(self, prompt: str) -> Optional[str]:
+        """Call Groq using native client"""
+        try:
+            from groq import AsyncGroq
+            
+            client = AsyncGroq(api_key=self.llm_profile.api_key)
+            
+            messages = [
+                {"role": "system", "content": "You are a helpful assistant."},
+                {"role": "user", "content": prompt}
+            ]
+            
+            # For Groq with JSON mode, ensure "json" appears in messages
+            if self.llm_profile.mode == "json" and "json" in prompt.lower():
+                # Check if "json" is already in the messages
+                has_json = any("json" in msg["content"].lower() for msg in messages)
+                if not has_json:
+                    messages[0]["content"] += " Always respond in valid JSON format."
+            
+            completion_params = {
+                "model": self.llm_profile.model,
+                "messages": messages,
+                "temperature": 0.7,
+                "max_tokens": self.llm_profile.max_tokens,
+                "top_p": 1,
+                "stream": False,
+                "stop": None
+            }
+            
+            # Add JSON mode if needed
+            if self.llm_profile.mode == "json" and "json" in prompt.lower():
+                completion_params["response_format"] = {"type": "json_object"}
+            
+            completion = await client.chat.completions.create(**completion_params)
+            
+            return completion.choices[0].message.content
+            
+        except Exception as e:
+            logger.error(f"Groq native call failed: {e}")
+            return None
+    
     async def _generate_html_response(
         self, 
         original_message: str, 
         response_data: Dict[str, Any], 
         intent: ChatIntent,
-        agent_name: Optional[str] = None
+        agent_name: Optional[str] = None,
+        custom_instruct: Optional[str] = None
     ) -> str:
         """Generate HTML/CSS/JS visualization for the response"""
         
@@ -414,7 +463,8 @@ For example, if user asks for "weather and news", create an agent that can fetch
             "meta_chat/html_visualization",
             original_question=context["original_question"],
             response_data=context["response_data"],
-            intent_type=context["intent_type"]
+            intent_type=context["intent_type"],
+            custom_instruct=custom_instruct or ""
         )
 
         response = await self._call_llm(prompt)
