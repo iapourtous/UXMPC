@@ -421,17 +421,59 @@ Obtenir les informations sur les capacités MCP disponibles.
 
 ### 🧠 Agent Memory (/agents/{agent_id}/memory)
 
-#### POST /agents/{agent_id}/memory
-Ajouter une mémoire à un agent.
-
 #### GET /agents/{agent_id}/memory
-Récupérer les mémoires d'un agent.
+Récupérer les mémoires récentes d'un agent.
 
-#### GET /agents/{agent_id}/memory/search
-Rechercher dans les mémoires d'un agent.
+**Query Parameters:**
+- `limit`: int (default: 50) - Nombre maximum de mémoires
+- `content_type`: string - Filtrer par type (user_message, agent_response, preference, stored_knowledge)
+- `user_id`: string - Filtrer par utilisateur
+
+#### POST /agents/{agent_id}/memory/search
+Rechercher dans les mémoires d'un agent avec recherche sémantique.
+
+**Request Body:**
+```json
+{
+  "query": "search query",
+  "k": 5,
+  "content_types": ["user_message", "agent_response"],
+  "min_importance": 0.5,
+  "date_from": "2025-01-01T00:00:00",
+  "date_to": "2025-12-31T23:59:59"
+}
+```
+
+#### GET /agents/{agent_id}/memory/summary
+Obtenir un résumé statistique des mémoires de l'agent.
 
 #### DELETE /agents/{agent_id}/memory
 Effacer toutes les mémoires d'un agent.
+
+**Query Parameters:**
+- `user_id`: string - Effacer seulement pour un utilisateur spécifique
+
+#### DELETE /agents/{agent_id}/memory/{memory_id}
+Supprimer une mémoire spécifique.
+
+#### POST /agents/{agent_id}/memory/save-conversation
+Sauvegarder une conversation complète en mémoire.
+
+**Request Body:**
+```json
+{
+  "conversation": [
+    {"role": "user", "content": "Hello"},
+    {"role": "assistant", "content": "Hi there!"}
+  ],
+  "conversation_id": "optional-id",
+  "user_id": "optional-user-id",
+  "metadata": {}
+}
+```
+
+#### GET /agents/{agent_id}/memory/stats
+Obtenir des statistiques détaillées sur la mémoire de l'agent.
 
 ### 💬 Meta-Chat (/meta-chat)
 
@@ -480,6 +522,16 @@ Traiter une requête via le système meta-chat.
 - Création d'agents et d'outils à la volée
 - Matching intelligent avec services existants
 - Progress tracking via SSE
+
+### 6. **Système de Mémoire Active pour Agents**
+- **Mémoire persistante** : ChromaDB + MongoDB pour stockage long terme
+- **Mémoire de travail** : Collection avec TTL pour mémoire court terme
+- **Outils mémoire intégrés** : 3 outils MCP automatiquement injectés
+  - `memory_search` : Recherche sémantique dans les souvenirs
+  - `memory_store` : Sauvegarde explicite d'informations importantes
+  - `memory_analyze` : Analyse des patterns et insights
+- **Apprentissage continu** : Les agents apprennent de leurs interactions
+- **Contexte intelligent** : Chargement automatique du contexte pertinent
 
 ## Sécurité
 

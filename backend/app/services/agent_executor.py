@@ -56,7 +56,7 @@ class AgentExecutor:
                 )
             
             # Prepare tools from MCP services
-            tools = await self._prepare_tools(agent.mcp_services, agent_logger)
+            tools = await self._prepare_tools(agent.mcp_services, agent_logger, agent)
             
             # Load relevant context from memory if enabled
             memory_context = None
@@ -159,7 +159,7 @@ class AgentExecutor:
             return True
         return True
     
-    async def _prepare_tools(self, service_names: List[str], agent_logger: ServiceLogger) -> List[Dict[str, Any]]:
+    async def _prepare_tools(self, service_names: List[str], agent_logger: ServiceLogger, agent: Agent) -> List[Dict[str, Any]]:
         """Prepare tool definitions from MCP services"""
         tools = []
         
@@ -198,6 +198,14 @@ class AgentExecutor:
             
             tools.append(tool)
             await agent_logger.debug(f"Prepared tool: {service.name}")
+        
+        # Add memory tools if memory is enabled
+        if hasattr(agent, 'memory_enabled') and agent.memory_enabled:
+            memory_config = getattr(agent, 'memory_config', {})
+            if memory_config.get('active_memory', True):
+                await agent_logger.info("Adding memory tools to agent")
+                memory_tools = await self._create_memory_tools(agent)
+                tools.extend(memory_tools)
         
         return tools
     
@@ -258,6 +266,24 @@ class AgentExecutor:
         # Add memory context if available
         if memory_context:
             system_content += f"# Relevant Context from Memory\n{memory_context}\n\n"
+        
+        # Add memory tools instructions if enabled
+        if hasattr(agent, 'memory_enabled') and agent.memory_enabled:
+            memory_config = getattr(agent, 'memory_config', {})
+            if memory_config.get('active_memory', True):
+                system_content += """# Memory Management
+You have access to memory management tools:
+- **memory_search**: Search your memory BEFORE using external tools to check if you already know the answer
+- **memory_store**: Save important findings, user preferences, and key information for future use (importance 0.8+ for critical info)
+- **memory_analyze**: Analyze your memory patterns to understand past interactions
+
+Memory usage guidelines:
+1. Always search your memory first before using external tools
+2. Store important discoveries and user preferences with appropriate importance levels
+3. Use descriptive content when storing memories for better future retrieval
+4. Check memory_analyze periodically to understand your knowledge gaps
+
+"""
         
         # Add original system prompt if provided
         if agent.system_prompt:
@@ -375,7 +401,8 @@ class AgentExecutor:
                     # Execute tools
                     tool_results = await self._execute_tool_calls(
                         message["tool_calls"],
-                        agent_logger
+                        agent_logger,
+                        agent
                     )
                     
                     # Add tool results to history
@@ -428,9 +455,10 @@ class AgentExecutor:
     async def _execute_tool_calls(
         self,
         tool_calls: List[Dict[str, Any]],
-        agent_logger: ServiceLogger
+        agent_logger: ServiceLogger,
+        agent: Optional[Agent] = None
     ) -> List[Dict[str, Any]]:
-        """Execute tool calls by calling MCP services"""
+        """Execute tool calls by calling MCP services or memory tools"""
         results = []
         
         for tool_call in tool_calls:
@@ -440,7 +468,25 @@ class AgentExecutor:
             await agent_logger.info(f"Executing tool: {tool_name}", arguments=tool_args)
             
             try:
-                # Call the MCP service
+                # Check if it's a memory tool
+                if tool_name in ["memory_search", "memory_store", "memory_analyze"] and agent:
+                    from app.core.agent_memory_tools import memory_search, memory_store, memory_analyze
+                    
+                    # Inject agent_id
+                    tool_args["agent_id"] = agent.id
+                    
+                    # Call the appropriate memory tool
+                    if tool_name == "memory_search":
+                        result = await memory_search(**tool_args)
+                    elif tool_name == "memory_store":
+                        result = await memory_store(**tool_args)
+                    elif tool_name == "memory_analyze":
+                        result = await memory_analyze(**tool_args)
+                    
+                    results.append(result)
+                    continue
+                
+                # Otherwise, call the MCP service
                 service = await service_crud.get_by_name(tool_name)
                 if not service:
                     result = {"error": f"Service '{tool_name}' not found"}
@@ -512,6 +558,51 @@ class AgentExecutor:
         except Exception as e:
             await agent_logger.error(f"Failed to load memory context: {str(e)}")
             return None
+    
+    async def _create_memory_tools(self, agent: Agent) -> List[Dict[str, Any]]:
+        """Create memory management tools for the agent"""
+        from app.core.agent_memory_tools import MEMORY_TOOLS
+        
+        tools = []
+        for tool_def in MEMORY_TOOLS:
+            tool = {
+                "type": "function",
+                "function": {
+                    "name": tool_def["name"],
+                    "description": tool_def["description"],
+                    "parameters": {
+                        "type": "object",
+                        "properties": {},
+                        "required": []
+                    }
+                }
+            }
+            
+            # Add parameters (skip agent_id as it will be injected)
+            for param_name, param_config in tool_def["parameters"].items():
+                if param_name != "agent_id":
+                    prop = {
+                        "type": param_config["type"],
+                        "description": param_config.get("description", "")
+                    }
+                    
+                    # Add enum if specified
+                    if "enum" in param_config:
+                        prop["enum"] = param_config["enum"]
+                    
+                    # Add default if specified
+                    if "default" in param_config:
+                        prop["default"] = param_config["default"]
+                    
+                    tool["function"]["parameters"]["properties"][param_name] = prop
+                    
+                    # Add to required if needed
+                    if param_config.get("required", False):
+                        tool["function"]["parameters"]["required"].append(param_name)
+            
+            tools.append(tool)
+        
+        return tools
     
     async def _save_to_memory(
         self,
@@ -694,7 +785,8 @@ class AgentExecutor:
                     # Execute tools
                     tool_results = await self._execute_tool_calls(
                         message_dict["tool_calls"],
-                        agent_logger
+                        agent_logger,
+                        agent
                     )
                     
                     # Add tool results to history
