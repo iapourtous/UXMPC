@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Input, Select, Button, Card, Spin, message, Empty, Modal } from 'antd';
-import { SendOutlined, RobotOutlined, SettingOutlined, FullscreenOutlined, FullscreenExitOutlined, CloseOutlined } from '@ant-design/icons';
-import { llmApi } from '../services/api';
+import { Input, Select, Button, Card, Spin, message, Empty, Modal, Rate } from 'antd';
+import { SendOutlined, RobotOutlined, SettingOutlined, FullscreenOutlined, FullscreenExitOutlined, CloseOutlined, LikeOutlined, DislikeOutlined } from '@ant-design/icons';
+import { llmApi, feedbackApi } from '../services/api';
 import './MetaChat.css';
 
 const { Option } = Select;
@@ -18,6 +18,10 @@ const MetaChat = () => {
   const [modalVisible, setModalVisible] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [currentQuery, setCurrentQuery] = useState('');
+  const [showFeedback, setShowFeedback] = useState(false);
+  const [feedbackModalVisible, setFeedbackModalVisible] = useState(false);
+  const [feedbackText, setFeedbackText] = useState('');
+  const [sessionData, setSessionData] = useState(null);
   const iframeRef = useRef(null);
 
   useEffect(() => {
@@ -77,6 +81,7 @@ const MetaChat = () => {
     setHtmlContent('');
     setCurrentQuery(query);
     setModalVisible(true);
+    setShowFeedback(false);
 
     try {
       const requestBody = {
@@ -102,6 +107,16 @@ ${instruct}`;
 
       if (data.success && data.html_response) {
         setHtmlContent(data.html_response);
+        // Store session data for feedback
+        setSessionData({
+          session_id: data.session_id,
+          user_message: query,
+          custom_instructions: instruct.trim() || null,
+          original_request: query,
+          agent_used: data.agent_used || 'direct',
+          agent_response: data.response_data,
+          final_html_response: data.html_response
+        });
       } else if (data.error) {
         message.error(data.error);
       } else {
@@ -128,8 +143,56 @@ ${instruct}`;
   const closeModal = () => {
     setModalVisible(false);
     setIsFullscreen(false);
+    // Show feedback options after closing modal
+    if (sessionData) {
+      setShowFeedback(true);
+    }
+  };
+
+  const handleFeedback = async (rating) => {
+    if (rating === 'positive') {
+      // Submit positive feedback
+      try {
+        await feedbackApi.create({
+          ...sessionData,
+          rating: 'positive',
+          feedback_text: null
+        });
+        message.success('Thank you for your feedback!');
+      } catch (error) {
+        console.error('Failed to submit feedback:', error);
+      }
+      // Reset for new query
+      resetForNewQuery();
+    } else {
+      // Show feedback form for negative rating
+      setFeedbackModalVisible(true);
+    }
+  };
+
+  const submitNegativeFeedback = async () => {
+    try {
+      await feedbackApi.create({
+        ...sessionData,
+        rating: 'negative',
+        feedback_text: feedbackText
+      });
+      message.success('Thank you for your feedback!');
+      setFeedbackModalVisible(false);
+      resetForNewQuery();
+    } catch (error) {
+      message.error('Failed to submit feedback');
+    }
+  };
+
+  const resetForNewQuery = () => {
+    setShowFeedback(false);
     setHtmlContent('');
     setCurrentQuery('');
+    setQuery('');
+    setInstruct('');
+    setSessionData(null);
+    setFeedbackText('');
   };
 
   return (
@@ -204,13 +267,38 @@ Example: 'Use a dark theme with neon colors' or 'Create a minimalist design with
         </div>
       </div>
 
-      {/* Results Section - Now shows empty state */}
+      {/* Results Section - Now shows empty state or feedback */}
       <div className="metachat-results-section">
-        <Empty
-          image={Empty.PRESENTED_IMAGE_SIMPLE}
-          description="Ask a question to get started"
-          className="empty-state"
-        />
+        {showFeedback ? (
+          <div className="feedback-section">
+            <h3>How was the response?</h3>
+            <div className="feedback-buttons">
+              <Button
+                icon={<LikeOutlined />}
+                size="large"
+                type="primary"
+                onClick={() => handleFeedback('positive')}
+                className="feedback-btn positive"
+              >
+                Good
+              </Button>
+              <Button
+                icon={<DislikeOutlined />}
+                size="large"
+                onClick={() => handleFeedback('negative')}
+                className="feedback-btn negative"
+              >
+                Not Good
+              </Button>
+            </div>
+          </div>
+        ) : (
+          <Empty
+            image={Empty.PRESENTED_IMAGE_SIMPLE}
+            description="Ask a question to get started"
+            className="empty-state"
+          />
+        )}
       </div>
 
       {/* Response Modal */}
@@ -267,6 +355,28 @@ Example: 'Use a dark theme with neon colors' or 'Create a minimalist design with
             />
           )
         )}
+      </Modal>
+
+      {/* Feedback Modal */}
+      <Modal
+        visible={feedbackModalVisible}
+        onCancel={() => setFeedbackModalVisible(false)}
+        onOk={submitNegativeFeedback}
+        title="Provide Feedback"
+        okText="Submit"
+        cancelText="Cancel"
+        width={500}
+      >
+        <div className="feedback-form">
+          <p>What could have been better about the response?</p>
+          <Input.TextArea
+            value={feedbackText}
+            onChange={(e) => setFeedbackText(e.target.value)}
+            placeholder="Please describe what was wrong or what you expected..."
+            rows={4}
+            autoFocus
+          />
+        </div>
       </Modal>
     </div>
   );

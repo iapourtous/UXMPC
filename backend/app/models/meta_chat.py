@@ -43,3 +43,4 @@ class MetaChatResponse(BaseModel):
     html_response: Optional[str] = Field(None, description="HTML/CSS/JS visualization of the response")
     error: Optional[str] = Field(None, description="Error message if any")
     metadata: Dict[str, Any] = Field(default_factory=dict, description="Additional metadata")
+    session_id: Optional[str] = Field(None, description="Session ID for feedback tracking")

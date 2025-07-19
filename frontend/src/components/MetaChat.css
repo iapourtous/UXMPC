@@ -363,3 +363,100 @@ body.modal-open {
     font-size: 14px;
   }
 }
+
+/* Feedback Section */
+.feedback-section {
+  text-align: center;
+  padding: 60px 20px;
+  animation: fadeIn 0.5s ease-out;
+}
+
+.feedback-section h3 {
+  font-size: 24px;
+  font-weight: 400;
+  color: #333;
+  margin-bottom: 30px;
+}
+
+.feedback-buttons {
+  display: flex;
+  gap: 20px;
+  justify-content: center;
+  align-items: center;
+}
+
+.feedback-btn {
+  height: 50px;
+  min-width: 140px;
+  font-size: 16px;
+  border-radius: 25px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  transition: all 0.3s;
+}
+
+.feedback-btn.positive {
+  background: #52c41a;
+  border-color: #52c41a;
+}
+
+.feedback-btn.positive:hover {
+  background: #73d13d;
+  border-color: #73d13d;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(82, 196, 26, 0.3);
+}
+
+.feedback-btn.negative {
+  background: #ff4d4f;
+  border-color: #ff4d4f;
+  color: white;
+}
+
+.feedback-btn.negative:hover {
+  background: #ff7875;
+  border-color: #ff7875;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(255, 77, 79, 0.3);
+}
+
+.feedback-btn .anticon {
+  font-size: 20px;
+}
+
+/* Feedback Form */
+.feedback-form p {
+  font-size: 16px;
+  color: #333;
+  margin-bottom: 16px;
+}
+
+.feedback-form .ant-input-textarea {
+  border-radius: 8px;
+}
+
+/* Animation for feedback appearance */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Responsive feedback */
+@media (max-width: 480px) {
+  .feedback-buttons {
+    flex-direction: column;
+    gap: 15px;
+  }
+  
+  .feedback-btn {
+    width: 200px;
+  }
+}

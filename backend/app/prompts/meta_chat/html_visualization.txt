@@ -68,14 +68,14 @@ When the response mentions creating a game (like Tetris, Snake, Pong, etc.), you
 7. Add game states (start screen, playing, game over)
 8. Make it fun and engaging!
 
-CRITICAL FOR KEYBOARD CONTROLS:
-If your game or interactive demo uses arrow keys or other keyboard controls that normally scroll the page:
-- Add event.preventDefault() to your keyboard event handlers
-- For arrow keys, add a keydown event listener that prevents default behavior
-- Check if the pressed key is ArrowUp, ArrowDown, ArrowLeft, ArrowRight, or Space
-- Call preventDefault() on the event to stop page scrolling
-- This ensures game controls work properly without unwanted page movement
-- Apply this protection to ANY key that might interfere with normal browser behavior
+IMPORTANT FOR KEYBOARD CONTROLS:
+If your game or interactive demo uses arrow keys or other keyboard controls:
+- The parent modal already handles preventing page scroll, so DO NOT add preventDefault() in your code
+- Focus on implementing smooth and responsive keyboard controls
+- For p5.js games, use the built-in keyPressed() and keyIsDown() functions
+- Ensure proper game speed control (not running at 60 FPS) for playability
+- Add clear visual feedback when keys are pressed
+- Consider adding both arrow keys and WASD support for better accessibility
 
 Return ONLY the complete HTML code starting with <!DOCTYPE html> and ending with </html>.
 Include ALL CSS in <style> tags and ALL JavaScript in <script> tags within the HTML.

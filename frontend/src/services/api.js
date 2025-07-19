@@ -58,4 +58,13 @@ export const agentMemoryApi = {
   stats: (agentId) => api.get(`/agents/${agentId}/memory/summary`),
 };
 
+// Feedback API
+export const feedbackApi = {
+  create: (data) => api.post('/feedback/', data),
+  list: (params = {}) => api.get('/feedback/', { params }),
+  get: (id) => api.get(`/feedback/${id}`),
+  getStats: () => api.get('/feedback/stats/overview'),
+  getAgentStats: () => api.get('/feedback/stats/by-agent'),
+};
+
 export default api;

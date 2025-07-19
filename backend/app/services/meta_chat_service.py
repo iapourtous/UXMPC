@@ -6,6 +6,7 @@ Routes user requests to appropriate agents or generates direct responses
 
 import logging
 import json
+import uuid
 from typing import Optional, Dict, Any, List
 import httpx
 
@@ -93,7 +94,8 @@ class MetaChatService:
                 metadata={
                     "intent": intent.model_dump(),
                     "agent_id": str(agent.id)
-                }
+                },
+                session_id=str(uuid.uuid4())
             )
                 
         except Exception as e:
