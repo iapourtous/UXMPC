@@ -84,6 +84,20 @@ make up
 open http://localhost:5173
 ```
 
+### Premier test avec Meta Chat
+
+1. Créez d'abord un profil LLM dans l'onglet **LLM Profiles** :
+   - Cliquez sur "Create New Profile"
+   - Choisissez le mode **JSON** (requis pour Meta Chat)
+   - **Kimi K2** est recommandé pour les meilleurs résultats
+2. Allez dans l'onglet **Meta Chat**
+3. Tapez simplement : `"créer un jeu de snake"`
+4. Sélectionnez votre profil LLM JSON
+5. Répondez aux 3-5 questions de clarification
+6. Admirez votre jeu Snake fonctionnel en quelques secondes !
+
+Meta Chat s'occupe du reste - de la conception à la réalisation ! 🎮
+
 ## 📋 Guide d'Utilisation
 
 ### Création Automatique de Service par IA
@@ -196,43 +210,61 @@ Le Meta Chat est votre assistant intelligent qui transforme vos idées en applic
    - Design moderne et responsive
    - Prête à être utilisée ou sauvegardée comme démo
 
-#### Exemples de créations réelles (démos disponibles)
+#### Exemples de créations possibles avec Meta Chat
 
-##### 🎮 Jeux rétro interactifs
-- **[Tetris](/demos/tetris)** - Version moderne avec histoire du jeu et démo jouable
-- **[Space Invaders](/demos/spaceinvaders)** - Page nostalgique avec démo moderne en P5.js
-- **Raycasting 3D** - Explication pédagogique avec démo interactive de moteur 3D
+##### 🎮 Jeux interactifs
+- **Tetris moderne** - Avec effets visuels, système de score et niveaux progressifs
+- **Snake classique** - Version responsive avec contrôles tactiles pour mobile
+- **Space Invaders** - Avec sons rétro et animations fluides
+- **Memory Cards** - Jeu de mémoire avec thèmes personnalisables
+- **Puzzle 2048** - Avec animations smooth et sauvegarde de score
+- **Raycasting 3D** - Moteur 3D basique pour créer des labyrinthes interactifs
 
-##### 🧮 Outils mathématiques
-- **[Calculatrice scientifique](/demos/calculatrice)** - Design dark mode avec fonctions avancées
-  - Trigonométrie (sin, cos, tan, asin, acos, atan)
-  - Fonctions hyperboliques
-  - Mode degrés/radians
-  - Mémoire intégrée
+##### 🧮 Outils et calculatrices
+- **Calculatrice scientifique** - Design moderne avec fonctions avancées :
+  - Trigonométrie complète (sin, cos, tan et inverses)
+  - Fonctions hyperboliques et logarithmiques
+  - Mode degrés/radians avec conversion
+  - Historique des calculs et mémoire
+- **Convertisseur d'unités** - Multi-catégories (longueur, poids, température)
+- **Calculateur de prêt** - Avec graphiques d'amortissement
+- **Chronomètre/Timer** - Avec alarmes et export des temps
 
-##### 📚 Pages éducatives
-- **Histoire du gaming** - Articles interactifs avec démos intégrées
-- **Concepts informatiques** - Visualisations de concepts comme le raycasting
-- **Tutoriels interactifs** - Apprendre en jouant
+##### 📊 Visualisations de données
+- **Dashboards interactifs** - Graphiques temps réel avec Chart.js
+- **Traceur de fonctions** - Visualisation mathématique interactive
+- **Générateur de fractales** - Mandelbrot, Julia avec zoom infini
+- **Visualiseur de tri** - Animations d'algorithmes de tri
+- **Graphiques financiers** - Chandeliers japonais, indicateurs techniques
 
-##### 🎨 Créations possibles
-- **Générateurs d'art** - Fractales, patterns génératifs
-- **Dashboards de données** - Graphiques temps réel avec Chart.js
-- **Mini-applications** - Chronomètres, convertisseurs, todo-lists
-- **Animations créatives** - Effets visuels, particules, physics engines
+##### 🎨 Applications créatives
+- **Éditeur de pixel art** - Avec palette de couleurs et export
+- **Générateur de patterns** - Motifs géométriques paramétrables
+- **Simulateur de particules** - Effets visuels avec physics engine
+- **Piano virtuel** - Avec sons réalistes et enregistrement
+- **Canvas de dessin** - Outils de dessin avec calques
+
+##### 📚 Outils éducatifs
+- **Quiz interactif** - Avec système de points et feedback
+- **Flashcards** - Pour l'apprentissage avec répétition espacée
+- **Simulateur de circuits** - Logique booléenne interactive
+- **Tableau périodique** - Avec informations détaillées sur chaque élément
+- **Carte du monde** - Interactive avec données géographiques
 
 #### 📸 Sauvegarde et partage de vos créations
 
 Après avoir créé quelque chose avec Meta Chat, vous pouvez :
 1. **Sauvegarder comme démo** - Conserve votre création avec toutes les métadonnées
 2. **Partager via URL unique** - Chaque démo a son endpoint : `/demos/nom-de-votre-demo`
-3. **Voir toutes les démos** - Via l'API : `GET /demos`
+3. **Réutiliser vos créations** - Les démos sont accessibles en permanence
+4. **Voir toutes vos démos** - Via l'API : `GET /demos`
 
 Les démos sauvegardent automatiquement :
-- La requête originale et la requête enrichie
-- Les instructions de présentation générées
-- L'agent utilisé et ses détails
-- Le code HTML/CSS/JS complet
+- ✅ La requête originale et la requête enrichie après clarifications
+- ✅ Les instructions de présentation générées automatiquement
+- ✅ L'agent utilisé et ses détails de configuration
+- ✅ Le code HTML/CSS/JS complet et fonctionnel
+- ✅ Les réponses au questionnaire de clarification
 
 #### Exemple d'utilisation simple
 
@@ -339,21 +371,23 @@ ANTHROPIC_API_KEY=sk-ant-...
 
 ### Configuration des Profils LLM
 
-Les profils LLM peuvent être configurés via l'interface ou l'API :
+Les profils LLM peuvent être configurés via l'interface ou l'API. Pour Meta Chat, utilisez **obligatoirement** le mode JSON :
 
 ```json
 {
-  "name": "gpt-4-turbo",
-  "provider": "openai",
-  "model": "gpt-4-turbo-preview",
+  "name": "kimi-k2",
+  "provider": "kimi",
+  "model": "kimi-k2",
   "api_key": "sk-...",
-  "endpoint": "https://api.openai.com/v1/chat/completions",
-  "max_tokens": 4096,
+  "endpoint": "https://api.moonshot.cn/v1/chat/completions",
+  "max_tokens": 8192,
   "temperature": 0.7,
-  "mode": "json",  // Pour les réponses structurées
+  "mode": "json",  // REQUIS pour Meta Chat
   "active": true
 }
 ```
+
+> 💡 **Recommandation** : Kimi K2 offre les meilleurs résultats pour Meta Chat grâce à sa compréhension approfondie des instructions et sa capacité à générer du code complexe.
 
 ## 📚 API Reference
 
@@ -395,9 +429,9 @@ Les profils LLM peuvent être configurés via l'interface ou l'API :
   - Préférez utiliser le flux clarify → process-clarifications
 
 ### Demos
-- `GET /demos` - Liste toutes les démos sauvegardées
-- `GET /demos/{name}` - Accéder à une démo spécifique
-- `POST /demos` - Créer une nouvelle démo
+- `GET /demos` - Liste toutes les démos créées
+- `GET /demos/{name}` - Accéder à une démo spécifique (ex: `/demos/snake-game`)
+- `POST /demos` - Sauvegarder une création Meta Chat comme démo
 - `DELETE /demos/{id}` - Supprimer une démo
 
 ## 🛠️ Commandes Make
