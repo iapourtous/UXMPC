@@ -7,13 +7,10 @@
 [![React](https://img.shields.io/badge/React-18+-blue)](https://reactjs.org/)
 [![MongoDB](https://img.shields.io/badge/MongoDB-7.0+-green)](https://www.mongodb.com/)
 [![MCP](https://img.shields.io/badge/MCP-Compatible-orange)](https://modelcontextprotocol.io)
-[![License](https://img.shields.io/badge/License-Dual%20MIT%2FCommercial-purple)](LICENSE)
 
 </div>
 
 UXMCP est une plateforme complète de gestion de services MCP (Model Context Protocol) qui permet de créer, déployer et gérer dynamiquement des services pour les agents IA. Avec son interface web intuitive et son agent créateur autonome, UXMCP révolutionne la façon de construire des outils pour l'IA.
-
-> 🎓 **Gratuit pour usage personnel et recherche** | 💼 **Licence commerciale pour entreprises**
 
 ## 🌟 Fonctionnalités Principales
 
@@ -44,13 +41,12 @@ UXMCP est une plateforme complète de gestion de services MCP (Model Context Pro
 - **Support du streaming** pour les réponses longues
 - **Interface moderne** avec Ant Design
 
-### 🧠 Meta Chat - Création Intelligente avec Questionnaire
-- **Questionnaire de clarification intelligent** - Pose des questions pertinentes pour mieux comprendre vos besoins
-- **Génération automatique d'instructions** - Plus besoin de spécifier comment présenter le résultat
-- **Création HTML/CSS/JS interactive** - Génère toujours des pages web modernes et interactives
-- **Analyse automatique des intentions** - Comprend ce que vous voulez créer
-- **Sélection ou création d'agent** - Trouve l'agent parfait ou en crée un nouveau automatiquement
-- **Aucune configuration requise** - Décrivez simplement ce que vous voulez !
+### 🧠 Meta Chat - Routage Intelligent
+- **Analyse automatique des intentions** - Comprend ce que vous voulez faire
+- **Sélection ou création d'agent** - Trouve l'agent parfait ou en crée un nouveau
+- **Réponses directes ou déléguées** - Répond directement ou utilise un agent spécialisé
+- **Visualisation HTML** des réponses complexes
+- **Aucune configuration requise** - Posez simplement votre question !
 
 ### 📊 Système de Logs Centralisé
 - **Logs structurés dans MongoDB** avec traçabilité complète
@@ -74,8 +70,8 @@ UXMCP est une plateforme complète de gestion de services MCP (Model Context Pro
 
 ```bash
 # 1. Cloner le repository
-git clone https://github.com/iapourtous/UXMCP.git
-cd UXMCP
+git clone https://github.com/yourusername/uxmcp.git
+cd uxmcp
 
 # 2. Lancer avec Docker Compose
 make up
@@ -83,20 +79,6 @@ make up
 # 3. Accéder à l'interface
 open http://localhost:5173
 ```
-
-### Premier test avec Meta Chat
-
-1. Créez d'abord un profil LLM dans l'onglet **LLM Profiles** :
-   - Cliquez sur "Create New Profile"
-   - Choisissez le mode **JSON** (requis pour Meta Chat)
-   - **Kimi K2** est recommandé pour les meilleurs résultats
-2. Allez dans l'onglet **Meta Chat**
-3. Tapez simplement : `"créer un jeu de snake"`
-4. Sélectionnez votre profil LLM JSON
-5. Répondez aux 3-5 questions de clarification
-6. Admirez votre jeu Snake fonctionnel en quelques secondes !
-
-Meta Chat s'occupe du reste - de la conception à la réalisation ! 🎮
 
 ## 📋 Guide d'Utilisation
 
@@ -184,109 +166,40 @@ Please provide a detailed response following best practices."""
 
 ### Utilisation du Meta Chat
 
-Le Meta Chat est votre assistant intelligent qui transforme vos idées en applications web interactives grâce à un processus guidé.
+Le Meta Chat est votre assistant intelligent qui comprend vos besoins et trouve ou crée automatiquement l'agent parfait pour y répondre.
 
-#### 🎯 Le nouveau flux avec questionnaire
+#### Comment ça marche ?
 
-1. **Décrivez votre idée** en langage naturel
-   ```
-   "Créer un jeu de snake"
-   "Afficher un graphique de mes ventes"
-   "Faire un calculateur scientifique"
-   ```
+1. **Posez votre question** en langage naturel
+2. Le système **analyse votre intention**
+3. Il **trouve l'agent adapté** ou en **crée un nouveau** si nécessaire
+4. L'agent **exécute la tâche** et retourne la réponse
 
-2. **Répondez aux questions de clarification**
-   - Le système vous pose 3-5 questions contextuelles
-   - Questions sur le style visuel, les fonctionnalités, le niveau de complexité
-   - Vous pouvez répondre ou utiliser les valeurs par défaut
-
-3. **Génération automatique optimisée**
-   - Votre requête est enrichie avec vos réponses
-   - Les instructions de présentation HTML/CSS/JS sont générées automatiquement
-   - L'agent approprié est sélectionné ou créé
-
-4. **Résultat : Une page web interactive**
-   - Application HTML/CSS/JavaScript complète
-   - Design moderne et responsive
-   - Prête à être utilisée ou sauvegardée comme démo
-
-#### Exemples de créations possibles avec Meta Chat
-
-##### 🎮 Jeux interactifs
-- **Tetris moderne** - Avec effets visuels, système de score et niveaux progressifs
-- **Snake classique** - Version responsive avec contrôles tactiles pour mobile
-- **Space Invaders** - Avec sons rétro et animations fluides
-- **Memory Cards** - Jeu de mémoire avec thèmes personnalisables
-- **Puzzle 2048** - Avec animations smooth et sauvegarde de score
-- **Raycasting 3D** - Moteur 3D basique pour créer des labyrinthes interactifs
-
-##### 🧮 Outils et calculatrices
-- **Calculatrice scientifique** - Design moderne avec fonctions avancées :
-  - Trigonométrie complète (sin, cos, tan et inverses)
-  - Fonctions hyperboliques et logarithmiques
-  - Mode degrés/radians avec conversion
-  - Historique des calculs et mémoire
-- **Convertisseur d'unités** - Multi-catégories (longueur, poids, température)
-- **Calculateur de prêt** - Avec graphiques d'amortissement
-- **Chronomètre/Timer** - Avec alarmes et export des temps
-
-##### 📊 Visualisations de données
-- **Dashboards interactifs** - Graphiques temps réel avec Chart.js
-- **Traceur de fonctions** - Visualisation mathématique interactive
-- **Générateur de fractales** - Mandelbrot, Julia avec zoom infini
-- **Visualiseur de tri** - Animations d'algorithmes de tri
-- **Graphiques financiers** - Chandeliers japonais, indicateurs techniques
-
-##### 🎨 Applications créatives
-- **Éditeur de pixel art** - Avec palette de couleurs et export
-- **Générateur de patterns** - Motifs géométriques paramétrables
-- **Simulateur de particules** - Effets visuels avec physics engine
-- **Piano virtuel** - Avec sons réalistes et enregistrement
-- **Canvas de dessin** - Outils de dessin avec calques
-
-##### 📚 Outils éducatifs
-- **Quiz interactif** - Avec système de points et feedback
-- **Flashcards** - Pour l'apprentissage avec répétition espacée
-- **Simulateur de circuits** - Logique booléenne interactive
-- **Tableau périodique** - Avec informations détaillées sur chaque élément
-- **Carte du monde** - Interactive avec données géographiques
-
-#### 📸 Sauvegarde et partage de vos créations
-
-Après avoir créé quelque chose avec Meta Chat, vous pouvez :
-1. **Sauvegarder comme démo** - Conserve votre création avec toutes les métadonnées
-2. **Partager via URL unique** - Chaque démo a son endpoint : `/demos/nom-de-votre-demo`
-3. **Réutiliser vos créations** - Les démos sont accessibles en permanence
-4. **Voir toutes vos démos** - Via l'API : `GET /demos`
-
-Les démos sauvegardent automatiquement :
-- ✅ La requête originale et la requête enrichie après clarifications
-- ✅ Les instructions de présentation générées automatiquement
-- ✅ L'agent utilisé et ses détails de configuration
-- ✅ Le code HTML/CSS/JS complet et fonctionnel
-- ✅ Les réponses au questionnaire de clarification
-
-#### Exemple d'utilisation simple
+#### Exemples d'utilisation
 
 ```bash
-# 1. Première requête - Le système génère un questionnaire
-curl -X POST http://localhost:8000/meta-chat/clarify \
+# Demander la météo (trouvera ou créera un agent météo)
+curl -X POST http://localhost:8000/meta-chat/query \
   -H "Content-Type: application/json" \
   -d '{
-    "message": "créer un jeu de memory avec des cartes",
+    "message": "Quel temps fait-il à Paris ?",
     "llm_profile": "gpt-4"
   }'
 
-# 2. Réponse avec vos préférences au questionnaire
-curl -X POST http://localhost:8000/meta-chat/process-clarifications \
+# Faire des calculs (utilisera un agent calculatrice)
+curl -X POST http://localhost:8000/meta-chat/query \
   -H "Content-Type: application/json" \
   -d '{
-    "session_id": "xxx-xxx-xxx",
-    "answers": {
-      "difficulty": "Moyen",
-      "theme": "Animaux",
-      "style": "Moderne"
-    }
+    "message": "Calcule 25% de 180 euros",
+    "llm_profile": "gpt-4"
+  }'
+
+# Demande complexe (créera un agent spécialisé si besoin)
+curl -X POST http://localhost:8000/meta-chat/query \
+  -H "Content-Type: application/json" \
+  -d '{
+    "message": "Analyse les performances de mon site web example.com",
+    "llm_profile": "gpt-4"
   }'
 ```
 
@@ -371,23 +284,21 @@ ANTHROPIC_API_KEY=sk-ant-...
 
 ### Configuration des Profils LLM
 
-Les profils LLM peuvent être configurés via l'interface ou l'API. Pour Meta Chat, utilisez **obligatoirement** le mode JSON :
+Les profils LLM peuvent être configurés via l'interface ou l'API :
 
 ```json
 {
-  "name": "kimi-k2",
-  "provider": "kimi",
-  "model": "kimi-k2",
+  "name": "gpt-4-turbo",
+  "provider": "openai",
+  "model": "gpt-4-turbo-preview",
   "api_key": "sk-...",
-  "endpoint": "https://api.moonshot.cn/v1/chat/completions",
-  "max_tokens": 8192,
+  "endpoint": "https://api.openai.com/v1/chat/completions",
+  "max_tokens": 4096,
   "temperature": 0.7,
-  "mode": "json",  // REQUIS pour Meta Chat
+  "mode": "json",  // Pour les réponses structurées
   "active": true
 }
 ```
-
-> 💡 **Recommandation** : Kimi K2 offre les meilleurs résultats pour Meta Chat grâce à sa compréhension approfondie des instructions et sa capacité à générer du code complexe.
 
 ## 📚 API Reference
 
@@ -419,20 +330,9 @@ Les profils LLM peuvent être configurés via l'interface ou l'API. Pour Meta Ch
 - `GET /chat/history` - Historique des conversations
 
 ### Meta Chat
-- `POST /meta-chat/clarify` - Générer un questionnaire de clarification
-  - Body: `{"message": "votre idée", "llm_profile": "nom_profil"}`
-  - Response: Questionnaire avec questions contextuelles
-- `POST /meta-chat/process-clarifications` - Traiter les réponses et générer le résultat
-  - Body: `{"session_id": "xxx", "answers": {"q1": "réponse1", ...}}`
-  - Response: Page HTML/CSS/JS interactive complète
-- `POST /meta-chat/query` - Ancien endpoint direct (déprécié)
-  - Préférez utiliser le flux clarify → process-clarifications
-
-### Demos
-- `GET /demos` - Liste toutes les démos créées
-- `GET /demos/{name}` - Accéder à une démo spécifique (ex: `/demos/snake-game`)
-- `POST /demos` - Sauvegarder une création Meta Chat comme démo
-- `DELETE /demos/{id}` - Supprimer une démo
+- `POST /meta-chat/query` - Envoyer une requête au système intelligent
+  - Body: `{"message": "votre question", "llm_profile": "nom_profil"}`
+  - Response: Réponse formatée avec agent utilisé/créé
 
 ## 🛠️ Commandes Make
 
@@ -503,6 +403,10 @@ Les contributions sont les bienvenues !
 - Mettre à jour la documentation
 - Utiliser des messages de commit descriptifs
 
+## 📄 License
+
+Ce projet est sous licence MIT - voir le fichier [LICENSE](LICENSE) pour plus de détails.
+
 ## 🔗 Ressources
 
 - [Model Context Protocol](https://modelcontextprotocol.io) - Spécification MCP
@@ -511,26 +415,6 @@ Les contributions sont les bienvenues !
 - [React](https://reactjs.org) - Framework UI
 - [Ant Design](https://ant.design) - Composants UI
 - [MongoDB](https://www.mongodb.com) - Base de données
-
-## 📄 Licence
-
-UXMCP est distribué sous une **double licence** :
-
-### 🎓 Usage Personnel et Recherche - MIT License
-- ✅ **GRATUIT** pour usage personnel
-- ✅ **GRATUIT** pour la recherche académique
-- ✅ **GRATUIT** pour l'éducation
-- ✅ **GRATUIT** pour les projets open source
-
-### 💼 Usage Commercial - Licence Commerciale
-- 💰 **PAYANT** pour les entreprises
-- 💰 **PAYANT** pour usage commercial
-- 💰 **PAYANT** pour les produits/services générant des revenus
-- 📧 Contactez-nous pour obtenir une licence commerciale
-
-Pour plus de détails, consultez :
-- [LICENSE](LICENSE) - Texte complet des licences
-- [LICENSE-COMMERCIAL.md](LICENSE-COMMERCIAL.md) - Détails de la licence commerciale
 
 ## 🙏 Remerciements
 
@@ -542,6 +426,4 @@ Pour plus de détails, consultez :
 
 <div align="center">
 Made with ❤️ by the UXMCP Team
-
-**Usage personnel/recherche : MIT License | Usage commercial : Licence requise**
 </div>
