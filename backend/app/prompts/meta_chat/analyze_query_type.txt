@@ -1,0 +1,32 @@
+Analyze the user's query and determine its type and intent.
+
+User Query: "{query}"
+
+Classify this query into one of these categories:
+- INFORMATION: Requests for data, facts, weather, news, Wikipedia searches, current events
+- CREATION: Requests to create games, tools, calculators, interactive applications
+- VISUALIZATION: Requests for charts, graphs, dashboards, visual representations of data
+- ANALYSIS: Requests for data analysis, comparisons, calculations, insights
+- GENERAL: Mixed or unclear requests that don't fit clearly into one category
+
+Also extract the main subject and any specific parameters mentioned.
+
+Respond in JSON format:
+{{
+  "query_type": "INFORMATION|CREATION|VISUALIZATION|ANALYSIS|GENERAL",
+  "main_subject": "what the query is about",
+  "detected_parameters": {{
+    "location": "if mentioned",
+    "time_period": "if mentioned",
+    "specific_features": ["list", "of", "features"],
+    "other": "any other relevant details"
+  }},
+  "confidence": 0.0 to 1.0,
+  "reasoning": "brief explanation of your classification"
+}}
+
+Examples:
+- "weather in Paris" → INFORMATION (weather, location: Paris)
+- "create a snake game" → CREATION (game, type: snake)
+- "show me sales chart" → VISUALIZATION (chart, data: sales)
+- "compare prices of phones" → ANALYSIS (comparison, subject: phone prices)

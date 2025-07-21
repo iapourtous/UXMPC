@@ -42,6 +42,12 @@ class DemoBase(BaseModel):
     html_content: str = Field(..., description="Complete HTML/CSS/JS content")
     session_id: str = Field(..., description="Meta-chat session ID for reference")
     
+    # New fields for enhanced query and agent info
+    enhanced_message: Optional[str] = Field(None, description="Enhanced message generated after clarifications")
+    auto_instruct: Optional[str] = Field(None, description="Auto-generated instructions from clarifications")
+    agent_used: Optional[str] = Field(None, description="Name of the agent used")
+    agent_details: Optional[dict] = Field(None, description="Details about the agent used")
+    
     @field_validator('name')
     @classmethod
     def validate_name(cls, v: str) -> str:

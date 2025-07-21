@@ -11,7 +11,9 @@ from typing import Optional, Dict, Any, List
 import httpx
 
 from app.models.meta_chat import (
-    MetaChatRequest, MetaChatResponse, ChatIntent, ResponseType
+    MetaChatRequest, MetaChatResponse, ChatIntent, ResponseType,
+    QueryType, ClarificationQuestion, ClarificationQuestionnaire,
+    ClarificationAnswers, MetaChatSession, QuestionType
 )
 from app.models.agent import Agent
 from app.models.llm import LLMProfile
@@ -25,6 +27,9 @@ from app.core.prompt_manager import load_prompt
 from app.services.html_validator import html_validator
 
 logger = logging.getLogger(__name__)
+
+# Temporary session storage (in production, use Redis or database)
+SESSIONS: Dict[str, MetaChatSession] = {}
 
 
 class MetaChatService:
@@ -581,6 +586,412 @@ Return only the corrected HTML code."""
 </body>
 </html>"""
     
+    async def generate_clarification_questionnaire(self, query: str, llm_profile: str) -> ClarificationQuestionnaire:
+        """Generate a clarification questionnaire for a query"""
+        try:
+            # Analyze query type
+            query_analysis = await self._analyze_query_type(query)
+            logger.info(f"Query analysis: {query_analysis}")
+            
+            # Generate questions
+            questions = await self._generate_clarification_questions(query, query_analysis)
+            
+            # Create session
+            session_id = str(uuid.uuid4())
+            session = MetaChatSession(
+                session_id=session_id,
+                original_query=query,
+                llm_profile=llm_profile,
+                query_type=QueryType[query_analysis["query_type"]],
+                questions=questions,
+                status="pending_clarification"
+            )
+            
+            # Store session
+            SESSIONS[session_id] = session
+            
+            # Return questionnaire
+            return ClarificationQuestionnaire(
+                session_id=session_id,
+                query_type=session.query_type,
+                questions=questions
+            )
+            
+        except Exception as e:
+            logger.error(f"Failed to generate questionnaire: {e}")
+            raise
+    
+    async def process_with_clarifications(self, session_id: str, answers: Dict[str, Any]) -> MetaChatResponse:
+        """Process a query using clarification answers"""
+        try:
+            # Retrieve session
+            session = SESSIONS.get(session_id)
+            if not session:
+                return MetaChatResponse(
+                    success=False,
+                    error="Session not found or expired"
+                )
+            
+            # Process clarifications to get enhanced message and auto instructions
+            clarified = await self._process_clarifications(session, answers)
+            
+            # Update session
+            session.answers = answers
+            session.enhanced_message = clarified["enhanced_message"]
+            session.auto_instruct = clarified["auto_instruct"]
+            session.status = "processing"
+            
+            # Create a request with the enhanced message and auto-generated instructions
+            request = MetaChatRequest(
+                message=clarified["enhanced_message"],
+                llm_profile=session.llm_profile,
+                instruct=clarified["auto_instruct"]
+            )
+            
+            # Process normally with the enhanced request
+            response = await self.process_request(request)
+            
+            # Add enhanced query and instructions to metadata
+            if response.success:
+                response.metadata["enhanced_message"] = clarified["enhanced_message"]
+                response.metadata["auto_instruct"] = clarified["auto_instruct"]
+                response.metadata["original_query"] = session.original_query
+                response.metadata["questionnaire_answers"] = answers
+                
+                # Add agent details if available
+                if response.agent_used:
+                    try:
+                        agent = await agent_crud.get_by_name(response.agent_used)
+                        if agent:
+                            response.metadata["agent_details"] = {
+                                "id": str(agent.id),
+                                "name": agent.name,
+                                "description": agent.description,
+                                "mcp_services": agent.mcp_services
+                            }
+                    except Exception as e:
+                        logger.error(f"Failed to get agent details: {e}")
+            
+            # Update session status
+            session.status = "completed"
+            
+            # Clean up session after processing
+            del SESSIONS[session_id]
+            
+            return response
+            
+        except Exception as e:
+            logger.error(f"Failed to process with clarifications: {e}")
+            return MetaChatResponse(
+                success=False,
+                error=str(e)
+            )
+    
+    async def _analyze_query_type(self, query: str) -> Dict[str, Any]:
+        """Analyze query to determine its type and parameters"""
+        prompt = load_prompt(
+            "meta_chat/analyze_query_type",
+            query=query
+        )
+        
+        response = await self._call_llm(prompt)
+        if response:
+            try:
+                data = json.loads(response)
+                return data
+            except Exception as e:
+                logger.error(f"Failed to parse query type analysis: {e}")
+                # Fallback
+                return {
+                    "query_type": "GENERAL",
+                    "main_subject": query,
+                    "detected_parameters": {},
+                    "confidence": 0.5,
+                    "reasoning": "Could not analyze query type"
+                }
+        
+        raise ValueError("No response from LLM")
+    
+    async def _generate_clarification_questions(self, query: str, query_analysis: Dict[str, Any]) -> List[ClarificationQuestion]:
+        """Generate contextual clarification questions based on query type"""
+        prompt = load_prompt(
+            "meta_chat/generate_clarification_questions",
+            original_query=query,
+            query_type=query_analysis["query_type"],
+            detected_parameters=json.dumps(query_analysis["detected_parameters"])
+        )
+        
+        logger.info(f"Calling LLM for questions generation with prompt length: {len(prompt)}")
+        # Force JSON mode for questions generation
+        json_prompt = prompt + "\n\nIMPORTANT: Respond ONLY with valid JSON format as specified above."
+        response = await self._call_llm_json_mode(json_prompt)
+        
+        if response:
+            logger.info(f"LLM response for questions (length: {len(response)})")
+            logger.info(f"First 100 chars: {response[:100]}")
+            logger.info(f"Last 100 chars: {response[-100:]}")
+            try:
+                data = json.loads(response)
+                logger.info(f"Parsed JSON successfully: {data}")
+                questions = []
+                for q in data.get("questions", []):
+                    logger.info(f"Processing question: {q}")
+                    try:
+                        question = ClarificationQuestion(
+                            id=q["id"],
+                            question=q["question"],
+                            type=QuestionType(q["type"]),
+                            options=q.get("options"),
+                            default=q.get("default"),
+                            required=q.get("required", False),
+                            context=q.get("context")
+                        )
+                        questions.append(question)
+                        logger.info(f"Successfully created question: {q['id']}")
+                    except Exception as qe:
+                        logger.error(f"Failed to create question {q.get('id', 'unknown')}: {qe}")
+                        logger.error(f"Question data: {q}")
+                        raise qe
+                logger.info(f"Generated {len(questions)} questions successfully")
+                return questions
+            except json.JSONDecodeError as e:
+                logger.error(f"Failed to parse JSON for questions: {e}")
+                logger.error(f"Raw LLM response for questions: {response}")
+                # Try to extract JSON from response if it's wrapped in text
+                cleaned_response = self._extract_json_from_response(response)
+                if cleaned_response:
+                    try:
+                        data = json.loads(cleaned_response)
+                        logger.info(f"Successfully parsed cleaned JSON: {data}")
+                        questions = []
+                        for q in data.get("questions", []):
+                            question = ClarificationQuestion(
+                                id=q["id"],
+                                question=q["question"],
+                                type=QuestionType[q["type"]],
+                                options=q.get("options"),
+                                default=q.get("default"),
+                                required=q.get("required", False),
+                                context=q.get("context")
+                            )
+                            questions.append(question)
+                        return questions
+                    except Exception as e2:
+                        logger.error(f"Even cleaned JSON failed: {e2}")
+                # Fallback: return contextual questions based on query type
+                return self._generate_fallback_questions(query_analysis["query_type"])
+            except Exception as e:
+                logger.error(f"Failed to parse clarification questions: {e}")
+                logger.error(f"Raw response: {response}")
+                return self._generate_fallback_questions(query_analysis["query_type"])
+        
+        logger.error("No response from LLM for questions generation")
+        return self._generate_fallback_questions(query_analysis["query_type"])
+    
+    async def _process_clarifications(self, session: MetaChatSession, answers: Dict[str, Any]) -> Dict[str, str]:
+        """Process clarification answers to generate enhanced message and auto instructions"""
+        prompt = load_prompt(
+            "meta_chat/process_clarifications",
+            original_query=session.original_query,
+            query_type=session.query_type.value,
+            answers=json.dumps(answers)
+        )
+        
+        response = await self._call_llm(prompt)
+        if response:
+            try:
+                data = json.loads(response)
+                return {
+                    "enhanced_message": data["enhanced_message"],
+                    "auto_instruct": data["auto_instruct"]
+                }
+            except Exception as e:
+                logger.error(f"Failed to parse clarification processing: {e}")
+                # Fallback
+                return {
+                    "enhanced_message": session.original_query,
+                    "auto_instruct": "Create a clean, modern presentation of the information"
+                }
+        
+        raise ValueError("No response from LLM")
+    
+    def _generate_fallback_questions(self, query_type: str) -> List[ClarificationQuestion]:
+        """Generate fallback questions based on query type"""
+        logger.info(f"Generating fallback questions for query type: {query_type}")
+        
+        if query_type == "CREATION":
+            return [
+                ClarificationQuestion(
+                    id="complexity",
+                    question="Quel niveau de complexité souhaitez-vous ?",
+                    type=QuestionType.CHOICE,
+                    options=["Basique", "Intermédiaire", "Avancé"],
+                    default="Intermédiaire",
+                    required=False,
+                    context="Détermine les fonctionnalités et la sophistication"
+                ),
+                ClarificationQuestion(
+                    id="style",
+                    question="Quel style visuel préférez-vous ?",
+                    type=QuestionType.CHOICE,
+                    options=["Moderne", "Rétro", "Minimaliste", "Coloré"],
+                    default="Moderne",
+                    required=False,
+                    context="Influence le design et les couleurs"
+                ),
+                ClarificationQuestion(
+                    id="interactivity",
+                    question="Souhaitez-vous des éléments interactifs ?",
+                    type=QuestionType.BOOLEAN,
+                    default=True,
+                    required=False,
+                    context="Ajoute des contrôles utilisateur"
+                )
+            ]
+        elif query_type == "VISUALIZATION":
+            return [
+                ClarificationQuestion(
+                    id="chart_type",
+                    question="Quel type de visualisation préférez-vous ?",
+                    type=QuestionType.CHOICE,
+                    options=["Graphique", "Tableau", "Dashboard", "Carte"],
+                    default="Graphique",
+                    required=False,
+                    context="Format de présentation des données"
+                ),
+                ClarificationQuestion(
+                    id="color_scheme",
+                    question="Quelle palette de couleurs souhaitez-vous ?",
+                    type=QuestionType.CHOICE,
+                    options=["Professionnelle", "Colorée", "Monochrome", "Personnalisée"],
+                    default="Professionnelle",
+                    required=False,
+                    context="Thème visuel du graphique"
+                )
+            ]
+        elif query_type == "INFORMATION":
+            return [
+                ClarificationQuestion(
+                    id="detail_level",
+                    question="Quel niveau de détail voulez-vous ?",
+                    type=QuestionType.CHOICE,
+                    options=["Résumé", "Détaillé", "Technique"],
+                    default="Détaillé",
+                    required=False,
+                    context="Quantité d'informations affichées"
+                ),
+                ClarificationQuestion(
+                    id="format",
+                    question="Dans quel format souhaitez-vous la réponse ?",
+                    type=QuestionType.CHOICE,
+                    options=["Texte", "Visuel", "Interactif"],
+                    default="Visuel",
+                    required=False,
+                    context="Mode de présentation"
+                )
+            ]
+        else:  # ANALYSIS or GENERAL
+            return [
+                ClarificationQuestion(
+                    id="presentation",
+                    question="Comment souhaitez-vous que la réponse soit présentée ?",
+                    type=QuestionType.CHOICE,
+                    options=["Simple", "Détaillé", "Interactif"],
+                    default="Détaillé",
+                    required=False,
+                    context="Format de présentation"
+                ),
+                ClarificationQuestion(
+                    id="focus",
+                    question="Sur quoi souhaitez-vous vous concentrer ?",
+                    type=QuestionType.TEXT,
+                    default="",
+                    required=False,
+                    context="Aspects spécifiques à mettre en avant"
+                )
+            ]
+    
+    def _extract_json_from_response(self, response: str) -> Optional[str]:
+        """Extract JSON from LLM response that might be wrapped in text"""
+        import re
+        
+        # Try to find JSON blocks in the response
+        json_patterns = [
+            r'```json\s*(.*?)\s*```',  # JSON in code blocks
+            r'```\s*(.*?)\s*```',      # Any code blocks
+            r'\{.*\}',                 # Raw JSON objects
+        ]
+        
+        for pattern in json_patterns:
+            matches = re.findall(pattern, response, re.DOTALL)
+            for match in matches:
+                try:
+                    # Test if it's valid JSON
+                    json.loads(match)
+                    return match
+                except:
+                    continue
+        
+        return None
+    
+    async def _call_llm_json_mode(self, prompt: str) -> Optional[str]:
+        """Call LLM API with JSON mode forced"""
+        try:
+            endpoint = self.llm_profile.endpoint or "https://api.openai.com/v1/chat/completions"
+            
+            logger.info(f"Calling LLM in JSON mode with endpoint: {endpoint}")
+            
+            # Check if this is a Groq provider
+            if "groq.com" in endpoint:
+                from groq import AsyncGroq
+                
+                client = AsyncGroq(api_key=self.llm_profile.api_key)
+                
+                messages = [
+                    {"role": "system", "content": "You are a helpful assistant. Always respond in valid JSON format."},
+                    {"role": "user", "content": prompt}
+                ]
+                
+                completion_params = {
+                    "model": self.llm_profile.model,
+                    "messages": messages,
+                    "temperature": 0.7,
+                    "max_tokens": self.llm_profile.max_tokens,
+                    "response_format": {"type": "json_object"}
+                }
+                
+                completion = await client.chat.completions.create(**completion_params)
+                return completion.choices[0].message.content
+            
+            # Standard OpenAI-compatible API call with JSON mode
+            headers = {
+                "Authorization": f"Bearer {self.llm_profile.api_key}",
+                "Content-Type": "application/json"
+            }
+            
+            messages = [
+                {"role": "system", "content": "You are a helpful assistant. Always respond in valid JSON format."},
+                {"role": "user", "content": prompt}
+            ]
+            
+            payload = {
+                "model": self.llm_profile.model,
+                "messages": messages,
+                "temperature": 0.7,
+                "max_tokens": self.llm_profile.max_tokens,
+                "response_format": {"type": "json_object"}
+            }
+            
+            async with httpx.AsyncClient(timeout=60.0) as client:
+                response = await client.post(endpoint, headers=headers, json=payload)
+                response.raise_for_status()
+                
+                result = response.json()
+                return result["choices"][0]["message"]["content"]
+                
+        except Exception as e:
+            logger.error(f"JSON mode LLM call failed: {e}")
+            return None
 
 
 # Factory function

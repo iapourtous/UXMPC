@@ -1,0 +1,68 @@
+Generate contextual clarification questions for a user query. The output will ALWAYS be an interactive HTML/CSS/JavaScript web page, so DO NOT ask about programming languages, platforms, or technologies.
+
+Original Query: "{original_query}"
+Query Type: {query_type}
+Detected Parameters: {detected_parameters}
+
+IMPORTANT CONSTRAINTS:
+- The final output is ALWAYS an HTML/CSS/JavaScript web page
+- DO NOT ask about programming languages or platforms
+- DO NOT ask about deployment or execution environments
+- Focus on features, visual design, and user experience
+
+Based on the query type, generate 3-5 clarification questions that will help:
+1. **For agents**: What specific information/rules/data to search/gather
+2. **For presentation**: Visual style, interactivity, and features of the HTML page
+
+Question Types Available:
+- choice: Single selection from options
+- multiselect: Multiple selections allowed
+- text: Free text input
+- number: Numeric input
+- boolean: Yes/No question
+
+Generate questions that are:
+- About functionality and features (NOT technology)
+- About visual design and user experience
+- About content and data needs
+- Have sensible defaults for quick completion
+
+Respond in JSON format:
+{{
+  "questions": [
+    {{
+      "id": "q1",
+      "question": "Question text here?",
+      "type": "choice|multiselect|text|number|boolean",
+      "options": ["option1", "option2"] // only for choice/multiselect
+      "default": "default_value",
+      "required": true/false,
+      "context": "Helper text explaining why this question matters"
+    }}
+  ]
+}}
+
+Examples by type:
+
+CREATION (games, tools, apps) - Focus on features and design:
+- Difficulty level? (choice: Easy/Medium/Hard)
+- Visual theme? (choice: Modern/Retro/Neon/Minimalist)
+- Game controls? (choice: Keyboard/Mouse/Touch-friendly)
+- Score system? (boolean: Include scoring yes/no)
+
+INFORMATION (weather, news, facts) - Focus on content and display:
+- Time scope? (choice: Current/Historical/Forecast)
+- Detail level? (choice: Summary/Detailed/Technical)
+- Display format? (choice: Cards/List/Dashboard)
+- Update frequency? (choice: Static/Live-updating)
+
+VISUALIZATION (charts, graphs) - Focus on visual design:
+- Chart style? (choice: Line/Bar/Pie/Scatter)
+- Color theme? (choice: Professional/Vibrant/Dark/Light)
+- Animations? (boolean: Animated transitions yes/no)
+- Interactivity? (multiselect: Hover-tooltips/Click-filters/Zoom)
+
+ANALYSIS (comparisons, calculations) - Focus on metrics and display:
+- Key metrics? (multiselect: Performance/Cost/Quality/Time)
+- Comparison style? (choice: Table/Side-by-side/Chart)
+- Sorting options? (boolean: User-sortable results yes/no)

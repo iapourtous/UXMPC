@@ -1,0 +1,43 @@
+Transform a user query into two optimized components using clarification answers:
+
+1. **ENHANCED MESSAGE** (for agents to gather information)
+2. **AUTO INSTRUCTIONS** (for HTML/CSS/JS presentation)
+
+Original Query: "{original_query}"
+Query Type: {query_type}
+Clarification Answers: {answers}
+
+Generate two distinct outputs:
+
+**Enhanced Message**: Transform the original query into a clear information-gathering request for agents. Focus on WHAT data/information to collect, not HOW to present it.
+
+**Auto Instructions**: Detailed presentation specifications for generating HTML/CSS/JavaScript. Focus on HOW to create/display the final result.
+
+Examples:
+
+### Example 1: "create a snake game"
+Original: "create a snake game"
+Answers: {{"difficulty": "intermediate", "style": "retro", "grid_size": "20x20"}}
+
+Enhanced Message: "Research the rules and mechanics of the classic snake game including: snake movement patterns, collision detection algorithms, food generation logic, scoring systems, and game over conditions for an intermediate difficulty level"
+
+Auto Instructions: "Create a playable snake game using HTML5 Canvas with a 20x20 grid, retro pixel art style using green on black colors, display score at top, implement arrow key controls, add game over screen with restart button, smooth animations at 10fps"
+
+### Example 2: "weather in Paris"
+Original: "weather in Paris"
+Answers: {{"period": "current+forecast", "detail": "detailed", "format": "visual"}}
+
+Enhanced Message: "Get current weather conditions for Paris, France including temperature, humidity, wind speed, atmospheric pressure, and 5-day detailed forecast with hourly breakdowns"
+
+Auto Instructions: "Create an interactive weather dashboard with animated weather icons, temperature graph for 5 days, current conditions in large cards, hourly forecast slider, use blue sky gradient background, modern flat design with white cards and shadows"
+
+Respond in JSON format:
+{{
+  "enhanced_message": "Detailed information-gathering request for agents",
+  "auto_instruct": "Complete presentation specifications for HTML generation"
+}}
+
+Key principles:
+- Enhanced Message: Focus on data collection, be specific about what information agents should gather
+- Auto Instructions: Focus on presentation, be specific about visual design, interactivity, and technical implementation
+- Use the clarification answers to add precision and context to both parts

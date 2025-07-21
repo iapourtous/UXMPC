@@ -7,10 +7,13 @@
 [![React](https://img.shields.io/badge/React-18+-blue)](https://reactjs.org/)
 [![MongoDB](https://img.shields.io/badge/MongoDB-7.0+-green)](https://www.mongodb.com/)
 [![MCP](https://img.shields.io/badge/MCP-Compatible-orange)](https://modelcontextprotocol.io)
+[![License](https://img.shields.io/badge/License-Dual%20MIT%2FCommercial-purple)](LICENSE)
 
 </div>
 
 UXMCP est une plateforme complète de gestion de services MCP (Model Context Protocol) qui permet de créer, déployer et gérer dynamiquement des services pour les agents IA. Avec son interface web intuitive et son agent créateur autonome, UXMCP révolutionne la façon de construire des outils pour l'IA.
+
+> 🎓 **Gratuit pour usage personnel et recherche** | 💼 **Licence commerciale pour entreprises**
 
 ## 🌟 Fonctionnalités Principales
 
@@ -41,12 +44,13 @@ UXMCP est une plateforme complète de gestion de services MCP (Model Context Pro
 - **Support du streaming** pour les réponses longues
 - **Interface moderne** avec Ant Design
 
-### 🧠 Meta Chat - Routage Intelligent
-- **Analyse automatique des intentions** - Comprend ce que vous voulez faire
-- **Sélection ou création d'agent** - Trouve l'agent parfait ou en crée un nouveau
-- **Réponses directes ou déléguées** - Répond directement ou utilise un agent spécialisé
-- **Visualisation HTML** des réponses complexes
-- **Aucune configuration requise** - Posez simplement votre question !
+### 🧠 Meta Chat - Création Intelligente avec Questionnaire
+- **Questionnaire de clarification intelligent** - Pose des questions pertinentes pour mieux comprendre vos besoins
+- **Génération automatique d'instructions** - Plus besoin de spécifier comment présenter le résultat
+- **Création HTML/CSS/JS interactive** - Génère toujours des pages web modernes et interactives
+- **Analyse automatique des intentions** - Comprend ce que vous voulez créer
+- **Sélection ou création d'agent** - Trouve l'agent parfait ou en crée un nouveau automatiquement
+- **Aucune configuration requise** - Décrivez simplement ce que vous voulez !
 
 ### 📊 Système de Logs Centralisé
 - **Logs structurés dans MongoDB** avec traçabilité complète
@@ -70,8 +74,8 @@ UXMCP est une plateforme complète de gestion de services MCP (Model Context Pro
 
 ```bash
 # 1. Cloner le repository
-git clone https://github.com/yourusername/uxmcp.git
-cd uxmcp
+git clone https://github.com/iapourtous/UXMCP.git
+cd UXMCP
 
 # 2. Lancer avec Docker Compose
 make up
@@ -166,40 +170,91 @@ Please provide a detailed response following best practices."""
 
 ### Utilisation du Meta Chat
 
-Le Meta Chat est votre assistant intelligent qui comprend vos besoins et trouve ou crée automatiquement l'agent parfait pour y répondre.
+Le Meta Chat est votre assistant intelligent qui transforme vos idées en applications web interactives grâce à un processus guidé.
 
-#### Comment ça marche ?
+#### 🎯 Le nouveau flux avec questionnaire
 
-1. **Posez votre question** en langage naturel
-2. Le système **analyse votre intention**
-3. Il **trouve l'agent adapté** ou en **crée un nouveau** si nécessaire
-4. L'agent **exécute la tâche** et retourne la réponse
+1. **Décrivez votre idée** en langage naturel
+   ```
+   "Créer un jeu de snake"
+   "Afficher un graphique de mes ventes"
+   "Faire un calculateur scientifique"
+   ```
 
-#### Exemples d'utilisation
+2. **Répondez aux questions de clarification**
+   - Le système vous pose 3-5 questions contextuelles
+   - Questions sur le style visuel, les fonctionnalités, le niveau de complexité
+   - Vous pouvez répondre ou utiliser les valeurs par défaut
+
+3. **Génération automatique optimisée**
+   - Votre requête est enrichie avec vos réponses
+   - Les instructions de présentation HTML/CSS/JS sont générées automatiquement
+   - L'agent approprié est sélectionné ou créé
+
+4. **Résultat : Une page web interactive**
+   - Application HTML/CSS/JavaScript complète
+   - Design moderne et responsive
+   - Prête à être utilisée ou sauvegardée comme démo
+
+#### Exemples de créations réelles (démos disponibles)
+
+##### 🎮 Jeux rétro interactifs
+- **[Tetris](/demos/tetris)** - Version moderne avec histoire du jeu et démo jouable
+- **[Space Invaders](/demos/spaceinvaders)** - Page nostalgique avec démo moderne en P5.js
+- **Raycasting 3D** - Explication pédagogique avec démo interactive de moteur 3D
+
+##### 🧮 Outils mathématiques
+- **[Calculatrice scientifique](/demos/calculatrice)** - Design dark mode avec fonctions avancées
+  - Trigonométrie (sin, cos, tan, asin, acos, atan)
+  - Fonctions hyperboliques
+  - Mode degrés/radians
+  - Mémoire intégrée
+
+##### 📚 Pages éducatives
+- **Histoire du gaming** - Articles interactifs avec démos intégrées
+- **Concepts informatiques** - Visualisations de concepts comme le raycasting
+- **Tutoriels interactifs** - Apprendre en jouant
+
+##### 🎨 Créations possibles
+- **Générateurs d'art** - Fractales, patterns génératifs
+- **Dashboards de données** - Graphiques temps réel avec Chart.js
+- **Mini-applications** - Chronomètres, convertisseurs, todo-lists
+- **Animations créatives** - Effets visuels, particules, physics engines
+
+#### 📸 Sauvegarde et partage de vos créations
+
+Après avoir créé quelque chose avec Meta Chat, vous pouvez :
+1. **Sauvegarder comme démo** - Conserve votre création avec toutes les métadonnées
+2. **Partager via URL unique** - Chaque démo a son endpoint : `/demos/nom-de-votre-demo`
+3. **Voir toutes les démos** - Via l'API : `GET /demos`
+
+Les démos sauvegardent automatiquement :
+- La requête originale et la requête enrichie
+- Les instructions de présentation générées
+- L'agent utilisé et ses détails
+- Le code HTML/CSS/JS complet
+
+#### Exemple d'utilisation simple
 
 ```bash
-# Demander la météo (trouvera ou créera un agent météo)
-curl -X POST http://localhost:8000/meta-chat/query \
+# 1. Première requête - Le système génère un questionnaire
+curl -X POST http://localhost:8000/meta-chat/clarify \
   -H "Content-Type: application/json" \
   -d '{
-    "message": "Quel temps fait-il à Paris ?",
+    "message": "créer un jeu de memory avec des cartes",
     "llm_profile": "gpt-4"
   }'
 
-# Faire des calculs (utilisera un agent calculatrice)
-curl -X POST http://localhost:8000/meta-chat/query \
+# 2. Réponse avec vos préférences au questionnaire
+curl -X POST http://localhost:8000/meta-chat/process-clarifications \
   -H "Content-Type: application/json" \
   -d '{
-    "message": "Calcule 25% de 180 euros",
-    "llm_profile": "gpt-4"
-  }'
-
-# Demande complexe (créera un agent spécialisé si besoin)
-curl -X POST http://localhost:8000/meta-chat/query \
-  -H "Content-Type: application/json" \
-  -d '{
-    "message": "Analyse les performances de mon site web example.com",
-    "llm_profile": "gpt-4"
+    "session_id": "xxx-xxx-xxx",
+    "answers": {
+      "difficulty": "Moyen",
+      "theme": "Animaux",
+      "style": "Moderne"
+    }
   }'
 ```
 
@@ -330,9 +385,20 @@ Les profils LLM peuvent être configurés via l'interface ou l'API :
 - `GET /chat/history` - Historique des conversations
 
 ### Meta Chat
-- `POST /meta-chat/query` - Envoyer une requête au système intelligent
-  - Body: `{"message": "votre question", "llm_profile": "nom_profil"}`
-  - Response: Réponse formatée avec agent utilisé/créé
+- `POST /meta-chat/clarify` - Générer un questionnaire de clarification
+  - Body: `{"message": "votre idée", "llm_profile": "nom_profil"}`
+  - Response: Questionnaire avec questions contextuelles
+- `POST /meta-chat/process-clarifications` - Traiter les réponses et générer le résultat
+  - Body: `{"session_id": "xxx", "answers": {"q1": "réponse1", ...}}`
+  - Response: Page HTML/CSS/JS interactive complète
+- `POST /meta-chat/query` - Ancien endpoint direct (déprécié)
+  - Préférez utiliser le flux clarify → process-clarifications
+
+### Demos
+- `GET /demos` - Liste toutes les démos sauvegardées
+- `GET /demos/{name}` - Accéder à une démo spécifique
+- `POST /demos` - Créer une nouvelle démo
+- `DELETE /demos/{id}` - Supprimer une démo
 
 ## 🛠️ Commandes Make
 
@@ -403,10 +469,6 @@ Les contributions sont les bienvenues !
 - Mettre à jour la documentation
 - Utiliser des messages de commit descriptifs
 
-## 📄 License
-
-Ce projet est sous licence MIT - voir le fichier [LICENSE](LICENSE) pour plus de détails.
-
 ## 🔗 Ressources
 
 - [Model Context Protocol](https://modelcontextprotocol.io) - Spécification MCP
@@ -415,6 +477,26 @@ Ce projet est sous licence MIT - voir le fichier [LICENSE](LICENSE) pour plus de
 - [React](https://reactjs.org) - Framework UI
 - [Ant Design](https://ant.design) - Composants UI
 - [MongoDB](https://www.mongodb.com) - Base de données
+
+## 📄 Licence
+
+UXMCP est distribué sous une **double licence** :
+
+### 🎓 Usage Personnel et Recherche - MIT License
+- ✅ **GRATUIT** pour usage personnel
+- ✅ **GRATUIT** pour la recherche académique
+- ✅ **GRATUIT** pour l'éducation
+- ✅ **GRATUIT** pour les projets open source
+
+### 💼 Usage Commercial - Licence Commerciale
+- 💰 **PAYANT** pour les entreprises
+- 💰 **PAYANT** pour usage commercial
+- 💰 **PAYANT** pour les produits/services générant des revenus
+- 📧 Contactez-nous pour obtenir une licence commerciale
+
+Pour plus de détails, consultez :
+- [LICENSE](LICENSE) - Texte complet des licences
+- [LICENSE-COMMERCIAL.md](LICENSE-COMMERCIAL.md) - Détails de la licence commerciale
 
 ## 🙏 Remerciements
 
@@ -426,4 +508,6 @@ Ce projet est sous licence MIT - voir le fichier [LICENSE](LICENSE) pour plus de
 
 <div align="center">
 Made with ❤️ by the UXMCP Team
+
+**Usage personnel/recherche : MIT License | Usage commercial : Licence requise**
 </div>

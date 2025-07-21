@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Input, Select, Button, Card, Spin, message, Empty, Modal, Rate, Form } from 'antd';
 import { SendOutlined, RobotOutlined, SettingOutlined, FullscreenOutlined, FullscreenExitOutlined, CloseOutlined, LikeOutlined, DislikeOutlined } from '@ant-design/icons';
 import { llmApi, feedbackApi, demosApi } from '../services/api';
+import Questionnaire from './Questionnaire';
 import './MetaChat.css';
 
 const { Option } = Select;
@@ -24,6 +25,11 @@ const MetaChat = () => {
   const [sessionData, setSessionData] = useState(null);
   const [demoFormVisible, setDemoFormVisible] = useState(false);
   const [demoForm] = Form.useForm();
+  
+  // New states for questionnaire flow
+  const [questionnaire, setQuestionnaire] = useState(null);
+  const [questionnaireVisible, setQuestionnaireVisible] = useState(false);
+  const [processingClarifications, setProcessingClarifications] = useState(false);
   const iframeRef = useRef(null);
 
   useEffect(() => {
@@ -80,52 +86,32 @@ const MetaChat = () => {
     }
 
     setLoading(true);
-    setHtmlContent('');
     setCurrentQuery(query);
-    setModalVisible(true);
-    setShowFeedback(false);
 
     try {
-      const requestBody = {
-        message: query,
-        llm_profile: llmProfile
-      };
-      
-      // Add instruct field if provided
-      if (instruct.trim()) {
-        requestBody.instruct = `Custom Presentation Instructions:
-${instruct}`;
-      }
-      
-      const response = await fetch('http://localhost:8000/meta-chat/query', {
+      // Step 1: Generate clarification questionnaire
+      const clarifyResponse = await fetch('http://localhost:8000/meta-chat/clarify', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(requestBody)
+        body: JSON.stringify({
+          message: query,
+          llm_profile: llmProfile
+        })
       });
 
-      const data = await response.json();
+      const clarifyData = await clarifyResponse.json();
 
-      if (data.success && data.html_response) {
-        setHtmlContent(data.html_response);
-        // Store session data for feedback
-        setSessionData({
-          session_id: data.session_id,
-          user_message: query,
-          custom_instructions: instruct.trim() || null,
-          original_request: query,
-          agent_used: data.agent_used || 'direct',
-          agent_response: data.response_data,
-          final_html_response: data.html_response
-        });
-      } else if (data.error) {
-        message.error(data.error);
+      if (clarifyData.session_id && clarifyData.questions) {
+        // Show questionnaire modal
+        setQuestionnaire(clarifyData);
+        setQuestionnaireVisible(true);
       } else {
-        message.error('No visualization generated');
+        message.error('Failed to generate clarification questions');
       }
     } catch (error) {
-      message.error('Failed to process query');
+      message.error('Failed to generate questionnaire');
     } finally {
       setLoading(false);
     }
@@ -136,6 +122,65 @@ ${instruct}`;
       e.preventDefault();
       handleSubmit();
     }
+  };
+
+  const handleQuestionnaireSubmit = async (answers) => {
+    setProcessingClarifications(true);
+    setQuestionnaireVisible(false);
+    setModalVisible(true);
+    setHtmlContent('');
+    setShowFeedback(false);
+
+    try {
+      // Step 2: Process clarifications and get final response
+      const processResponse = await fetch('http://localhost:8000/meta-chat/process-clarifications', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          session_id: questionnaire.session_id,
+          answers: answers
+        })
+      });
+
+      const data = await processResponse.json();
+
+      if (data.success && data.html_response) {
+        setHtmlContent(data.html_response);
+        // Store session data for feedback
+        setSessionData({
+          session_id: data.session_id,
+          user_message: currentQuery,
+          questionnaire_answers: answers,
+          original_request: currentQuery,
+          agent_used: data.agent_used || 'direct',
+          agent_response: data.response_data,
+          final_html_response: data.html_response,
+          // New fields from metadata
+          enhanced_message: data.metadata?.enhanced_message,
+          auto_instruct: data.metadata?.auto_instruct,
+          agent_details: data.metadata?.agent_details
+        });
+        setShowFeedback(true);
+      } else if (data.error) {
+        message.error(data.error);
+        setModalVisible(false);
+      } else {
+        message.error('No visualization generated');
+        setModalVisible(false);
+      }
+    } catch (error) {
+      message.error('Failed to process clarifications');
+      setModalVisible(false);
+    } finally {
+      setProcessingClarifications(false);
+    }
+  };
+
+  const handleQuestionnaireCancel = () => {
+    setQuestionnaireVisible(false);
+    setQuestionnaire(null);
   };
 
   const toggleFullscreen = () => {
@@ -205,6 +250,9 @@ ${instruct}`;
     setInstruct('');
     setSessionData(null);
     setFeedbackText('');
+    setQuestionnaire(null);
+    setQuestionnaireVisible(false);
+    setProcessingClarifications(false);
     demoForm.resetFields();
   };
 
@@ -230,7 +278,12 @@ ${instruct}`;
         instructions: sessionData.custom_instructions || null,
         description: values.description,
         html_content: htmlContent,
-        session_id: sessionData.session_id || 'unknown'
+        session_id: sessionData.session_id || 'unknown',
+        // Add enhanced fields from clarifications
+        enhanced_message: sessionData.enhanced_message || null,
+        auto_instruct: sessionData.auto_instruct || null,
+        agent_used: sessionData.agent_used || null,
+        agent_details: sessionData.agent_details || null
       };
       
       console.log('Saving demo with data:', demoData);
@@ -300,32 +353,8 @@ ${instruct}`;
               loading={loading}
               className="send-button"
             >
-              Send
+              {loading ? 'Generating questions...' : 'Send'}
             </Button>
-          </div>
-          
-          {/* Advanced Options */}
-          <div className="advanced-section">
-            <button
-              className="advanced-toggle"
-              onClick={() => setShowAdvanced(!showAdvanced)}
-              type="button"
-            >
-              <SettingOutlined /> Advanced options
-            </button>
-            
-            {showAdvanced && (
-              <div className="advanced-content">
-                <TextArea
-                  value={instruct}
-                  onChange={(e) => setInstruct(e.target.value)}
-                  placeholder="Enter custom presentation instructions (optional)...
-Example: 'Use a dark theme with neon colors' or 'Create a minimalist design with large typography'"
-                  rows={3}
-                  className="instruct-textarea"
-                />
-              </div>
-            )}
           </div>
         </div>
       </div>
@@ -397,9 +426,9 @@ Example: 'Use a dark theme with neon colors' or 'Create a minimalist design with
         }
         footer={null}
       >
-        {loading ? (
+        {(loading || processingClarifications) ? (
           <div className="modal-loading">
-            <Spin size="large" tip="Processing your request..." />
+            <Spin size="large" tip={processingClarifications ? "Processing clarifications and generating response..." : "Processing your request..."} />
           </div>
         ) : (
           htmlContent && (
@@ -491,6 +520,15 @@ Example: 'Use a dark theme with neon colors' or 'Create a minimalist design with
           </div>
         </Form>
       </Modal>
+
+      {/* Questionnaire Modal */}
+      <Questionnaire
+        visible={questionnaireVisible}
+        questionnaire={questionnaire}
+        onSubmit={handleQuestionnaireSubmit}
+        onCancel={handleQuestionnaireCancel}
+        loading={processingClarifications}
+      />
     </div>
   );
 };
