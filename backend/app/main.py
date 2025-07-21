@@ -6,7 +6,7 @@ from app.core.config import get_settings
 from app.core.database import connect_to_mongo, close_mongo_connection
 from app.core.dynamic_router import mount_all_active_services
 from app.core.mcp_manager import mcp_manager
-from app.api import services, llms, docs, chat, mcp_debug, logs, agents, agent, agent_memory, meta_agent, meta_chat, feedback
+from app.api import services, llms, docs, chat, mcp_debug, logs, agents, agent, agent_memory, meta_agent, meta_chat, feedback, demos
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -80,6 +80,7 @@ app.include_router(agent_memory.router, prefix="/agents", tags=["Agent Memory"])
 app.include_router(meta_agent.router, prefix="/meta-agent", tags=["Meta Agent"])
 app.include_router(meta_chat.router, prefix="/meta-chat", tags=["Meta Chat"])
 app.include_router(feedback.router, prefix="/feedback", tags=["Feedback"])
+app.include_router(demos.router, prefix="/demos", tags=["Demos"])
 
 # Mount MCP server
 mcp_server = mcp_manager.get_mcp_server()

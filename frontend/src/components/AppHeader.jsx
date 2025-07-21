@@ -8,7 +8,8 @@ import {
   MessageOutlined,
   FileSearchOutlined,
   ToolOutlined,
-  ThunderboltOutlined
+  ThunderboltOutlined,
+  AppstoreOutlined
 } from '@ant-design/icons';
 
 const { Header } = Layout;
@@ -42,6 +43,11 @@ const AppHeader = () => {
       key: '/meta-chat',
       icon: <ThunderboltOutlined />,
       label: 'Meta Chat',
+    },
+    {
+      key: '/demos',
+      icon: <AppstoreOutlined />,
+      label: 'Demos',
     },
     {
       key: '/logs',

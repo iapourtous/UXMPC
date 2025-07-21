@@ -1,81 +1,66 @@
-Create a beautiful, interactive HTML page to display this response.
+→ AVAILABLE VARIABLES
+{original_question}   : the user’s original question
+{response_data}       : the data / text that must be displayed
+{intent_type}         : the response type (game, weather, calc, data, error…)
+{custom_instruct}     : (optional) presentation instructions that OVERRIDE defaults
 
-Original Question: {original_question}
-Response Data: {response_data}
-Response Type: {intent_type}
-{custom_instruct}
-Create a COMPLETE HTML page with embedded CSS and JavaScript. The page should be:
-1. Visually appealing and modern
-2. Responsive and mobile-friendly
-3. Interactive where appropriate
-4. Easy to read and understand
+────────────────────────────────────────
+1. MAIN GOAL
+Generate and return **ONE** complete HTML file (from `<!DOCTYPE html>` to `</html>`)
+with all CSS inside a `<style>` block and all JavaScript inside a `<script>` block.
 
-IMPORTANT: If custom presentation instructions are provided above, they take PRIORITY over the default guidelines below. Apply the custom instructions first, then use the default guidelines to fill in any gaps.
+────────────────────────────────────────
+2. CONTEXT DETECTION & LIBRARY SELECTION
 
-Style Guidelines based on content type:
+Inspect {intent_type} (and, if helpful, {original_question}) to
+**automatically** pick the most suitable library:
 
-FOR GAME IMPLEMENTATIONS (Tetris, Snake, Pong, etc.):
-- USE p5.js library by including: <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.7.0/p5.min.js"></script>
-- Create a playable game using p5.js canvas
-- Include game controls instructions (keyboard/mouse)
-- Add score display and game state (playing/paused/game over)
-- Use retro styling with pixel fonts if appropriate
-- Implement smooth animations and collision detection
-- Add sound effects using p5.js sound capabilities if needed
-- Make the canvas responsive to window size
-- Include start/pause/restart buttons
+| Detected context                                   | Library to include (`<script>` tag)                                     |
+|----------------------------------------------------|-------------------------------------------------------------------------|
+| Simple / mini‑arcade 2D game (Snake, Pong…)        | **Kaboom.js**  `https://unpkg.com/kaboom/dist/kaboom.mjs`               |
+| 2D game with lightweight scene/state management    | **Kontra.js**  `https://unpkg.com/kontra/kontra.min.js`                 |
+| Larger 2D game (multi‑scene, mobile‑ready)         | **Phaser 4**  `https://cdn.jsdelivr.net/npm/phaser@4/dist/phaser.js`    |
+| Graphics / particles without heavy gameplay        | **PixiJS**  `https://cdnjs.cloudflare.com/ajax/libs/pixi.js/8.1.1/pixi.min.js` |
+| Creative coding, sound, webcam, quick sketches     | **p5.js**  `https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.7.0/p5.min.js` |
+| **3D scene or lightweight 3D toy** (cube demo, orbit controls) | **three.js**  `https://cdnjs.cloudflare.com/ajax/libs/three.js/r155/three.min.js` |
+| **Full 3D game / physics / advanced GUI**          | **Babylon.js**  `https://cdn.babylonjs.com/babylon.js`                  |
+| Data visualisation (charts, graphs)                | **D3.js**  `https://d3js.org/d3.v7.min.js`                              |
+| Ultra‑minimal need (a few 2D shapes only)          | No library → use native Canvas 2D with vanilla JS                        |
 
-FOR WEATHER RESPONSES:
-- Use weather icons (you can use emoji or create SVG)
-- Show temperature prominently with large, readable fonts
-- Use colors that match the weather (blue for cold, orange for warm, grey for cloudy)
-- Add subtle animations (like floating clouds or pulsing sun)
-- Include all weather details in cards or sections
+⚠️ If {custom_instruct} specifies a particular choice, **obey it** over the auto rules.
 
-FOR CALCULATIONS:
-- Display the calculation process step by step
-- Use large, clear typography for numbers
-- Add a calculator-style interface if appropriate
-- Use animations to show the calculation happening
+────────────────────────────────────────
+3. UNIVERSAL RENDERING RULES
 
-FOR DATA/INFORMATION:
-- Use cards, sections, or accordions for different pieces of information
-- Include icons or emojis to make it more visual
-- Add smooth transitions and hover effects
-- Use a clean, professional layout
+- Page must be **responsive** (Flexbox or CSS Grid, no horizontal scroll).
+- Use a harmonious colour palette, readable fonts, generous spacing.
+- Smooth, subtle transitions / animations.
+- If interactive, briefly list the controls (keyboard / mouse / touch).
 
-FOR ERRORS:
-- Use friendly error messages with helpful icons
-- Suggest alternatives or next steps
-- Keep the tone positive and helpful
+────────────────────────────────────────
+4. SPECIFIC STYLES & BEHAVIOURS (apply when relevant)
 
-General Requirements:
-- Use modern CSS (flexbox, grid, gradients, shadows)
-- Add smooth transitions and subtle animations
-- Include hover effects where appropriate
-- Make it feel premium and polished
-- Use a cohesive color scheme
-- Add a subtle background pattern or gradient
+GAME:  
+• Implement game loop and states (start, play, pause, game‑over).  
+• Controls: arrow keys **and** WASD (do **not** call `preventDefault()`).  
+• Show score / HUD.
 
-SPECIAL INSTRUCTIONS FOR GAMES:
-When the response mentions creating a game (like Tetris, Snake, Pong, etc.), you MUST:
-1. Include p5.js library in the HTML head
-2. Create a fully functional, playable game
-3. Use the p5.js setup() and draw() functions
-4. Implement proper game mechanics and physics
-5. Add keyboard/mouse controls with on-screen instructions
-6. Include score tracking and display
-7. Add game states (start screen, playing, game over)
-8. Make it fun and engaging!
+WEATHER:  
+• Icons or emoji, large temperature display, colours matching conditions.
 
-IMPORTANT FOR KEYBOARD CONTROLS:
-If your game or interactive demo uses arrow keys or other keyboard controls:
-- The parent modal already handles preventing page scroll, so DO NOT add preventDefault() in your code
-- Focus on implementing smooth and responsive keyboard controls
-- For p5.js games, use the built-in keyPressed() and keyIsDown() functions
-- Ensure proper game speed control (not running at 60 FPS) for playability
-- Add clear visual feedback when keys are pressed
-- Consider adding both arrow keys and WASD support for better accessibility
+CALCULATION:  
+• Display step‑by‑step workings, large typography for numbers.
 
-Return ONLY the complete HTML code starting with <!DOCTYPE html> and ending with </html>.
-Include ALL CSS in <style> tags and ALL JavaScript in <script> tags within the HTML.
+DATA / INFO:  
+• Use cards, accordions, or clear tables, add decorative icons.
+
+ERROR:  
+• Friendly message, suggest next steps, keep a positive tone.
+
+────────────────────────────────────────
+5. DELIVERABLE
+
+Respond **only** with the final HTML code — no extra commentary.
+The document should run as‑is when saved to a `.html` file.
+
+########################################

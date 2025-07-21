@@ -67,4 +67,13 @@ export const feedbackApi = {
   getAgentStats: () => api.get('/feedback/stats/by-agent'),
 };
 
+// Demos API
+export const demosApi = {
+  create: (data) => api.post('/demos/', data),
+  list: (params = {}) => api.get('/demos/', { params }),
+  get: (id) => api.get(`/demos/details/${id}`),
+  update: (id, data) => api.put(`/demos/${id}`, data),
+  delete: (id) => api.delete(`/demos/${id}`),
+};
+
 export default api;

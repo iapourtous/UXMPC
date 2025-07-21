@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Input, Select, Button, Card, Spin, message, Empty, Modal, Rate } from 'antd';
+import { Input, Select, Button, Card, Spin, message, Empty, Modal, Rate, Form } from 'antd';
 import { SendOutlined, RobotOutlined, SettingOutlined, FullscreenOutlined, FullscreenExitOutlined, CloseOutlined, LikeOutlined, DislikeOutlined } from '@ant-design/icons';
-import { llmApi, feedbackApi } from '../services/api';
+import { llmApi, feedbackApi, demosApi } from '../services/api';
 import './MetaChat.css';
 
 const { Option } = Select;
@@ -22,6 +22,8 @@ const MetaChat = () => {
   const [feedbackModalVisible, setFeedbackModalVisible] = useState(false);
   const [feedbackText, setFeedbackText] = useState('');
   const [sessionData, setSessionData] = useState(null);
+  const [demoFormVisible, setDemoFormVisible] = useState(false);
+  const [demoForm] = Form.useForm();
   const iframeRef = useRef(null);
 
   useEffect(() => {
@@ -151,19 +153,29 @@ ${instruct}`;
 
   const handleFeedback = async (rating) => {
     if (rating === 'positive') {
-      // Submit positive feedback
-      try {
-        await feedbackApi.create({
-          ...sessionData,
-          rating: 'positive',
-          feedback_text: null
-        });
-        message.success('Thank you for your feedback!');
-      } catch (error) {
-        console.error('Failed to submit feedback:', error);
-      }
-      // Reset for new query
-      resetForNewQuery();
+      // Ask if user wants to save as demo
+      Modal.confirm({
+        title: 'Save as demo?',
+        content: 'Would you like to save this response as an interactive demo?',
+        onOk: () => {
+          // Show demo form
+          setDemoFormVisible(true);
+        },
+        onCancel: async () => {
+          // Just submit positive feedback
+          try {
+            await feedbackApi.create({
+              ...sessionData,
+              rating: 'positive',
+              feedback_text: null
+            });
+            message.success('Thank you for your feedback!');
+          } catch (error) {
+            console.error('Failed to submit feedback:', error);
+          }
+          resetForNewQuery();
+        }
+      });
     } else {
       // Show feedback form for negative rating
       setFeedbackModalVisible(true);
@@ -193,6 +205,57 @@ ${instruct}`;
     setInstruct('');
     setSessionData(null);
     setFeedbackText('');
+    demoForm.resetFields();
+  };
+
+  const handleSaveDemo = async () => {
+    try {
+      const values = await demoForm.validateFields();
+      
+      // Ensure we have all required data
+      if (!htmlContent) {
+        message.error('No HTML content to save');
+        return;
+      }
+      
+      if (!sessionData) {
+        message.error('Session data not available');
+        return;
+      }
+      
+      // Create demo with the HTML content and metadata
+      const demoData = {
+        name: values.name.toLowerCase().replace(/\s+/g, '-'),
+        query: currentQuery,
+        instructions: sessionData.custom_instructions || null,
+        description: values.description,
+        html_content: htmlContent,
+        session_id: sessionData.session_id || 'unknown'
+      };
+      
+      console.log('Saving demo with data:', demoData);
+      
+      await demosApi.create(demoData);
+      
+      // Also submit positive feedback
+      await feedbackApi.create({
+        ...sessionData,
+        rating: 'positive',
+        feedback_text: null
+      });
+      
+      message.success('Demo saved successfully!');
+      setDemoFormVisible(false);
+      resetForNewQuery();
+    } catch (error) {
+      console.error('Failed to save demo:', error);
+      console.error('Error response:', error.response?.data);
+      if (error.response?.data?.detail) {
+        message.error(`Failed to save demo: ${error.response.data.detail}`);
+      } else {
+        message.error('Failed to save demo');
+      }
+    }
   };
 
   return (
@@ -377,6 +440,56 @@ Example: 'Use a dark theme with neon colors' or 'Create a minimalist design with
             autoFocus
           />
         </div>
+      </Modal>
+
+      {/* Demo Save Modal */}
+      <Modal
+        title="Save as Interactive Demo"
+        visible={demoFormVisible}
+        onOk={handleSaveDemo}
+        onCancel={() => setDemoFormVisible(false)}
+        okText="Save Demo"
+        width={500}
+      >
+        <Form
+          form={demoForm}
+          layout="vertical"
+          initialValues={{
+            name: '',
+            description: ''
+          }}
+        >
+          <Form.Item
+            label="Demo Name (URL-friendly)"
+            name="name"
+            rules={[
+              { required: true, message: 'Please enter a name' },
+              { pattern: /^[a-zA-Z0-9-\s]+$/, message: 'Only letters, numbers, hyphens and spaces allowed' },
+              { min: 3, message: 'Name must be at least 3 characters' },
+              { max: 50, message: 'Name must be less than 50 characters' }
+            ]}
+          >
+            <Input placeholder="e.g., snake-game" />
+          </Form.Item>
+          
+          <Form.Item
+            label="Description"
+            name="description"
+            rules={[
+              { required: true, message: 'Please enter a description' },
+              { max: 200, message: 'Description must be less than 200 characters' }
+            ]}
+          >
+            <TextArea 
+              placeholder="Brief description of what this demo does..."
+              rows={3}
+            />
+          </Form.Item>
+          
+          <div style={{ marginTop: 16, color: '#666' }}>
+            <small>The demo will be accessible at: http://localhost:8000/demos/{demoForm.getFieldValue('name')?.toLowerCase().replace(/\s+/g, '-') || 'your-demo-name'}</small>
+          </div>
+        </Form>
       </Modal>
     </div>
   );

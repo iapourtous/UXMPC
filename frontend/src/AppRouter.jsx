@@ -17,6 +17,7 @@ import ChatAntd from './components/ChatAntd';
 import AgentServiceCreator from './components/AgentServiceCreator';
 import MetaAgentCreator from './components/MetaAgentCreator';
 import MetaChat from './components/MetaChat';
+import DemoList from './components/DemoList';
 
 const { Content } = Layout;
 
@@ -54,6 +55,9 @@ function AppRouter() {
             {/* Chat Routes */}
             <Route path="/chat" element={<ChatAntd />} />
             <Route path="/meta-chat" element={<MetaChat />} />
+            
+            {/* Demos Routes */}
+            <Route path="/demos" element={<DemoList />} />
             
             {/* 404 Route */}
             <Route path="*" element={<Navigate to="/agents" replace />} />
