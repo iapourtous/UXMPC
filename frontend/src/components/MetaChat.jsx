@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Input, Select, Button, Card, Spin, message, Empty, Modal, Rate, Form } from 'antd';
-import { SendOutlined, RobotOutlined, SettingOutlined, FullscreenOutlined, FullscreenExitOutlined, CloseOutlined, LikeOutlined, DislikeOutlined, ExperimentOutlined } from '@ant-design/icons';
+import { SendOutlined, RobotOutlined, SettingOutlined, FullscreenOutlined, FullscreenExitOutlined, CloseOutlined, LikeOutlined, DislikeOutlined } from '@ant-design/icons';
 import { llmApi, feedbackApi, demosApi } from '../services/api';
 import './MetaChat.css';
 
@@ -24,7 +24,6 @@ const MetaChat = () => {
   const [sessionData, setSessionData] = useState(null);
   const [demoFormVisible, setDemoFormVisible] = useState(false);
   const [demoForm] = Form.useForm();
-  const [enhancing, setEnhancing] = useState(false);
   const iframeRef = useRef(null);
 
   useEffect(() => {
@@ -87,15 +86,42 @@ const MetaChat = () => {
     setShowFeedback(false);
 
     try {
+      // Step 1: Enhance the query and instructions
+      message.loading('Enhancing your query...', 1);
+      
+      const enhanceResponse = await fetch('http://localhost:8000/meta-chat/enhance', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          query: query,
+          instructions: instruct || null,
+          llm_profile: llmProfile
+        })
+      });
+
+      if (!enhanceResponse.ok) {
+        throw new Error('Failed to enhance query');
+      }
+
+      const enhancedData = await enhanceResponse.json();
+      
+      // Use enhanced values or fallback to original
+      const enhancedQuery = enhancedData.enhanced_query || query;
+      const enhancedInstructions = enhancedData.enhanced_instructions || instruct;
+      
+      // Step 2: Process the enhanced query
+      message.loading('Processing request...', 0);
+      
       const requestBody = {
-        message: query,
+        message: enhancedQuery,
         llm_profile: llmProfile
       };
       
-      // Add instruct field if provided
-      if (instruct.trim()) {
-        requestBody.instruct = `Custom Presentation Instructions:
-${instruct}`;
+      // Add enhanced instructions if available
+      if (enhancedInstructions && enhancedInstructions.trim()) {
+        requestBody.instruct = enhancedInstructions;
       }
       
       const response = await fetch('http://localhost:8000/meta-chat/query', {
@@ -116,10 +142,13 @@ ${instruct}`;
           user_message: query,
           custom_instructions: instruct.trim() || null,
           original_request: query,
+          enhanced_query: enhancedQuery,
+          enhanced_instructions: enhancedInstructions,
           agent_used: data.agent_used || 'direct',
           agent_response: data.response_data,
           final_html_response: data.html_response
         });
+        message.destroy(); // Remove loading message
       } else if (data.error) {
         message.error(data.error);
       } else {
@@ -139,61 +168,6 @@ ${instruct}`;
     }
   };
 
-  const handleEnhance = async () => {
-    if (!query.trim() || !llmProfile) {
-      return;
-    }
-
-    setEnhancing(true);
-    
-    try {
-      const response = await fetch('http://localhost:8000/meta-chat/enhance', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          query: query,
-          instructions: instruct || null,
-          llm_profile: llmProfile
-        })
-      });
-
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-
-      const data = await response.json();
-      
-      console.log('Enhancement response:', data);
-      console.log('Current query:', query);
-      console.log('Current instruct:', instruct);
-
-      // Update query and instructions with enhanced versions
-      // Force update by creating new string instances
-      setQuery(String(data.enhanced_query || ''));
-      setInstruct(String(data.enhanced_instructions || ''));
-      
-      // Show advanced options if we have enhanced instructions
-      if (data.enhanced_instructions && !showAdvanced) {
-        setShowAdvanced(true);
-      }
-
-      // Show a success message with details
-      message.success('Query and instructions enhanced!', 2);
-      
-      // Log enhanced values
-      console.log('Enhanced query:', data.enhanced_query);
-      console.log('Enhanced instructions:', data.enhanced_instructions);
-      console.log('Suggested sources:', data.suggested_sources);
-      
-    } catch (error) {
-      console.error('Enhancement error:', error);
-      message.error('Failed to enhance query');
-    } finally {
-      setEnhancing(false);
-    }
-  };
 
   const toggleFullscreen = () => {
     setIsFullscreen(!isFullscreen);
@@ -349,17 +323,6 @@ ${instruct}`;
                 </Option>
               ))}
             </Select>
-            
-            <Button
-              icon={<ExperimentOutlined />}
-              onClick={handleEnhance}
-              loading={enhancing}
-              disabled={loading || !query.trim() || !llmProfile}
-              className="enhance-button"
-              title="Enhance query and instructions with AI"
-            >
-              Magic
-            </Button>
             
             <Button
               type="primary"

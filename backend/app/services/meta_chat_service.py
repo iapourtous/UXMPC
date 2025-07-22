@@ -465,17 +465,49 @@ For example, if user asks for "weather and news", create an agent that can fetch
             "agent_used": agent_name or "direct"
         }
         
-        prompt = load_prompt(
-            "meta_chat/html_visualization",
+        # Step 1: Create implementation plan
+        logger.info("Creating HTML implementation plan...")
+        planning_prompt = load_prompt(
+            "meta_chat/html_planning",
             original_question=context["original_question"],
             response_data=context["response_data"],
             intent_type=context["intent_type"],
             custom_instruct=custom_instruct or ""
         )
-
-        # Generate initial HTML
-        logger.info(f"Calling LLM for HTML generation... Prompt length: {len(prompt)} chars")
-        response = await self._call_llm(prompt)
+        
+        plan_response = await self._call_llm(planning_prompt)
+        
+        if not plan_response:
+            logger.warning("No plan generated, falling back to direct generation")
+            # Fallback to original approach
+            prompt = load_prompt(
+                "meta_chat/html_visualization",
+                original_question=context["original_question"],
+                response_data=context["response_data"],
+                intent_type=context["intent_type"],
+                custom_instruct=custom_instruct or ""
+            )
+            response = await self._call_llm(prompt)
+        else:
+            # Step 2: Generate HTML based on plan
+            logger.info("Generating HTML based on implementation plan...")
+            
+            # Extract JSON plan
+            try:
+                plan_data = json.loads(plan_response)
+                logger.info(f"Plan created with theme: {plan_data.get('visual_design', {}).get('theme', 'unknown')}")
+            except:
+                plan_data = plan_response
+            
+            implementation_prompt = load_prompt(
+                "meta_chat/html_implementation",
+                original_question=context["original_question"],
+                response_data=context["response_data"],
+                implementation_plan=json.dumps(plan_data, indent=2) if isinstance(plan_data, dict) else plan_response,
+                custom_instruct=custom_instruct or ""
+            )
+            
+            response = await self._call_llm(implementation_prompt)
         
         if not response:
             logger.error(f"LLM returned empty response for HTML generation. Context: {context['intent_type']}, Agent: {context['agent_used']}")
