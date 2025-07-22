@@ -7,7 +7,7 @@ Simple endpoint for the meta-chat system
 from fastapi import APIRouter, HTTPException
 import logging
 
-from app.models.meta_chat import MetaChatRequest, MetaChatResponse
+from app.models.meta_chat import MetaChatRequest, MetaChatResponse, EnhanceRequest, EnhanceResponse
 from app.services.meta_chat_service import create_meta_chat
 
 router = APIRouter()
@@ -42,4 +42,34 @@ async def query_meta_chat(request: MetaChatRequest):
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
         logger.error(f"Meta-chat error: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Internal error: {str(e)}")
+
+
+@router.post("/enhance", response_model=EnhanceResponse)
+async def enhance_request(request: EnhanceRequest):
+    """
+    Enhance a user query and instructions for better results
+    
+    This endpoint:
+    1. Transforms vague queries into precise requests with data source suggestions
+    2. Enhances presentation instructions for optimal HTML generation
+    3. Suggests appropriate data sources for the query
+    """
+    try:
+        logger.info(f"Enhancing query: {request.query[:100]}...")
+        
+        # Create meta chat service
+        meta_chat = await create_meta_chat(request.llm_profile)
+        
+        # Enhance the request
+        enhanced = await meta_chat.enhance_request(request.query, request.instructions)
+        
+        logger.info(f"Enhancement complete: type={enhanced.get('query_type')}")
+        
+        return EnhanceResponse(**enhanced)
+        
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        logger.error(f"Enhancement error: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Internal error: {str(e)}")

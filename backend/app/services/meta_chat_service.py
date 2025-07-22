@@ -540,6 +540,58 @@ Return only the corrected HTML code."""
         
         return html_content
     
+    async def enhance_request(self, query: str, instructions: Optional[str] = None) -> Dict[str, Any]:
+        """Enhance user query and instructions for better results"""
+        try:
+            # Load the enhancement prompt
+            prompt = load_prompt(
+                "meta_chat/enhance_request",
+                query=query,
+                instructions=instructions or ""
+            )
+            
+            # Call LLM to enhance the request
+            response = await self._call_llm(prompt)
+            
+            if not response:
+                logger.error("No response from LLM for request enhancement")
+                return {
+                    "enhanced_query": query,
+                    "enhanced_instructions": instructions or "",
+                    "suggested_sources": [],
+                    "query_type": "general"
+                }
+            
+            try:
+                # Parse the JSON response
+                enhanced_data = json.loads(response)
+                
+                # Validate the response structure
+                if not all(key in enhanced_data for key in ["enhanced_query", "enhanced_instructions"]):
+                    raise ValueError("Missing required fields in enhancement response")
+                
+                return enhanced_data
+                
+            except json.JSONDecodeError as e:
+                logger.error(f"Failed to parse enhancement response: {e}")
+                # Return original values as fallback
+                return {
+                    "enhanced_query": query,
+                    "enhanced_instructions": instructions or "",
+                    "suggested_sources": [],
+                    "query_type": "general"
+                }
+                
+        except Exception as e:
+            logger.error(f"Error enhancing request: {e}")
+            # Return original values as fallback
+            return {
+                "enhanced_query": query,
+                "enhanced_instructions": instructions or "",
+                "suggested_sources": [],
+                "query_type": "general"
+            }
+    
     def _extract_html(self, response: str) -> str:
         """Extract HTML content from LLM response"""
         import re
