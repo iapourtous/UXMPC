@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Input, Select, Button, Card, Spin, message, Empty, Modal, Rate, Form } from 'antd';
-import { SendOutlined, RobotOutlined, SettingOutlined, FullscreenOutlined, FullscreenExitOutlined, CloseOutlined, LikeOutlined, DislikeOutlined } from '@ant-design/icons';
-import { llmApi, feedbackApi, demosApi } from '../services/api';
+import { Input, Select, Button, Card, Spin, message, Empty, Modal, Rate, Form, Switch } from 'antd';
+import { SendOutlined, RobotOutlined, SettingOutlined, FullscreenOutlined, FullscreenExitOutlined, CloseOutlined, LikeOutlined, DislikeOutlined, ThunderboltOutlined, ToolOutlined } from '@ant-design/icons';
+import { llmApi, feedbackApi, demosApi, agentsApi } from '../services/api';
 import './MetaChat.css';
 
 const { Option } = Select;
@@ -24,10 +24,14 @@ const MetaChat = () => {
   const [sessionData, setSessionData] = useState(null);
   const [demoFormVisible, setDemoFormVisible] = useState(false);
   const [demoForm] = Form.useForm();
+  const [mode, setMode] = useState('auto');
+  const [availableAgents, setAvailableAgents] = useState([]);
+  const [selectedAgents, setSelectedAgents] = useState([]);
   const iframeRef = useRef(null);
 
   useEffect(() => {
     fetchLLMProfiles();
+    fetchAvailableAgents();
   }, []);
 
   useEffect(() => {
@@ -68,6 +72,15 @@ const MetaChat = () => {
     }
   };
 
+  const fetchAvailableAgents = async () => {
+    try {
+      const response = await agentsApi.list(true);
+      setAvailableAgents(response.data);
+    } catch (error) {
+      console.error('Failed to fetch agents:', error);
+    }
+  };
+
   const handleSubmit = async () => {
     if (!query.trim()) {
       message.warning('Please enter a question');
@@ -76,6 +89,11 @@ const MetaChat = () => {
 
     if (!llmProfile) {
       message.warning('Please select an LLM profile');
+      return;
+    }
+
+    if (mode === 'manual' && selectedAgents.length === 0) {
+      message.warning('Please select at least one agent in manual mode');
       return;
     }
 
@@ -116,8 +134,14 @@ const MetaChat = () => {
       
       const requestBody = {
         message: enhancedQuery,
-        llm_profile: llmProfile
+        llm_profile: llmProfile,
+        mode: mode
       };
+      
+      // Add selected agents if in manual mode
+      if (mode === 'manual' && selectedAgents.length > 0) {
+        requestBody.selected_agents = selectedAgents;
+      }
       
       // Add enhanced instructions if available
       if (enhancedInstructions && enhancedInstructions.trim()) {
@@ -347,14 +371,59 @@ const MetaChat = () => {
             
             {showAdvanced && (
               <div className="advanced-content">
-                <TextArea
-                  value={instruct}
-                  onChange={(e) => setInstruct(e.target.value)}
-                  placeholder="Enter custom presentation instructions (optional)...
-Example: 'Use a dark theme with neon colors' or 'Create a minimalist design with large typography'"
-                  rows={3}
-                  className="instruct-textarea"
-                />
+                <div className="mode-section">
+                  <label>Execution Mode:</label>
+                  <Switch
+                    checkedChildren={<><ThunderboltOutlined /> Automatic</>}
+                    unCheckedChildren={<><ToolOutlined /> Manual</>}
+                    checked={mode === 'auto'}
+                    onChange={(checked) => setMode(checked ? 'auto' : 'manual')}
+                    disabled={loading}
+                    className="mode-switch"
+                  />
+                  <span className="mode-description">
+                    {mode === 'auto' 
+                      ? 'System will automatically select or create the best agent' 
+                      : 'You choose which agents to use'}
+                  </span>
+                </div>
+                
+                {mode === 'manual' && (
+                  <div className="agent-selector-section">
+                    <label>Select Agents:</label>
+                    <Select
+                      mode="multiple"
+                      placeholder="Choose one or more agents"
+                      value={selectedAgents}
+                      onChange={setSelectedAgents}
+                      className="agent-selector"
+                      disabled={loading}
+                      allowClear
+                    >
+                      {availableAgents.map(agent => (
+                        <Option key={agent.name} value={agent.name}>
+                          {agent.name} {agent.description && `- ${agent.description.substring(0, 50)}...`}
+                        </Option>
+                      ))}
+                    </Select>
+                    {selectedAgents.length > 0 && (
+                      <div className="selected-count">
+                        {selectedAgents.length} agent{selectedAgents.length > 1 ? 's' : ''} selected
+                      </div>
+                    )}
+                  </div>
+                )}
+                
+                <div className="instructions-section">
+                  <label>Presentation Instructions (optional):</label>
+                  <TextArea
+                    value={instruct}
+                    onChange={(e) => setInstruct(e.target.value)}
+                    placeholder="Example: 'Use a dark theme with neon colors' or 'Create a minimalist design with large typography'"
+                    rows={3}
+                    className="instruct-textarea"
+                  />
+                </div>
               </div>
             )}
           </div>

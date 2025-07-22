@@ -9,6 +9,7 @@ import json
 import uuid
 from typing import Optional, Dict, Any, List
 import httpx
+import asyncio
 
 from app.models.meta_chat import (
     MetaChatRequest, MetaChatResponse, ChatIntent, ResponseType
@@ -36,6 +37,50 @@ class MetaChatService:
     async def process_request(self, request: MetaChatRequest) -> MetaChatResponse:
         """Process a user request through the meta-chat system"""
         try:
+            # Check if manual mode with selected agents
+            if request.mode == "manual" and request.selected_agents:
+                logger.info(f"Manual mode: Using selected agents: {request.selected_agents}")
+                
+                # Execute multiple agents in parallel
+                response_data = await self._execute_multiple_agents(
+                    request.selected_agents,
+                    request.message
+                )
+                
+                # Generate HTML visualization
+                # Create a simple intent for manual mode
+                intent = ChatIntent(
+                    intent="manual multi-agent query",
+                    response_type=ResponseType.AGENT,
+                    needs_agent=True,
+                    agent_type="multiple",
+                    parameters={},
+                    confidence=1.0
+                )
+                
+                html_response = await self._generate_html_response(
+                    request.message,
+                    response_data,
+                    intent,
+                    agent_name="Multiple Agents",
+                    custom_instruct=request.instruct
+                )
+                
+                return MetaChatResponse(
+                    success=True,
+                    agent_used="Multiple Agents",
+                    agent_created=False,
+                    response_data=response_data,
+                    html_response=html_response,
+                    metadata={
+                        "mode": "manual",
+                        "agents_used": request.selected_agents,
+                        "execution_mode": "multi_agent"
+                    },
+                    session_id=str(uuid.uuid4())
+                )
+            
+            # Auto mode: existing flow
             # Step 1: Analyze the request
             logger.info(f"Analyzing request: {request.message}")
             intent = await self._analyze_request(request.message)
@@ -344,6 +389,73 @@ For example, if user asks for "weather and news", create an agent that can fetch
         except Exception as e:
             logger.error(f"Agent execution failed: {e}")
             return {"error": str(e)}
+    
+    async def _execute_multiple_agents(self, agent_names: List[str], message: str) -> Dict[str, Any]:
+        """Execute multiple agents in parallel and merge their responses"""
+        # Get agents by name
+        agents_to_execute = []
+        for agent_name in agent_names:
+            agents = await agent_crud.list(active_only=True)
+            agent = next((a for a in agents if a.name == agent_name), None)
+            if agent:
+                agents_to_execute.append(agent)
+            else:
+                logger.warning(f"Agent '{agent_name}' not found or inactive")
+        
+        if not agents_to_execute:
+            return {"error": "No valid agents found"}
+        
+        # Execute agents in parallel
+        tasks = []
+        for agent in agents_to_execute:
+            task = self._execute_agent(agent, ChatIntent(
+                intent="multi-agent query",
+                response_type=ResponseType.AGENT,
+                needs_agent=True,
+                agent_type="multiple",
+                parameters={},
+                confidence=1.0
+            ), message)
+            tasks.append((agent.name, task))
+        
+        # Wait for all executions
+        agent_responses = []
+        for agent_name, task in tasks:
+            try:
+                result = await task
+                agent_responses.append({
+                    "agent_name": agent_name,
+                    "output": result.get("agent_output", result.get("error", "No response")),
+                    "success": "error" not in result
+                })
+            except Exception as e:
+                logger.error(f"Error executing agent {agent_name}: {e}")
+                agent_responses.append({
+                    "agent_name": agent_name,
+                    "output": f"Error: {str(e)}",
+                    "success": False
+                })
+        
+        # Merge responses
+        return self._merge_agent_responses(agent_responses)
+    
+    def _merge_agent_responses(self, agent_responses: List[Dict]) -> Dict[str, Any]:
+        """Merge responses from multiple agents into a single response"""
+        merged_output = []
+        
+        for response in agent_responses:
+            agent_name = response.get("agent_name")
+            agent_output = response.get("output", "Pas de réponse")
+            
+            # Format each agent's response
+            merged_output.append(f"Selon [{agent_name}]:\n<response>\n{agent_output}\n</response>")
+        
+        return {
+            "agent_output": "\n\n".join(merged_output),
+            "agents_used": [r["agent_name"] for r in agent_responses],
+            "execution_mode": "manual_multi_agent",
+            "individual_responses": agent_responses
+        }
     
     async def _generate_direct_response(self, message: str, intent: ChatIntent) -> Dict[str, Any]:
         """Generate a direct response without using an agent"""

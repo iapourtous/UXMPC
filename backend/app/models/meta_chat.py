@@ -4,7 +4,7 @@ Meta Chat Models
 Simple models for the meta-chat system that routes requests to agents
 """
 
-from typing import Optional, Dict, Any, List
+from typing import Optional, Dict, Any, List, Literal
 from pydantic import BaseModel, Field
 from enum import Enum
 
@@ -19,6 +19,8 @@ class MetaChatRequest(BaseModel):
     """Request to the meta-chat system"""
     message: str = Field(..., description="User's message/question")
     llm_profile: str = Field(..., description="LLM profile to use")
+    mode: Literal["auto", "manual"] = Field(default="auto", description="Execution mode: auto (system selects agents) or manual (user selects agents)")
+    selected_agents: Optional[List[str]] = Field(default=None, description="List of agent names to use in manual mode")
     context: Optional[Dict[str, Any]] = Field(default=None, description="Optional context")
     instruct: Optional[str] = Field(default=None, description="Custom presentation instructions for HTML generation")
 

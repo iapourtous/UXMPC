@@ -98,6 +98,72 @@
   box-shadow: 0 1px 4px rgba(0,0,0,0.2);
 }
 
+/* Mode section in advanced */
+.mode-section {
+  margin-bottom: 20px;
+  padding-bottom: 20px;
+  border-bottom: 1px solid #e8e8e8;
+}
+
+.mode-section label {
+  display: inline-block;
+  margin-right: 12px;
+  font-weight: 500;
+  color: #5f6368;
+}
+
+.mode-switch {
+  min-width: 140px;
+}
+
+.mode-description {
+  display: block;
+  margin-top: 8px;
+  font-size: 13px;
+  color: #5f6368;
+  font-style: italic;
+}
+
+/* Agent selector */
+.agent-selector-section {
+  margin-bottom: 20px;
+}
+
+.agent-selector-section label {
+  display: block;
+  margin-bottom: 8px;
+  font-weight: 500;
+  color: #5f6368;
+}
+
+/* Instructions section */
+.instructions-section {
+  margin-top: 20px;
+}
+
+.instructions-section label {
+  display: block;
+  margin-bottom: 8px;
+  font-weight: 500;
+  color: #5f6368;
+}
+
+.agent-selector {
+  width: 100%;
+}
+
+.agent-selector .ant-select-selector {
+  min-height: 40px !important;
+  border-radius: 8px !important;
+}
+
+.selected-count {
+  margin-top: 8px;
+  font-size: 13px;
+  color: #1890ff;
+  font-style: italic;
+}
+
 /* Results Section */
 .metachat-results-section {
   flex: 1;
