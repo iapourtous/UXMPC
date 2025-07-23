@@ -16,10 +16,14 @@ UXMCP (Universal eXtensible MCP) est un gestionnaire de services MCP (Model Cont
 ### Composants Principaux
 1. **Services MCP**: Gestion des tools, resources et prompts
 2. **Agents IA**: Système d'agents avec configuration 7D
-3. **LLM Profiles**: Gestion des profils de modèles de langage
-4. **Meta-Agent**: Création automatique d'agents et d'outils
-5. **Chat Interface**: Interface de chat intégrée
-6. **Logging System**: Système de logs MongoDB intégré
+3. **AI Agent**: Agent autonome pour création automatique de services
+4. **LLM Profiles**: Gestion des profils de modèles de langage
+5. **Meta-Agent**: Création automatique d'agents et d'outils
+6. **Meta-Chat**: Système de chat intelligent avec amélioration de requêtes
+7. **Feedback System**: Collecte et analyse de feedbacks utilisateurs
+8. **Demos System**: Hébergement de démos HTML/CSS/JS interactives
+9. **Chat Interface**: Interface de chat intégrée
+10. **Logging System**: Système de logs MongoDB intégré
 
 ## Endpoints API
 
@@ -491,6 +495,324 @@ Traiter une requête via le système meta-chat.
 }
 ```
 
+#### POST /meta-chat/enhance
+Améliorer une requête utilisateur et des instructions pour de meilleurs résultats.
+
+**Request Body:**
+```json
+{
+  "query": "What is the weather like",
+  "instructions": "Show as a nice table",
+  "llm_profile": "profile-name"
+}
+```
+
+**Response:**
+```json
+{
+  "enhanced_query": "Get current weather conditions including temperature, humidity, wind speed, and forecast for the next 24 hours",
+  "enhanced_instructions": "Present the weather data in a well-formatted HTML table with headers, alternating row colors, and weather icons",
+  "suggested_sources": ["OpenWeatherMap API", "Weather.gov", "Local weather station data"],
+  "query_type": "weather_information",
+  "complexity": "simple"
+}
+```
+
+### 📝 Feedback System (/feedback)
+
+#### POST /feedback/
+Créer un nouveau feedback.
+
+**Request Body:**
+```json
+{
+  "rating": "positive",  // ou "negative"
+  "message": "Great response!",
+  "agent_used": "agent-name",
+  "query": "Original user query",
+  "response": "Agent response",
+  "metadata": {
+    "response_time": 1.23,
+    "sources_used": ["source1", "source2"]
+  }
+}
+```
+
+**Response:** Feedback object avec ID généré
+
+#### GET /feedback/{feedback_id}
+Obtenir un feedback spécifique.
+
+**Response:**
+```json
+{
+  "id": "feedback-id",
+  "rating": "positive",
+  "message": "Great response!",
+  "agent_used": "agent-name",
+  "created_at": "2025-01-01T00:00:00",
+  "query": "Original user query",
+  "response": "Agent response",
+  "metadata": {}
+}
+```
+
+#### GET /feedback/
+Lister les feedbacks avec pagination et filtres.
+
+**Query Parameters:**
+- `page`: int (default: 1)
+- `per_page`: int (default: 20, max: 100)
+- `rating`: string (positive|negative)
+- `agent_used`: string (nom de l'agent)
+- `start_date`: datetime
+- `end_date`: datetime
+
+**Response:**
+```json
+{
+  "feedbacks": [...],
+  "total": 100,
+  "page": 1,
+  "per_page": 20,
+  "pages": 5
+}
+```
+
+#### GET /feedback/stats/overview
+Obtenir des statistiques globales sur les feedbacks.
+
+**Response:**
+```json
+{
+  "total_feedbacks": 1000,
+  "positive_count": 750,
+  "negative_count": 250,
+  "positive_percentage": 75.0,
+  "by_date": {
+    "2025-01-01": {"positive": 10, "negative": 2},
+    "2025-01-02": {"positive": 15, "negative": 3}
+  },
+  "most_used_agents": [
+    {"agent": "agent1", "count": 150},
+    {"agent": "agent2", "count": 100}
+  ]
+}
+```
+
+#### GET /feedback/stats/by-agent
+Obtenir des statistiques de feedback par agent.
+
+**Response:**
+```json
+{
+  "agents": [
+    {
+      "agent": "agent-name",
+      "total": 100,
+      "positive": 80,
+      "negative": 20,
+      "positive_percentage": 80.0,
+      "average_response_time": 1.5
+    }
+  ]
+}
+```
+
+### 🎨 Demos (/demos)
+
+#### POST /demos/
+Créer une nouvelle démo HTML/CSS/JS interactive.
+
+**Request Body:**
+```json
+{
+  "name": "weather-dashboard",
+  "title": "Weather Dashboard Demo",
+  "description": "Interactive weather visualization",
+  "html_content": "<!DOCTYPE html><html>...</html>",
+  "tags": ["weather", "dashboard", "visualization"],
+  "metadata": {
+    "author": "John Doe",
+    "version": "1.0"
+  }
+}
+```
+
+**Response:** Demo object avec ID généré
+
+#### GET /demos/
+Lister toutes les démos avec recherche optionnelle.
+
+**Query Parameters:**
+- `skip`: int (default: 0)
+- `limit`: int (default: 20, max: 100)
+- `search`: string (recherche dans nom, titre, description)
+
+**Response:**
+```json
+{
+  "demos": [
+    {
+      "id": "demo-id",
+      "name": "weather-dashboard",
+      "title": "Weather Dashboard Demo",
+      "description": "Interactive weather visualization",
+      "tags": ["weather", "dashboard"],
+      "created_at": "2025-01-01T00:00:00",
+      "updated_at": "2025-01-01T00:00:00",
+      "metadata": {}
+    }
+  ],
+  "total": 50,
+  "page": 1,
+  "per_page": 20
+}
+```
+
+#### GET /demos/{name}
+Servir le contenu HTML d'une démo par son nom.
+
+**Response:** HTML content (text/html)
+
+#### GET /demos/details/{demo_id}
+Obtenir les détails complets d'une démo.
+
+**Response:** Demo object complet avec html_content
+
+#### PUT /demos/{demo_id}
+Mettre à jour les métadonnées d'une démo.
+
+**Request Body:**
+```json
+{
+  "title": "Updated Title",
+  "description": "Updated description",
+  "tags": ["new", "tags"],
+  "metadata": {}
+}
+```
+
+#### DELETE /demos/{demo_id}
+Supprimer une démo.
+
+### 🤖 AI Agent (/agent)
+
+#### POST /agent/create-service
+Créer un service automatiquement via un agent autonome.
+
+Ce endpoint utilise Server-Sent Events (SSE) pour transmettre le progrès en temps réel.
+
+**Request Body:**
+```json
+{
+  "name": "weather_service",
+  "description": "Service that fetches weather data for any city",
+  "service_type": "tool",
+  "llm_profile": "gpt4-profile",
+  // Optionnel pour API externes
+  "api_documentation": "API docs here...",
+  "api_base_url": "https://api.example.com",
+  "api_key": "your-api-key",
+  "api_headers": {"X-Custom": "value"}
+}
+```
+
+**Response:** Server-Sent Events stream
+```
+data: {"step": "starting", "message": "Initializing agent..."}
+
+data: {"step": "analyzing", "message": "Analyzing service requirements..."}
+
+data: {"step": "generating", "message": "Generating service code..."}
+
+data: {"step": "testing", "message": "Testing service...", "test_result": {...}}
+
+data: {"step": "fixing", "message": "Fixing errors...", "error": "...", "attempt": 1}
+
+data: {"step": "completed", "message": "Service created successfully", "service_id": "..."}
+```
+
+#### POST /agent/analyze
+Analyser une description de service sans la créer.
+
+**Request Body:**
+```json
+{
+  "description": "I need a service that...",
+  "service_type": "tool",
+  "llm_profile": "profile-name"
+}
+```
+
+**Response:**
+```json
+{
+  "analysis": {
+    "suggested_name": "my_service",
+    "suggested_route": "/api/my-service",
+    "method": "POST",
+    "parameters": [...],
+    "dependencies": ["requests"],
+    "has_output_schema": true,
+    "documentation_preview": "This service..."
+  },
+  "preview_code": "def handler(**params):\n    ...",
+  "service_type": "tool"
+}
+```
+
+#### GET /agent/status
+Obtenir le statut du système agent.
+
+**Response:**
+```json
+{
+  "status": "active",
+  "version": "1.0.0",
+  "capabilities": [
+    "create_service",
+    "test_service",
+    "debug_service",
+    "auto_fix_errors"
+  ]
+}
+```
+
+#### GET /agent/tools
+Obtenir la liste des outils disponibles pour l'agent.
+
+**Response:**
+```json
+{
+  "tools": [
+    {
+      "name": "create_service",
+      "description": "Create a new service in UXMCP"
+    },
+    {
+      "name": "test_service",
+      "description": "Test a service with sample inputs"
+    }
+  ],
+  "description": "Tools available to the agent for service creation and management"
+}
+```
+
+#### GET /agent/documentation
+Obtenir la documentation utilisée par l'agent comme contexte.
+
+**Response:**
+```json
+{
+  "documentation": {
+    "service_guide": "Complete guide for creating UXMCP services...",
+    "error_solutions": "Common errors and their solutions..."
+  },
+  "description": "Documentation used by the agent to understand UXMCP services"
+}
+```
+
 ## Patterns Architecturaux
 
 ### 1. **Système de Routage Dynamique**
@@ -532,6 +854,30 @@ Traiter une requête via le système meta-chat.
   - `memory_analyze` : Analyse des patterns et insights
 - **Apprentissage continu** : Les agents apprennent de leurs interactions
 - **Contexte intelligent** : Chargement automatique du contexte pertinent
+
+### 7. **AI Agent System**
+- **Agent autonome** : Création automatique de services via LLM
+- **Auto-debugging** : Correction automatique des erreurs
+- **Test itératif** : Test et amélioration continue jusqu'au succès
+- **Support API externes** : Intégration facile avec APIs tierces
+- **Documentation contextuelle** : L'agent comprend le système UXMCP
+
+### 8. **Feedback System**
+- **Collecte de feedback** : Rating positif/négatif avec contexte
+- **Analytics intégrés** : Statistiques par agent et globales
+- **Amélioration continue** : Les feedbacks guident l'optimisation
+
+### 9. **Demos System**
+- **HTML/CSS/JS interactif** : Démos complètes hébergées
+- **Gestion par tags** : Organisation et recherche faciles
+- **Versioning intégré** : Métadonnées de version
+- **Serving direct** : Accès par nom d'URL simple
+
+### 10. **Meta-Chat Enhancement**
+- **Amélioration de requêtes** : Transformation de requêtes vagues en précises
+- **Instructions optimisées** : Génération d'instructions HTML détaillées
+- **Suggestion de sources** : Recommandations de sources de données
+- **Classification intelligente** : Type et complexité de requête
 
 ## Sécurité
 
@@ -612,10 +958,87 @@ def handler(city):
 }
 ```
 
+### Créer un Service via AI Agent
+```python
+# POST /agent/create-service
+{
+  "name": "stock_price_checker",
+  "description": "Get real-time stock prices and market data for any ticker symbol",
+  "service_type": "tool",
+  "llm_profile": "gpt4-profile",
+  "api_documentation": "Alpha Vantage API docs...",
+  "api_base_url": "https://www.alphavantage.co/query",
+  "api_key": "your-api-key"
+}
+```
+
+### Collecter du Feedback
+```python
+# POST /feedback/
+{
+  "rating": "positive",
+  "message": "The agent provided accurate weather information with great formatting",
+  "agent_used": "weather-assistant",
+  "query": "What's the weather in Paris?",
+  "response": "Current weather in Paris: 18°C, partly cloudy...",
+  "metadata": {
+    "response_time": 0.85,
+    "sources_used": ["OpenWeatherMap"]
+  }
+}
+```
+
+### Créer une Démo Interactive
+```python
+# POST /demos/
+{
+  "name": "interactive-chart",
+  "title": "Real-time Data Visualization",
+  "description": "Interactive chart showing live data updates",
+  "html_content": "<!DOCTYPE html>
+<html>
+<head>
+    <title>Interactive Chart</title>
+    <script src='https://cdn.plot.ly/plotly-latest.min.js'></script>
+</head>
+<body>
+    <div id='chart'></div>
+    <script>
+        // Interactive plotting code here
+    </script>
+</body>
+</html>",
+  "tags": ["visualization", "charts", "real-time"],
+  "metadata": {
+    "framework": "plotly.js",
+    "data_source": "websocket"
+  }
+}
+```
+
+### Améliorer une Requête avec Meta-Chat
+```python
+# POST /meta-chat/enhance
+{
+  "query": "show me sales data",
+  "instructions": "make it pretty",
+  "llm_profile": "gpt4-profile"
+}
+
+# Response:
+{
+  "enhanced_query": "Retrieve sales data for the current quarter including revenue by product category, top-performing regions, and year-over-year growth comparison",
+  "enhanced_instructions": "Create an interactive HTML dashboard with: 1) Bar chart for revenue by category with hover tooltips, 2) Geographic heat map for regional performance, 3) Line graph showing monthly trends with YoY comparison, 4) Summary cards with key metrics. Use a modern color scheme with blue/green gradients and ensure mobile responsiveness.",
+  "suggested_sources": ["Internal sales database", "CRM system", "Analytics platform"],
+  "query_type": "business_analytics",
+  "complexity": "moderate"
+}
+```
+
 ## WebSocket & SSE
 
 ### Server-Sent Events (SSE)
-Le endpoint `/meta-agent/create` utilise SSE pour transmettre le progrès en temps réel :
+Les endpoints `/meta-agent/create` et `/agent/create-service` utilisent SSE pour transmettre le progrès en temps réel :
 
 ```javascript
 const eventSource = new EventSource('/meta-agent/create');

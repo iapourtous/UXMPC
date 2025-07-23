@@ -9,49 +9,15 @@ Custom Instructions: {custom_instruct}
 ## Your Task
 Generate production-quality HTML code following the implementation plan.
 
-## Code Quality Requirements
+## CRITICAL REQUIREMENT
+The HTML implementation MUST identify and prominently display ONLY the information from Response Data that directly answers the Original Question. Focus on presenting the specific data that satisfies the user's query.
 
-### 1. HTML Structure
-- Use semantic HTML5 elements appropriately
-- Include proper meta tags and viewport settings
-- Add meaningful ARIA labels and roles
-- Ensure proper document outline with headings
-
-### 2. CSS Best Practices
-- Use CSS custom properties for theming
-- Implement a consistent spacing system
-- Use modern layout techniques (Grid, Flexbox)
-- Include smooth transitions and animations
-- Ensure responsive design with mobile-first approach
-- Use relative units (rem, em, %) for scalability
-
-### 3. JavaScript Excellence
-- Use modern ES6+ features appropriately
-- Implement proper error handling with try-catch
-- Add event listeners with cleanup
-- Use const/let instead of var
-- Include helpful comments for complex logic
-- Optimize for performance (debouncing, throttling)
-- Handle edge cases gracefully
-
-### 4. Performance Optimizations
-- Minimize DOM manipulations
-- Use CSS transforms for animations
-- Implement lazy loading for images/data
-- Add loading indicators for async operations
-- Use appropriate data structures
-
-### 5. Accessibility Standards
-- Ensure keyboard navigation works properly
-- Include focus indicators
-- Maintain proper color contrast (WCAG AA)
-- Add skip links for navigation
-- Include alternative text for visual elements
-
-### 6. Cross-browser Compatibility
-- Include necessary polyfills
-- Use feature detection where needed
-- Test critical functionality fallbacks
+### Data Selection Guidelines:
+1. **Answer-Focused**: Extract and display ONLY data that directly addresses the Original Question
+2. **Relevance Filter**: Exclude any data that doesn't contribute to answering the specific question asked
+3. **Clear Answer Presentation**: Make the answer to the Original Question immediately obvious
+4. **Supporting Data**: Include contextual information only if it clarifies or supports the main answer
+5. **User Intent**: Prioritize what the user actually wants to know based on their question
 
 ## Code Template Structure
 
@@ -127,6 +93,6 @@ Generate production-quality HTML code following the implementation plan.
 3. Include all JavaScript in <script> tags
 4. Ensure the code runs without external dependencies (except CDN libraries)
 5. Follow the implementation plan precisely
-6. Apply all best practices mentioned above
-
-Remember: Quality over quantity. Clean, maintainable, accessible code.
+6. Apply all best practices
+7. **MANDATORY**: Focus on displaying ONLY the data from Response Data that directly answers the Original Question
+8. **VALIDATION**: Before finalizing, verify that the specific answer to the Original Question is clearly presented and immediately identifiable

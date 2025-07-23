@@ -405,34 +405,43 @@ For example, if user asks for "weather and news", create an agent that can fetch
         if not agents_to_execute:
             return {"error": "No valid agents found"}
         
-        # Execute agents in parallel
+        # Create tasks for parallel execution
         tasks = []
         for agent in agents_to_execute:
-            task = self._execute_agent(agent, ChatIntent(
-                intent="multi-agent query",
-                response_type=ResponseType.AGENT,
-                needs_agent=True,
-                agent_type="multiple",
-                parameters={},
-                confidence=1.0
-            ), message)
+            task = asyncio.create_task(
+                self._execute_agent(agent, ChatIntent(
+                    intent="multi-agent query",
+                    response_type=ResponseType.AGENT,
+                    needs_agent=True,
+                    agent_type="multiple",
+                    parameters={},
+                    confidence=1.0
+                ), message)
+            )
             tasks.append((agent.name, task))
         
-        # Wait for all executions
+        # Execute all agents in parallel and gather results
         agent_responses = []
-        for agent_name, task in tasks:
-            try:
-                result = await task
+        results = await asyncio.gather(*[task for _, task in tasks], return_exceptions=True)
+        
+        for i, ((agent_name, _), result) in enumerate(zip(tasks, results)):
+            if isinstance(result, Exception):
+                logger.error(f"Error executing agent {agent_name}: {result}")
+                agent_responses.append({
+                    "agent_name": agent_name,
+                    "output": f"Error: {str(result)}",
+                    "success": False
+                })
+            elif isinstance(result, dict):
                 agent_responses.append({
                     "agent_name": agent_name,
                     "output": result.get("agent_output", result.get("error", "No response")),
                     "success": "error" not in result
                 })
-            except Exception as e:
-                logger.error(f"Error executing agent {agent_name}: {e}")
+            else:
                 agent_responses.append({
                     "agent_name": agent_name,
-                    "output": f"Error: {str(e)}",
+                    "output": "Unexpected response format",
                     "success": False
                 })
         
