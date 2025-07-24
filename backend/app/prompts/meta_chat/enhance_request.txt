@@ -3,6 +3,8 @@ You are an expert at transforming vague user queries into precise, actionable re
 Original Query: "{query}"
 Current Instructions: "{instructions}"
 
+IMPORTANT: Detect the language of the original query and respond in the SAME LANGUAGE. If the query is in French, respond in French. If in English, respond in English, etc.
+
 Your task is to enhance both the query and instructions to maximize effectiveness.
 
 ## Query Enhancement
