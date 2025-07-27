@@ -5,6 +5,7 @@ from app.models.llm import LLMProfile
 from app.services.llm_crud import llm_crud
 from app.core.dynamic_tool_builder import create_dynamic_tool_function
 from app.core.dynamic_prompt_builder import create_dynamic_prompt_function
+from app.services.dependency_manager import dependency_manager
 import logging
 import json
 import importlib
@@ -171,8 +172,41 @@ class MCPManager:
                         module = importlib.import_module(dep)
                     global_vars[dep] = module
                 except ImportError as e:
-                    logger.error(f"Failed to import dependency {dep}: {e}")
-                    return {"error": f"Missing dependency: {dep}"}
+                    logger.warning(f"Dependency {dep} not found, attempting to install...")
+                    
+                    # Try to install the missing dependency
+                    install_result = dependency_manager.install_package(dep)
+                    
+                    if install_result["success"]:
+                        logger.info(f"Successfully installed {dep}")
+                        # Try importing again
+                        try:
+                            module = importlib.import_module(dep)
+                            global_vars[dep] = module
+                        except ImportError as e2:
+                            # Try common mappings
+                            common_mappings = {
+                                'beautifulsoup4': 'bs4',
+                                'pillow': 'PIL',
+                                'opencv-python': 'cv2',
+                                'scikit-learn': 'sklearn',
+                                'python-dateutil': 'dateutil'
+                            }
+                            
+                            if dep in common_mappings:
+                                try:
+                                    module = importlib.import_module(common_mappings[dep])
+                                    global_vars[common_mappings[dep]] = module
+                                    logger.info(f"Imported {dep} as {common_mappings[dep]}")
+                                except ImportError:
+                                    logger.error(f"Failed to import {dep} even after installation: {e2}")
+                                    return {"error": f"Failed to import dependency: {dep}"}
+                            else:
+                                logger.error(f"Failed to import {dep} after installation: {e2}")
+                                return {"error": f"Failed to import dependency: {dep}"}
+                    else:
+                        logger.error(f"Failed to install dependency {dep}: {install_result['message']}")
+                        return {"error": f"Failed to install dependency: {dep} - {install_result['message']}"}
             
             # If service uses LLM, inject the client
             if service.llm_profile:

@@ -528,6 +528,65 @@ class AgentTools:
             "common_fix": suggestions[0] if suggestions else "Review the error message and code"
         }
     
+    async def validate_service_code_complete(self, code: str) -> Dict[str, Any]:
+        """
+        Complete validation of service code including syntax, patterns, and dependencies
+        
+        Returns:
+            Dict with comprehensive validation results
+        """
+        try:
+            # Step 1: Validate syntax and patterns
+            syntax_result = await self.validate_code_syntax(code)
+            
+            # Step 2: Analyze imports and dependencies
+            import_result = await self.analyze_code_imports(code)
+            
+            # Step 3: Check for required handler function
+            has_handler = 'def handler(**params):' in code
+            
+            # Step 4: Compile comprehensive results
+            issues = syntax_result.get('issues', [])
+            fixes = syntax_result.get('fixes', [])
+            
+            # Add dependency issues
+            if import_result.get('success') and import_result.get('packages_needed'):
+                for pkg in import_result['packages_needed']:
+                    issues.append({
+                        "line": 0,
+                        "issue": f"Package '{pkg['package_name']}' needs to be installed",
+                        "fix": f"Add '{pkg['package_name']}' to dependencies"
+                    })
+            
+            # Determine overall validity
+            is_valid = (
+                syntax_result.get('syntax_valid', False) and 
+                has_handler and
+                len([i for i in issues if 'error' in i.get('issue', '').lower()]) == 0
+            )
+            
+            return {
+                "success": True,
+                "valid": is_valid,
+                "has_handler": has_handler,
+                "syntax_valid": syntax_result.get('syntax_valid', False),
+                "issues": issues,
+                "fixes": fixes,
+                "dependencies_needed": import_result.get('packages_needed', []),
+                "imports": import_result.get('imports', []),
+                "severity": syntax_result.get('severity', 'unknown'),
+                "can_auto_fix": len(fixes) > 0,
+                "summary": f"Found {len(issues)} issues, {len(fixes)} can be auto-fixed"
+            }
+            
+        except Exception as e:
+            logger.error(f"Failed to validate service code: {str(e)}")
+            return {
+                "success": False,
+                "error": str(e),
+                "valid": False
+            }
+    
     def get_tools_list(self) -> List[Dict[str, Any]]:
         """
         Get a list of all available tools with their descriptions
@@ -590,6 +649,11 @@ class AgentTools:
                 "name": "validate_code_syntax",
                 "description": "Validate Python code and detect problematic patterns like 'from X import Y'",
                 "parameters": ["code"]
+            },
+            {
+                "name": "validate_service_code_complete",
+                "description": "Complete validation of service code including syntax, patterns, and dependencies",
+                "parameters": ["code"]
             }
         ]
     
@@ -610,6 +674,45 @@ class AgentTools:
             # Check for 'from X import Y' patterns
             from_import_pattern = r'^\s*from\s+(\S+)\s+import\s+(.+)$'
             lines = code.split('\n')
+            
+            # Check if handler function is defined
+            if 'def handler(**params):' not in code:
+                issues.append({
+                    "line": 0,
+                    "issue": "Missing handler function definition",
+                    "fix": "Add 'def handler(**params):' as the main function"
+                })
+            
+            # Check for functions defined outside handler
+            handler_started = False
+            handler_indent = None
+            for i, line in enumerate(lines):
+                if 'def handler(**params):' in line:
+                    handler_started = True
+                    handler_indent = len(line) - len(line.lstrip())
+                elif handler_started and line.strip() and not line.startswith(' '):
+                    # Line at root level after handler
+                    if line.startswith('def '):
+                        issues.append({
+                            "line": i + 1,
+                            "issue": "Function defined outside handler",
+                            "fix": "Move this function inside the handler function"
+                        })
+            
+            # Check for asyncio usage
+            if 'asyncio.run(' in code:
+                issues.append({
+                    "line": 0,
+                    "issue": "asyncio.run() will fail with 'event loop already running' error",
+                    "fix": "Use sync versions of libraries or subprocess isolation"
+                })
+            
+            if 'async def handler' in code:
+                issues.append({
+                    "line": 0,
+                    "issue": "Handler cannot be async",
+                    "fix": "Use synchronous handler function"
+                })
             
             for i, line in enumerate(lines):
                 match = re.match(from_import_pattern, line)
@@ -640,12 +743,39 @@ class AgentTools:
                             "replace": "import PIL",
                             "usage_change": "Image.open(...) → PIL.Image.open(...)"
                         })
+                    elif module in ['datetime', 'urllib.parse', 'os.path']:
+                        issues.append({
+                            "line": i + 1,
+                            "issue": f"'from {module} import {imports}' will not work in dynamic environment",
+                            "fix": f"Replace with 'import {module.split('.')[0]}' and use full paths"
+                        })
+                        fixes.append({
+                            "find": line,
+                            "replace": f"import {module.split('.')[0]}",
+                            "usage_change": f"{imports} → {module}.{imports}"
+                        })
                     else:
                         issues.append({
                             "line": i + 1,
                             "issue": f"'from {module} import {imports}' may not work in dynamic environment",
                             "fix": f"Replace with 'import {module}' and use '{module}.{imports}'"
                         })
+            
+            # Check for common error patterns
+            if 'params[' in code and 'get(' not in code:
+                issues.append({
+                    "line": 0,
+                    "issue": "Direct dictionary access with params['key'] can cause KeyError",
+                    "fix": "Use params.get('key', default_value) instead"
+                })
+            
+            # Check for missing error handling
+            if 'try:' not in code and 'except' not in code:
+                issues.append({
+                    "line": 0,
+                    "issue": "No error handling found",
+                    "fix": "Add try/except blocks to handle potential errors gracefully"
+                })
             
             # Try to parse with AST to check syntax
             try:
@@ -665,7 +795,8 @@ class AgentTools:
                 "syntax_valid": syntax_valid,
                 "issues": issues,
                 "fixes": fixes,
-                "has_from_imports": len(fixes) > 0
+                "has_from_imports": len(fixes) > 0,
+                "severity": "critical" if not syntax_valid or 'handler' not in code else ("warning" if issues else "ok")
             }
             
         except Exception as e:

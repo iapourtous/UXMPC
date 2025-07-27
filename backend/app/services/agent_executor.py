@@ -2,8 +2,12 @@ import json
 import httpx
 import logging
 import uuid
-from typing import Dict, Any, List, Optional, Union
-from app.models.agent import Agent, AgentExecution, AgentExecutionResponse
+import asyncio
+from typing import Dict, Any, List, Optional, Union, AsyncGenerator
+from app.models.agent import (
+    Agent, AgentExecution, AgentExecutionResponse,
+    AgentExecutionProgress, ExecutionStep
+)
 from app.services.llm_crud import llm_crud
 from app.services.service_crud import service_crud
 from app.core.database import get_database
@@ -498,8 +502,8 @@ Memory usage guidelines:
                     for param_name, param_value in tool_args.items():
                         url = url.replace(f"{{{param_name}}}", str(param_value))
                     
-                    # Make HTTP request
-                    async with httpx.AsyncClient() as client:
+                    # Make HTTP request with extended timeout for agent tools
+                    async with httpx.AsyncClient(timeout=180.0) as client:  # 3 minutes timeout
                         if service.method == "GET":
                             query_params = {k: v for k, v in tool_args.items() if f"{{{k}}}" not in service.route}
                             response = await client.get(url, params=query_params)
@@ -838,6 +842,268 @@ Memory usage guidelines:
             "iterations": iterations,
             "usage": total_usage
         }
+    
+    async def execute_with_progress(
+        self, 
+        agent: Agent, 
+        execution_request: AgentExecution
+    ) -> AsyncGenerator[AgentExecutionProgress, None]:
+        """Execute an agent with streaming progress updates"""
+        execution_id = str(uuid.uuid4())
+        db = get_database()
+        agent_logger = ServiceLogger(db, f"agent_{agent.id}", f"Agent: {agent.name}", execution_id)
+        
+        try:
+            # Initial progress
+            yield AgentExecutionProgress(
+                step=ExecutionStep.STARTING,
+                message=f"Starting execution for agent '{agent.name}'",
+                progress=5
+            )
+            
+            await agent_logger.info(
+                f"Agent execution started (streaming)",
+                agent=agent.name,
+                input_type=type(execution_request.input).__name__
+            )
+            
+            # Validate input
+            yield AgentExecutionProgress(
+                step=ExecutionStep.VALIDATING,
+                message="Validating input against schema",
+                progress=10
+            )
+            
+            if not self._validate_input(execution_request.input, agent.input_schema):
+                error = "Input does not match agent's input schema"
+                await agent_logger.error(error)
+                yield AgentExecutionProgress(
+                    step=ExecutionStep.ERROR,
+                    message="Validation failed",
+                    progress=0,
+                    error_detail=error
+                )
+                return
+            
+            # Get LLM profile
+            llm_profile = await llm_crud.get_by_name(agent.llm_profile)
+            if not llm_profile or not llm_profile.active:
+                error = f"LLM profile '{agent.llm_profile}' not found or inactive"
+                await agent_logger.error(error)
+                yield AgentExecutionProgress(
+                    step=ExecutionStep.ERROR,
+                    message="LLM profile error",
+                    progress=0,
+                    error_detail=error
+                )
+                return
+            
+            # Prepare tools
+            yield AgentExecutionProgress(
+                step=ExecutionStep.PREPARING_TOOLS,
+                message=f"Preparing {len(agent.mcp_services)} tools",
+                progress=20
+            )
+            
+            tools = await self._prepare_tools(agent.mcp_services, agent_logger, agent)
+            
+            # Load memory context
+            memory_context = None
+            if hasattr(agent, 'memory_enabled') and agent.memory_enabled:
+                yield AgentExecutionProgress(
+                    step=ExecutionStep.LOADING_MEMORY,
+                    message="Loading memory context",
+                    progress=25
+                )
+                memory_context = await self._load_memory_context(
+                    agent=agent,
+                    query=execution_request.input if isinstance(execution_request.input, str) else json.dumps(execution_request.input),
+                    agent_logger=agent_logger
+                )
+            
+            # Build messages
+            messages = self._build_messages(agent, execution_request, memory_context)
+            
+            # Execute with LLM iterations
+            total_usage = {"prompt_tokens": 0, "completion_tokens": 0, "total_tokens": 0}
+            tool_calls_history = []
+            iterations = 0
+            max_iterations = agent.max_iterations
+            
+            # Main execution loop
+            progress_base = 30
+            progress_per_iteration = 50 / max_iterations  # Reserve 50% for iterations
+            
+            while iterations < max_iterations:
+                iterations += 1
+                current_progress = int(progress_base + (iterations - 1) * progress_per_iteration)
+                
+                yield AgentExecutionProgress(
+                    step=ExecutionStep.CALLING_LLM,
+                    message=f"Calling LLM (iteration {iterations}/{max_iterations})",
+                    progress=current_progress,
+                    iteration=iterations,
+                    total_iterations=max_iterations
+                )
+                
+                # Call LLM with tools
+                result = await self._call_llm_with_streaming_updates(
+                    llm_profile=llm_profile,
+                    agent=agent,
+                    messages=messages,
+                    tools=tools,
+                    agent_logger=agent_logger,
+                    current_iteration=iterations,
+                    progress_callback=lambda p: self._create_progress_update(p, current_progress, progress_per_iteration)
+                )
+                
+                # Update usage
+                if "usage" in result:
+                    for key in total_usage:
+                        total_usage[key] += result["usage"].get(key, 0)
+                
+                # Process tool calls
+                if result.get("tool_calls"):
+                    for tool_call in result["tool_calls"]:
+                        tool_name = tool_call["function"]["name"]
+                        yield AgentExecutionProgress(
+                            step=ExecutionStep.EXECUTING_TOOL,
+                            message=f"Executing tool: {tool_name}",
+                            progress=current_progress + int(progress_per_iteration * 0.5),
+                            iteration=iterations,
+                            total_iterations=max_iterations,
+                            tool_call=tool_call
+                        )
+                        
+                        # Execute tool calls
+                        tool_results = await self._execute_tool_calls(
+                            [tool_call], agent_logger, agent
+                        )
+                        
+                        tool_calls_history.extend(result["tool_calls"])
+                        
+                        # Add tool results to messages
+                        for i, tool_result in enumerate(tool_results):
+                            yield AgentExecutionProgress(
+                                step=ExecutionStep.PROCESSING_RESULT,
+                                message=f"Processing result from {tool_name}",
+                                progress=current_progress + int(progress_per_iteration * 0.8),
+                                iteration=iterations,
+                                total_iterations=max_iterations,
+                                tool_result=tool_result
+                            )
+                            
+                            messages.append({
+                                "role": "tool",
+                                "tool_call_id": result["tool_calls"][i]["id"],
+                                "content": json.dumps(tool_result)
+                            })
+                
+                # Add assistant response to messages
+                messages.append({"role": "assistant", "content": result["message"]})
+                
+                # Check if we have a final answer
+                if not result.get("tool_calls") and result.get("message"):
+                    # We have a final response
+                    output = result["message"]
+                    
+                    # Save to memory
+                    if hasattr(agent, 'memory_enabled') and agent.memory_enabled:
+                        yield AgentExecutionProgress(
+                            step=ExecutionStep.SAVING_MEMORY,
+                            message="Saving conversation to memory",
+                            progress=85
+                        )
+                        await self._save_to_memory(
+                            agent, execution_id, execution_request.input,
+                            output, messages, agent_logger
+                        )
+                    
+                    # Validate output
+                    if not self._validate_output(output, agent.output_schema):
+                        error = "Output does not match agent's output schema"
+                        await agent_logger.error(error, output=output)
+                        yield AgentExecutionProgress(
+                            step=ExecutionStep.ERROR,
+                            message="Output validation failed",
+                            progress=0,
+                            error_detail=error
+                        )
+                        return
+                    
+                    await agent_logger.info(
+                        "Agent execution completed",
+                        tool_calls_count=len(tool_calls_history),
+                        iterations=iterations
+                    )
+                    
+                    # Final progress
+                    yield AgentExecutionProgress(
+                        step=ExecutionStep.COMPLETE,
+                        message="Execution completed successfully",
+                        progress=100,
+                        partial_output=output,
+                        iteration=iterations,
+                        total_iterations=max_iterations
+                    )
+                    return
+                
+                # Send heartbeat to keep connection alive
+                yield AgentExecutionProgress(
+                    step=ExecutionStep.HEARTBEAT,
+                    message="Processing...",
+                    progress=current_progress + int(progress_per_iteration * 0.9),
+                    iteration=iterations,
+                    total_iterations=max_iterations
+                )
+            
+            # Max iterations reached
+            await agent_logger.warning(
+                "Max iterations reached without final answer",
+                iterations=iterations
+            )
+            
+            yield AgentExecutionProgress(
+                step=ExecutionStep.COMPLETE,
+                message="Max iterations reached",
+                progress=100,
+                partial_output="Max iterations reached without completion",
+                iteration=iterations,
+                total_iterations=max_iterations
+            )
+            
+        except Exception as e:
+            await agent_logger.error(f"Agent execution failed: {str(e)}")
+            yield AgentExecutionProgress(
+                step=ExecutionStep.ERROR,
+                message="Execution failed",
+                progress=0,
+                error_detail=str(e)
+            )
+    
+    def _create_progress_update(self, internal_progress: Dict, base_progress: int, range: float) -> int:
+        """Convert internal progress to overall progress"""
+        internal_percent = internal_progress.get("percent", 0)
+        return int(base_progress + (internal_percent / 100) * range)
+    
+    async def _call_llm_with_streaming_updates(
+        self,
+        llm_profile,
+        agent: Agent,
+        messages: List[Dict[str, str]],
+        tools: List[Dict[str, Any]],
+        agent_logger: ServiceLogger
+    ) -> Dict[str, Any]:
+        """Call LLM with tools (wrapper for existing method)"""
+        # For now, we'll use the existing method
+        # In the future, this could be enhanced to provide more granular updates
+        return await self._call_llm_with_tools(
+            llm_profile=llm_profile,
+            agent=agent,
+            messages=messages,
+            tools=tools,
+            agent_logger=agent_logger
+        )
 
 
 # Singleton instance

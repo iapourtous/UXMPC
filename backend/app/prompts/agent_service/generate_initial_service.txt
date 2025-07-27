@@ -6,21 +6,21 @@ You are an expert UXMCP service creator. Create a complete, working service base
 - Description: {description}
 {api_section}
 
-## RÈGLES ABSOLUES - À SUIVRE IMPÉRATIVEMENT
+## ABSOLUTE RULES - MUST FOLLOW
 
-### 1. STRUCTURE DU CODE
-❌ JAMAIS définir des fonctions en dehors du handler
-✅ TOUJOURS définir TOUTES les fonctions À L'INTÉRIEUR du handler
+### 1. CODE STRUCTURE
+❌ NEVER define functions outside the handler
+✅ ALWAYS define ALL functions INSIDE the handler
 
 ```python
-# ❌ MAUVAIS - Ne marchera PAS
+# ❌ WRONG - Will NOT work
 def helper_function():
     return "data"
 
 def handler(**params):
     return helper_function()
 
-# ✅ BON - Marchera toujours
+# ✅ CORRECT - Will always work
 def handler(**params):
     def helper_function():
         return "data"
@@ -28,35 +28,376 @@ def handler(**params):
 ```
 
 ### 2. IMPORTS
-❌ JAMAIS utiliser "from X import Y"
-✅ TOUJOURS utiliser le chemin complet du module
+❌ NEVER use "from X import Y"
+✅ ALWAYS use full module path
 
 ```python
-# ❌ MAUVAIS
+# ❌ WRONG
 from datetime import datetime
 from urllib.parse import quote
 
-# ✅ BON
+# ✅ CORRECT
 import datetime
 import urllib.parse
-# Puis utiliser: datetime.datetime.now(), urllib.parse.quote()
+# Then use: datetime.datetime.now(), urllib.parse.quote()
 ```
 
-### 3. DÉPENDANCES EXTERNES
+### 3. EXTERNAL DEPENDENCIES
 - beautifulsoup4 → import bs4
 - pillow → import PIL
 - opencv-python → import cv2
 
-## EXEMPLE COMPLET QUI FONCTIONNE
+### 4. ASYNC/AWAIT RULES
+- NEVER use asyncio.run() in a handler - it will cause "event loop already running" error
+- NEVER make the handler async
+- For async libraries like Playwright: use sync versions or subprocess
+- Example for Playwright: use playwright.sync_api.sync_playwright instead of async version
+
+### 5. PARAMETER VALIDATION PATTERN
+Always validate parameters at the start of your handler:
+```python
+def handler(**params):
+    # Required parameter validation
+    required_param = params.get('required_param')
+    if not required_param:
+        return {{"error": "required_param is required"}}
+    
+    # Type validation
+    try:
+        number_param = int(params.get('number', 0))
+    except ValueError:
+        return {{"error": "number must be an integer"}}
+```
+
+### 6. ERROR HANDLING PATTERN
+Always handle errors gracefully:
+```python
+def handler(**params):
+    import requests
+    
+    try:
+        response = requests.get(url, timeout=10)
+        response.raise_for_status()
+        data = response.json()
+        return {{"success": True, "data": data}}
+    except requests.RequestException as e:
+        return {{"error": f"API request failed: {{str(e)}}"}}
+    except Exception as e:
+        return {{"error": f"Unexpected error: {{str(e)}}"}}
+```
+
+### 7. SUBPROCESS PATTERN FOR HEAVY DEPENDENCIES
+For tools like Playwright, use subprocess isolation:
+```python
+def handler(**params):
+    import subprocess
+    import json
+    
+    script = f"""
+import json
+# Your heavy dependency code here
+result = {{"data": "processed"}}
+print(json.dumps(result))
+"""
+    
+    try:
+        result = subprocess.run(['python', '-c', script], 
+                              capture_output=True, text=True, timeout=30)
+        if result.returncode == 0:
+            return json.loads(result.stdout)
+        else:
+            return {{"error": f"Script failed: {{result.stderr}}"}}
+    except subprocess.TimeoutExpired:
+        return {{"error": "Operation timed out"}}
+```
+
+## COMMON SERVICE PATTERNS
+
+### Pattern 1: External API Service
+```python
+def handler(**params):
+    import requests
+    import urllib.parse
+    
+    # Validate parameters
+    query = params.get('query', '').strip()
+    if not query:
+        return {{"error": "query parameter is required"}}
+    
+    # Build API request
+    url = "https://api.example.com/search"
+    params_dict = {{
+        "q": query,
+        "limit": params.get('limit', 10)
+    }}
+    
+    try:
+        response = requests.get(url, params=params_dict, timeout=10)
+        response.raise_for_status()
+        data = response.json()
+        
+        return {{
+            "success": True,
+            "results": data.get('results', []),
+            "total": data.get('total', 0)
+        }}
+    except requests.RequestException as e:
+        return {{"error": f"API request failed: {{str(e)}}"}}
+```
+
+### Pattern 2: Data Processing Service
+```python
+def handler(**params):
+    import json
+    import re
+    
+    # Get input data
+    text = params.get('text', '')
+    if not text:
+        return {{"error": "text parameter is required"}}
+    
+    # Process data
+    def clean_text(text):
+        # Remove extra whitespace
+        text = re.sub(r'\\s+', ' ', text)
+        return text.strip()
+    
+    try:
+        cleaned = clean_text(text)
+        word_count = len(cleaned.split())
+        
+        return {{
+            "success": True,
+            "processed_text": cleaned,
+            "word_count": word_count,
+            "char_count": len(cleaned)
+        }}
+    except Exception as e:
+        return {{"error": f"Processing failed: {{str(e)}}"}}
+```
+
+### Pattern 3: Prompt Template Service
+```python
+def handler(**params):
+    # Get parameters
+    context = params.get('context', '')
+    question = params.get('question', '')
+    
+    if not question:
+        return {{"error": "question parameter is required"}}
+    
+    # Build prompt template
+    template = f"""Based on the following context:
+
+{{context if context else "No specific context provided."}}
+
+Please answer this question:
+{{question}}
+
+Provide a clear and concise answer."""
+    
+    return {{"template": template}}
+```
+
+### Pattern 4: Web Scraping Service (with subprocess)
+```python
+def handler(**params):
+    import subprocess
+    import json
+    
+    url = params.get('url', '').strip()
+    if not url:
+        return {{"error": "url parameter is required"}}
+    
+    # Validate URL
+    if not url.startswith(('http://', 'https://')):
+        url = 'https://' + url
+    
+    script = f"""
+import requests
+from bs4 import BeautifulSoup
+import json
+
+response = requests.get('{{url}}', timeout=10)
+soup = BeautifulSoup(response.text, 'html.parser')
+title = soup.find('title').text if soup.find('title') else 'No title'
+links = [a.get('href') for a in soup.find_all('a', href=True)][:10]
+
+result = {{{{
+    "title": title,
+    "status_code": response.status_code,
+    "links_count": len(soup.find_all('a', href=True)),
+    "sample_links": links
+}}}}
+print(json.dumps(result))
+"""
+    
+    try:
+        result = subprocess.run(['python', '-c', script], 
+                              capture_output=True, text=True, timeout=15)
+        if result.returncode == 0:
+            return json.loads(result.stdout)
+        else:
+            return {{"error": f"Scraping failed: {{result.stderr}}"}}
+    except subprocess.TimeoutExpired:
+        return {{"error": "Request timed out"}}
+    except Exception as e:
+        return {{"error": f"Failed to scrape: {{str(e)}}"}}
+```
+
+### Pattern 5: File/Data Transformation Service
+```python
+def handler(**params):
+    import json
+    import base64
+    
+    # Get input data
+    input_data = params.get('data', '')
+    input_format = params.get('input_format', 'json').lower()
+    output_format = params.get('output_format', 'json').lower()
+    
+    if not input_data:
+        return {{"error": "data parameter is required"}}
+    
+    try:
+        # Parse input based on format
+        if input_format == 'json':
+            parsed_data = json.loads(input_data)
+        elif input_format == 'base64':
+            parsed_data = base64.b64decode(input_data).decode('utf-8')
+        else:
+            parsed_data = input_data
+        
+        # Transform to output format
+        if output_format == 'json':
+            if isinstance(parsed_data, str):
+                output = {{"data": parsed_data}}
+            else:
+                output = parsed_data
+        elif output_format == 'base64':
+            if isinstance(parsed_data, dict):
+                parsed_data = json.dumps(parsed_data)
+            output = {{"encoded": base64.b64encode(parsed_data.encode()).decode()}}
+        else:
+            output = {{"data": str(parsed_data)}}
+        
+        return {{
+            "success": True,
+            "transformed": output,
+            "input_format": input_format,
+            "output_format": output_format
+        }}
+    except Exception as e:
+        return {{"error": f"Transformation failed: {{str(e)}}"}}
+```
+
+### Pattern 6: Resource Service (returns content)
+```python
+def handler(**params):
+    import datetime
+    import json
+    
+    # Resource services typically return static or dynamic content
+    # They should return a dict with 'content' and optionally 'mimeType'
+    
+    # Example: System status resource
+    def get_system_status():
+        return {{
+            "timestamp": datetime.datetime.utcnow().isoformat(),
+            "status": "operational",
+            "version": "1.0.0",
+            "uptime_hours": 24.5
+        }}
+    
+    try:
+        status_data = get_system_status()
+        
+        return {{
+            "content": json.dumps(status_data, indent=2),
+            "mimeType": "application/json"
+        }}
+    except Exception as e:
+        return {{
+            "content": f"Error: {{str(e)}}",
+            "mimeType": "text/plain"
+        }}
+```
+
+### Pattern 7: Multi-step Processing Service
+```python
+def handler(**params):
+    import re
+    import json
+    
+    text = params.get('text', '')
+    operations = params.get('operations', ['clean', 'analyze'])
+    
+    if not text:
+        return {{"error": "text parameter is required"}}
+    
+    # Define processing functions
+    def clean_text(text):
+        # Remove extra whitespace
+        text = re.sub(r'\\s+', ' ', text)
+        # Remove special characters
+        text = re.sub(r'[^\\w\\s]', '', text)
+        return text.strip()
+    
+    def analyze_text(text):
+        words = text.split()
+        return {{
+            "word_count": len(words),
+            "char_count": len(text),
+            "unique_words": len(set(words)),
+            "avg_word_length": sum(len(w) for w in words) / len(words) if words else 0
+        }}
+    
+    try:
+        result = {{"original": text}}
+        
+        # Apply operations in sequence
+        processed_text = text
+        
+        if 'clean' in operations:
+            processed_text = clean_text(processed_text)
+            result['cleaned'] = processed_text
+        
+        if 'analyze' in operations:
+            analysis = analyze_text(processed_text)
+            result['analysis'] = analysis
+        
+        result['success'] = True
+        result['operations_applied'] = operations
+        
+        return result
+        
+    except Exception as e:
+        return {{
+            "error": f"Processing failed: {{str(e)}}",
+            "success": False
+        }}
+```
+
+## COMMON PITFALLS TO AVOID
+
+1. **Async in handlers**: NEVER use async/await or asyncio.run() in handler
+2. **Import styles**: NEVER use from X import Y, always import X
+3. **Global functions**: NEVER define functions outside handler
+4. **String formatting**: Use f-strings carefully with {{double braces}} for literal braces
+5. **Error messages**: Always return {{"error": "message"}} for errors
+6. **Missing validation**: Always validate required parameters first
+7. **Unhandled exceptions**: Always wrap main logic in try/except
+
+## COMPLETE WORKING EXAMPLE
 
 ```python
 def handler(**params):
-    # TOUTES les imports au début du handler
+    # ALL imports at the start of handler
     import requests
     import json
     import datetime
     
-    # TOUTES les fonctions helper DANS le handler
+    # ALL helper functions INSIDE handler
     def format_result(data):
         return {{
             "success": True,
@@ -69,12 +410,12 @@ def handler(**params):
             raise ValueError("Input cannot be empty")
         return value.strip()
     
-    # Code principal
+    # Main code
     try:
         input_value = params.get('input_param', '')
         validated = validate_input(input_value)
         
-        # Faire le traitement
+        # Do processing
         result = {{"processed": validated}}
         
         return format_result(result)
@@ -88,12 +429,12 @@ def handler(**params):
 ```
 
 ## HTTP METHOD SELECTION
-- GET: Paramètres simples (noms, IDs, nombres)
-- POST: URLs, chemins, JSON, texte long, données complexes
+- GET: Simple parameters (names, IDs, numbers)
+- POST: URLs, paths, JSON, long text, complex data
 
 {context}
 
-## CE QUE TU DOIS GÉNÉRER
+## WHAT YOU MUST GENERATE
 
 Return ONLY a JSON object with:
 {{

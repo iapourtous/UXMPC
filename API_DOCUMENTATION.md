@@ -247,6 +247,103 @@ Exécuter un agent directement (pour tests).
 #### GET /agents/{agent_id}/validate
 Valider les dépendances d'un agent.
 
+#### POST /agents/{agent_id}/execute-stream
+Exécuter un agent avec streaming SSE (Server-Sent Events) pour suivre le progrès en temps réel.
+
+**Request Body:**
+```json
+{
+  "input": "text input" ou {"structured": "input"},
+  "conversation_history": [
+    {"role": "user", "content": "Previous message"},
+    {"role": "assistant", "content": "Previous response"}
+  ],
+  "execution_options": {
+    "timeout": 180000  // 3 minutes par défaut
+  }
+}
+```
+
+**Response:** Server-Sent Events stream avec mises à jour du progrès
+
+**Format des événements SSE:**
+```
+data: {"step":"starting","message":"Starting execution of agent 'agent-name'","progress":0}
+
+data: {"step":"validating","message":"Validating input","progress":10}
+
+data: {"step":"preparing_tools","message":"Preparing MCP tools","progress":20}
+
+data: {"step":"loading_memory","message":"Loading memory context","progress":30}
+
+data: {"step":"calling_llm","message":"Calling LLM","progress":40,"iteration":1,"total_iterations":5}
+
+data: {"step":"executing_tool","message":"Executing tool: weather_service","progress":60,"tool_call":{"name":"weather_service","args":{"city":"Paris"}}}
+
+data: {"step":"processing_result","message":"Processing tool result","progress":80,"tool_result":{"temperature":18,"condition":"sunny"}}
+
+data: {"step":"complete","message":"Execution completed","progress":100,"partial_output":"The weather in Paris is sunny with 18°C"}
+
+data: [DONE]
+```
+
+**États possibles (ExecutionStep):**
+- `starting`: Démarrage de l'exécution
+- `validating`: Validation de l'entrée
+- `preparing_tools`: Préparation des outils MCP
+- `loading_memory`: Chargement du contexte mémoire (si activé)
+- `calling_llm`: Appel au LLM
+- `executing_tool`: Exécution d'un outil
+- `processing_result`: Traitement du résultat
+- `saving_memory`: Sauvegarde en mémoire (si activé)
+- `complete`: Exécution terminée avec succès
+- `error`: Erreur durant l'exécution
+- `heartbeat`: Signal de maintien de connexion
+
+**Exemple d'utilisation JavaScript:**
+```javascript
+const eventSource = new EventSource(`/api/agents/${agentId}/execute-stream`, {
+  method: 'POST',
+  headers: {
+    'Content-Type': 'application/json'
+  },
+  body: JSON.stringify({
+    input: "What's the weather in Paris?",
+    execution_options: { timeout: 180000 }
+  })
+});
+
+eventSource.onmessage = (event) => {
+  if (event.data === '[DONE]') {
+    eventSource.close();
+    return;
+  }
+  
+  const progress = JSON.parse(event.data);
+  console.log(`Step: ${progress.step} - ${progress.message} (${progress.progress}%)`);
+  
+  if (progress.step === 'complete') {
+    console.log('Final output:', progress.partial_output);
+  }
+  
+  if (progress.step === 'error') {
+    console.error('Error:', progress.error_detail);
+  }
+};
+
+eventSource.onerror = (error) => {
+  console.error('SSE Error:', error);
+  eventSource.close();
+};
+```
+
+**Avantages:**
+- Pas de timeout pour les opérations longues
+- Suivi en temps réel du progrès
+- Visualisation des appels d'outils
+- Résultats partiels disponibles
+- Maintien de connexion automatique
+
 ### 🧠 Profils LLM (/llms)
 
 #### POST /llms/
@@ -1038,7 +1135,12 @@ def handler(city):
 ## WebSocket & SSE
 
 ### Server-Sent Events (SSE)
-Les endpoints `/meta-agent/create` et `/agent/create-service` utilisent SSE pour transmettre le progrès en temps réel :
+Les endpoints suivants utilisent SSE pour transmettre le progrès en temps réel :
+- `/meta-agent/create` : Création d'agents via meta-agent
+- `/agent/create-service` : Création de services via AI agent
+- `/agents/{agent_id}/execute-stream` : Exécution d'agents avec suivi du progrès
+
+Exemple d'utilisation :
 
 ```javascript
 const eventSource = new EventSource('/meta-agent/create');

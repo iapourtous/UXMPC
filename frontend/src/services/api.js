@@ -46,6 +46,7 @@ export const agentsApi = {
   deactivate: (id) => api.post(`/agents/${id}/deactivate`),
   execute: (id, data) => api.post(`/agents/${id}/execute`, data),
   validate: (id) => api.get(`/agents/${id}/validate`),
+  convertToTool: (id) => api.post(`/agents/${id}/convert-to-tool`),
 };
 
 // Agent Memory API

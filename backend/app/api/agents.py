@@ -1,12 +1,17 @@
 from fastapi import APIRouter, HTTPException, Depends, Request
-from typing import List, Optional
+from fastapi.responses import StreamingResponse
+from typing import List, Optional, AsyncGenerator
+import json
+import asyncio
 from app.models.agent import (
     Agent, AgentCreate, AgentUpdate, 
-    AgentExecution, AgentExecutionResponse
+    AgentExecution, AgentExecutionResponse,
+    AgentExecutionProgress, ExecutionStep
 )
 from app.services.agent_crud import agent_crud
 from app.services.agent_executor import agent_executor
 from app.core.agent_router import mount_agent, unmount_agent
+from app.services.agent_to_tool_converter import agent_to_tool_converter
 import logging
 
 router = APIRouter()
@@ -168,3 +173,87 @@ async def validate_agent(agent_id: str):
     
     validation = await agent_crud.validate_dependencies(agent)
     return validation
+
+
+@router.post("/{agent_id}/execute-stream")
+async def execute_agent_stream(agent_id: str, execution_request: AgentExecution):
+    """Execute an agent with SSE streaming progress"""
+    agent = await agent_crud.get(agent_id)
+    if not agent:
+        raise HTTPException(status_code=404, detail="Agent not found")
+    
+    if not agent.active:
+        raise HTTPException(status_code=400, detail="Agent is not active")
+    
+    async def generate_stream() -> AsyncGenerator[str, None]:
+        """Generate SSE event stream"""
+        try:
+            # Send initial progress
+            progress = AgentExecutionProgress(
+                step=ExecutionStep.STARTING,
+                message=f"Starting execution of agent '{agent.name}'",
+                progress=0
+            )
+            yield f"data: {progress.json()}\n\n"
+            
+            # Execute agent with progress updates
+            async for update in agent_executor.execute_with_progress(agent, execution_request):
+                # Send progress update
+                yield f"data: {update.json()}\n\n"
+                
+                # Send heartbeat every few updates to keep connection alive
+                if update.step == ExecutionStep.HEARTBEAT:
+                    yield ": heartbeat\n\n"
+            
+            # Ensure we send a complete event
+            if update.step != ExecutionStep.COMPLETE and update.step != ExecutionStep.ERROR:
+                final_progress = AgentExecutionProgress(
+                    step=ExecutionStep.COMPLETE,
+                    message="Execution completed",
+                    progress=100
+                )
+                yield f"data: {final_progress.json()}\n\n"
+                
+        except Exception as e:
+            logger.error(f"Error in SSE stream: {str(e)}")
+            error_progress = AgentExecutionProgress(
+                step=ExecutionStep.ERROR,
+                message="Execution failed",
+                progress=0,
+                error_detail=str(e)
+            )
+            yield f"data: {error_progress.json()}\n\n"
+        
+        finally:
+            # Send stream close event
+            yield "data: [DONE]\n\n"
+    
+    return StreamingResponse(
+        generate_stream(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no"  # Disable Nginx buffering
+        }
+    )
+
+
+@router.post("/{agent_id}/convert-to-tool")
+async def convert_agent_to_tool(agent_id: str):
+    """Convert an agent into a callable MCP tool service"""
+    result = await agent_to_tool_converter.convert_agent_to_tool(agent_id)
+    
+    if result["success"]:
+        return {
+            "success": True,
+            "service_id": result["service_id"],
+            "service_name": result["service_name"],
+            "message": result["message"],
+            "next_step": "Activate the service at POST /services/{service_id}/activate"
+        }
+    else:
+        raise HTTPException(
+            status_code=400,
+            detail=result["error"]
+        )

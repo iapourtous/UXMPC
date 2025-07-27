@@ -27,7 +27,8 @@ import {
   ApiOutlined,
   ToolOutlined,
   BulbOutlined,
-  DatabaseOutlined
+  DatabaseOutlined,
+  ToolFilled
 } from '@ant-design/icons';
 import { agentsApi } from '../services/api';
 
@@ -106,6 +107,32 @@ const AgentList = () => {
 
   const handleTest = (agent) => {
     navigate(`/agents/${agent.id}/test`);
+  };
+
+  const handleConvertToTool = async (agent) => {
+    try {
+      const response = await agentsApi.convertToTool(agent.id);
+      message.success(
+        <div>
+          <div>{response.data.message}</div>
+          <div style={{ fontSize: '12px', marginTop: '4px' }}>
+            Service ID: {response.data.service_id}
+          </div>
+          <div style={{ fontSize: '12px' }}>
+            Next: Activate the service from the Services page
+          </div>
+        </div>,
+        5
+      );
+      // Optionally navigate to services page
+      // navigate('/services');
+    } catch (error) {
+      if (error.response?.data?.detail) {
+        message.error(error.response.data.detail);
+      } else {
+        message.error('Failed to convert agent to tool');
+      }
+    }
   };
 
   const filteredAgents = agents.filter(agent => {
@@ -242,6 +269,16 @@ const AgentList = () => {
           )}
           {record.active ? (
             <>
+              <Tooltip title="Convert this agent to a MCP tool that other agents can use">
+                <Button
+                  type="link"
+                  icon={<ToolFilled />}
+                  onClick={() => handleConvertToTool(record)}
+                  style={{ color: '#722ed1' }}
+                >
+                  Convert to Tool
+                </Button>
+              </Tooltip>
               <Button
                 type="link"
                 icon={<PlayCircleOutlined />}

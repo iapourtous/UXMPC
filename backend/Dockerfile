@@ -15,8 +15,20 @@ RUN pip install --no-cache-dir -r requirements.txt
 RUN pip install playwright && \
     playwright install chromium --with-deps
 
+# Install Playwright browsers
+RUN playwright install chromium
+
 COPY . .
+
+# Create script to install dynamic dependencies on startup
+RUN echo '#!/bin/bash\n\
+if [ -f "/app/dynamic_requirements.txt" ]; then\n\
+    echo "Installing dynamic dependencies..."\n\
+    pip install -r /app/dynamic_requirements.txt || echo "Warning: Some dependencies failed to install"\n\
+fi\n\
+exec "$@"' > /entrypoint.sh && chmod +x /entrypoint.sh
 
 EXPOSE 8000
 
+ENTRYPOINT ["/entrypoint.sh"]
 CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]

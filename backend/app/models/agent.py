@@ -3,6 +3,7 @@ from typing import Optional, List, Dict, Any, Union
 from datetime import datetime
 from bson import ObjectId
 from app.models.service import PyObjectId
+from enum import Enum
 
 
 class AgentBase(BaseModel):
@@ -196,3 +197,32 @@ class AgentExecutionResponse(BaseModel):
     )
     iterations: Optional[int] = Field(None, description="Number of iterations used")
     usage: Optional[Dict[str, Any]] = Field(None, description="Token usage statistics")
+
+
+class ExecutionStep(str, Enum):
+    """Enum for execution progress steps"""
+    STARTING = "starting"
+    VALIDATING = "validating"
+    PREPARING_TOOLS = "preparing_tools"
+    LOADING_MEMORY = "loading_memory"
+    CALLING_LLM = "calling_llm"
+    EXECUTING_TOOL = "executing_tool"
+    PROCESSING_RESULT = "processing_result"
+    SAVING_MEMORY = "saving_memory"
+    COMPLETE = "complete"
+    ERROR = "error"
+    HEARTBEAT = "heartbeat"
+
+
+class AgentExecutionProgress(BaseModel):
+    """Model for streaming agent execution progress"""
+    step: ExecutionStep
+    message: str
+    progress: int = Field(ge=0, le=100, description="Progress percentage 0-100")
+    iteration: Optional[int] = Field(None, description="Current iteration number")
+    total_iterations: Optional[int] = Field(None, description="Maximum iterations allowed")
+    tool_call: Optional[Dict[str, Any]] = Field(None, description="Current tool being called")
+    tool_result: Optional[Dict[str, Any]] = Field(None, description="Result from tool execution")
+    partial_output: Optional[Any] = Field(None, description="Partial output available so far")
+    error_detail: Optional[str] = Field(None, description="Error details if step is error")
+    timestamp: datetime = Field(default_factory=datetime.utcnow)
