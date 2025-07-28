@@ -41,13 +41,6 @@ UXMCP est une plateforme complète de gestion de services MCP (Model Context Pro
 - **Support du streaming** pour les réponses longues
 - **Interface moderne** avec Ant Design
 
-### 🧠 Meta Chat - Routage Intelligent
-- **Analyse automatique des intentions** - Comprend ce que vous voulez faire
-- **Sélection ou création d'agent** - Trouve l'agent parfait ou en crée un nouveau
-- **Réponses directes ou déléguées** - Répond directement ou utilise un agent spécialisé
-- **Visualisation HTML** des réponses complexes
-- **Aucune configuration requise** - Posez simplement votre question !
-
 ### 📊 Système de Logs Centralisé
 - **Logs structurés dans MongoDB** avec traçabilité complète
 - **API de requête puissante** avec filtres et agrégations
@@ -163,45 +156,6 @@ Please provide a detailed response following best practices."""
    - **System Prompt** : Instructions pour l'agent
    - **LLM Profile** : Profil à utiliser
    - **Tools** : Services MCP accessibles
-
-### Utilisation du Meta Chat
-
-Le Meta Chat est votre assistant intelligent qui comprend vos besoins et trouve ou crée automatiquement l'agent parfait pour y répondre.
-
-#### Comment ça marche ?
-
-1. **Posez votre question** en langage naturel
-2. Le système **analyse votre intention**
-3. Il **trouve l'agent adapté** ou en **crée un nouveau** si nécessaire
-4. L'agent **exécute la tâche** et retourne la réponse
-
-#### Exemples d'utilisation
-
-```bash
-# Demander la météo (trouvera ou créera un agent météo)
-curl -X POST http://localhost:8000/meta-chat/query \
-  -H "Content-Type: application/json" \
-  -d '{
-    "message": "Quel temps fait-il à Paris ?",
-    "llm_profile": "gpt-4"
-  }'
-
-# Faire des calculs (utilisera un agent calculatrice)
-curl -X POST http://localhost:8000/meta-chat/query \
-  -H "Content-Type: application/json" \
-  -d '{
-    "message": "Calcule 25% de 180 euros",
-    "llm_profile": "gpt-4"
-  }'
-
-# Demande complexe (créera un agent spécialisé si besoin)
-curl -X POST http://localhost:8000/meta-chat/query \
-  -H "Content-Type: application/json" \
-  -d '{
-    "message": "Analyse les performances de mon site web example.com",
-    "llm_profile": "gpt-4"
-  }'
-```
 
 ### Utilisation des Services
 
@@ -328,11 +282,6 @@ Les profils LLM peuvent être configurés via l'interface ou l'API :
 - `GET /chat/profiles` - Profils disponibles
 - `POST /chat/stream` - Chat avec streaming
 - `GET /chat/history` - Historique des conversations
-
-### Meta Chat
-- `POST /meta-chat/query` - Envoyer une requête au système intelligent
-  - Body: `{"message": "votre question", "llm_profile": "nom_profil"}`
-  - Response: Réponse formatée avec agent utilisé/créé
 
 ## 🛠️ Commandes Make
 

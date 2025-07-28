@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-UXMCP is a dynamic MCP (Model Context Protocol) service manager that allows creating, storing, and activating services on the fly through a web interface. It features intelligent agents, automated service creation, and an advanced chat interface with automatic routing to appropriate agents.
+UXMCP is a dynamic MCP (Model Context Protocol) service manager that allows creating, storing, and activating services on the fly through a web interface. It features intelligent agents, automated service creation, and an interactive chat interface for direct agent communication.
 
 ## Architecture
 
@@ -95,14 +95,6 @@ The `MetaAgentService` (`backend/app/services/meta_agent_service.py`) provides:
 - Progress tracking via Server-Sent Events (SSE)
 - Capability analysis and gap filling
 
-### Meta-Chat
-The `MetaChatService` (`backend/app/services/meta_chat_service.py`) offers:
-- Intelligent request routing to appropriate agents
-- Automatic agent creation when needed
-- HTML/CSS/JS response generation with validation
-- Manual and automatic execution modes
-- Request enhancement for better results
-
 ### AI Agent
 The autonomous service creator (`backend/app/services/agent_service.py`):
 - Creates services from natural language descriptions
@@ -111,7 +103,6 @@ The autonomous service creator (`backend/app/services/agent_service.py`):
 - Provides real-time progress updates via SSE
 
 ### Additional Systems
-- **Feedback System**: Collect and analyze user feedback with ratings and statistics
 - **Demos System**: Host and manage interactive HTML/CSS/JS demonstrations
 - **Logging System**: Comprehensive MongoDB-based logging with execution tracking
 
@@ -155,21 +146,13 @@ For a complete and up-to-date reference of all API endpoints, including request/
 4. Create React hooks for the new endpoints
 5. Update `API_DOCUMENTATION.md` with the new endpoints
 
-### Working with Agents and Meta-Chat
+### Working with Agents
 
 #### Creating an Agent via UI
 1. Navigate to the Agents section
 2. Configure the 7D parameters (backstory, objectives, etc.)
 3. Select MCP services as tools
 4. Test the agent before activation
-
-#### Using Meta-Chat
-1. Go to Meta-Chat interface
-2. Type your request naturally
-3. System will automatically:
-   - Find or create appropriate agent
-   - Execute the request
-   - Generate interactive HTML response
 
 #### Creating Services with AI Agent
 1. Go to Agent Service Creator
@@ -212,7 +195,6 @@ ChromaDB is automatically configured and uses Docker volume for persistence.
 ## Key Files to Know
 
 - `API_DOCUMENTATION.md`: Complete API reference with all endpoints
-- `metaChatFlow.md`: Detailed Meta-Chat system flow documentation
 - `backend/app/prompts/`: LLM prompt templates used by the system
 - `examples/`: Example services demonstrating patterns
 
@@ -221,8 +203,8 @@ ChromaDB is automatically configured and uses Docker volume for persistence.
 ### 1. Quick Information Query
 ```
 User: "What's the weather in Paris and the latest news?"
-Meta-Chat: Automatically finds or creates an agent with weather and news capabilities
-Result: Interactive HTML dashboard with weather data and news articles
+Agent Chat: Use an agent with weather and news tool capabilities
+Result: Detailed response with weather data and news articles
 ```
 
 ### 2. Service Creation

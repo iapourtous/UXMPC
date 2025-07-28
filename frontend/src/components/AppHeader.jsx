@@ -8,7 +8,6 @@ import {
   MessageOutlined,
   FileSearchOutlined,
   ToolOutlined,
-  ThunderboltOutlined,
   AppstoreOutlined
 } from '@ant-design/icons';
 
@@ -40,9 +39,9 @@ const AppHeader = () => {
       label: 'Chat',
     },
     {
-      key: '/meta-chat',
-      icon: <ThunderboltOutlined />,
-      label: 'Meta Chat',
+      key: '/chat-agents',
+      icon: <RobotOutlined />,
+      label: 'Agent Chat',
     },
     {
       key: '/demos',
@@ -66,8 +65,9 @@ const AppHeader = () => {
     if (currentPath.startsWith('/services')) return '/services';
     if (currentPath.startsWith('/llms')) return '/llms';
     if (currentPath.startsWith('/agents')) return '/agents';
+    if (currentPath === '/chat-agents') return '/chat-agents';
     if (currentPath.startsWith('/chat')) return '/chat';
-    if (currentPath.startsWith('/meta-chat')) return '/meta-chat';
+    if (currentPath.startsWith('/demos')) return '/demos';
     if (currentPath.startsWith('/logs')) return '/logs';
     return '/agents';
   };

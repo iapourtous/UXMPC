@@ -126,7 +126,8 @@ class AgentToToolConverter:
                 code=handler_code,
                 params=params,
                 dependencies=[],  # No external dependencies needed
-                output_schema=agent.output_schema if agent.output_schema != "text" else None,
+                # Use the agent's output schema directly since we return the output directly
+                output_schema=agent.output_schema if agent.output_schema != "text" else {"type": "string"},
                 description=f"Tool interface for {agent.name} agent: {agent.description or 'No description'}",
                 documentation=self._generate_documentation(agent),
                 llm_profile=agent.llm_profile,
@@ -204,17 +205,15 @@ class AgentToToolConverter:
         result = await agent_executor.execute(agent, execution_request)
         
         # Return the result in a format suitable for tool usage
+        # IMPORTANT: Return the output directly for compatibility with LLM tool calling
         if result.success:
-            return {{
-                "success": True,
-                "output": result.output,
-                "execution_id": result.execution_id,
-                "tool_calls_made": len(result.tool_calls) if result.tool_calls else 0
-            }}
+            # Return just the output content directly
+            # This allows the LLM to receive the agent's response as if it were a regular tool
+            return result.output
         else:
+            # For errors, return a dict to indicate failure
             return {{
-                "success": False,
-                "error": result.error,
+                "error": result.error or "Agent execution failed",
                 "execution_id": result.execution_id
             }}
             
@@ -262,11 +261,9 @@ Call this tool with the appropriate input based on the agent's input schema.
 The agent will process your request using its configured LLM and tools.
 
 ## Response
-The tool returns a JSON object with:
-- `success`: Boolean indicating if execution was successful
-- `output`: The agent's response (format depends on output schema)
-- `error`: Error message if execution failed
-- `execution_id`: ID for tracking this execution in logs
+The tool returns the agent's response directly:
+- **On success**: Returns the agent's output directly (string or structured data based on output schema)
+- **On error**: Returns a JSON object with `error` and `execution_id` fields
 """
         
         return doc

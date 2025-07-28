@@ -19,11 +19,9 @@ UXMCP (Universal eXtensible MCP) est un gestionnaire de services MCP (Model Cont
 3. **AI Agent**: Agent autonome pour création automatique de services
 4. **LLM Profiles**: Gestion des profils de modèles de langage
 5. **Meta-Agent**: Création automatique d'agents et d'outils
-6. **Meta-Chat**: Système de chat intelligent avec amélioration de requêtes
-7. **Feedback System**: Collecte et analyse de feedbacks utilisateurs
-8. **Demos System**: Hébergement de démos HTML/CSS/JS interactives
-9. **Chat Interface**: Interface de chat intégrée
-10. **Logging System**: Système de logs MongoDB intégré
+6. **Demos System**: Hébergement de démos HTML/CSS/JS interactives
+7. **Chat Interface**: Interface de chat intégrée
+8. **Logging System**: Système de logs MongoDB intégré
 
 ## Endpoints API
 
@@ -260,7 +258,9 @@ Exécuter un agent avec streaming SSE (Server-Sent Events) pour suivre le progr�
   ],
   "execution_options": {
     "timeout": 180000  // 3 minutes par défaut
-  }
+  },
+  "conversation_id": "existing-conversation-id",  // Optionnel
+  "save_conversation": true  // Default: true
 }
 ```
 
@@ -576,45 +576,6 @@ Sauvegarder une conversation complète en mémoire.
 #### GET /agents/{agent_id}/memory/stats
 Obtenir des statistiques détaillées sur la mémoire de l'agent.
 
-### 💬 Meta-Chat (/meta-chat)
-
-#### POST /meta-chat/query
-Traiter une requête via le système meta-chat.
-
-**Request Body:**
-```json
-{
-  "message": "User message",
-  "llm_profile": "profile-name",
-  "conversation_history": [],
-  "prefer_direct_answer": false,
-  "create_agent_if_needed": true
-}
-```
-
-#### POST /meta-chat/enhance
-Améliorer une requête utilisateur et des instructions pour de meilleurs résultats.
-
-**Request Body:**
-```json
-{
-  "query": "What is the weather like",
-  "instructions": "Show as a nice table",
-  "llm_profile": "profile-name"
-}
-```
-
-**Response:**
-```json
-{
-  "enhanced_query": "Get current weather conditions including temperature, humidity, wind speed, and forecast for the next 24 hours",
-  "enhanced_instructions": "Present the weather data in a well-formatted HTML table with headers, alternating row colors, and weather icons",
-  "suggested_sources": ["OpenWeatherMap API", "Weather.gov", "Local weather station data"],
-  "query_type": "weather_information",
-  "complexity": "simple"
-}
-```
-
 ### 📝 Feedback System (/feedback)
 
 #### POST /feedback/
@@ -705,14 +666,216 @@ Obtenir des statistiques de feedback par agent.
 {
   "agents": [
     {
-      "agent": "agent-name",
+      "agent": "agent1",
       "total": 100,
       "positive": 80,
       "negative": 20,
-      "positive_percentage": 80.0,
-      "average_response_time": 1.5
+      "positive_percentage": 80.0
     }
   ]
+}
+```
+
+### 💬 Conversations (/conversations)
+
+#### POST /conversations/
+Créer une nouvelle conversation pour un agent.
+
+**Request Body:**
+```json
+{
+  "agent_id": "agent-123",
+  "user_id": "user-456",  // Optionnel
+  "title": "Weather Discussion",  // Optionnel, auto-généré si non fourni
+  "messages": [],  // Liste initiale de messages (optionnel)
+  "metadata": {},  // Optionnel
+  "active": true  // Default: true
+}
+```
+
+**Response:** Conversation object avec ID généré
+
+#### GET /conversations/
+Lister les conversations avec pagination.
+
+**Query Parameters:**
+- `skip`: int (default: 0)
+- `limit`: int (default: 10, max: 100)
+- `active_only`: bool (default: false) - Seulement les conversations actives
+- `user_id`: string - Filtrer par utilisateur
+
+**Response:**
+```json
+{
+  "items": [
+    {
+      "_id": "conversation-id",
+      "agent_id": "agent-123",
+      "user_id": "user-456",
+      "title": "Weather Discussion",
+      "messages": [...],
+      "metadata": {},
+      "active": true,
+      "last_activity": "2025-01-01T10:00:05",
+      "created_at": "2025-01-01T10:00:00",
+      "updated_at": "2025-01-01T10:00:05",
+      "message_count": 2
+    }
+  ],
+  "total": 50,
+  "page": 1,
+  "page_size": 10,
+  "total_pages": 5
+}
+```
+
+#### GET /conversations/summaries
+Obtenir des résumés de conversations (version allégée pour listes).
+
+**Query Parameters:**
+- `agent_id`: string - Filtrer par agent
+- `user_id`: string - Filtrer par utilisateur
+- `limit`: int (default: 20, max: 50)
+
+**Response:**
+```json
+[
+  {
+    "_id": "conversation-id",
+    "agent_id": "agent-123",
+    "title": "Weather Discussion",
+    "message_count": 15,
+    "last_activity": "2025-01-01T10:00:05",
+    "created_at": "2025-01-01T10:00:00",
+    "active": true
+  }
+]
+```
+
+#### GET /conversations/{conversation_id}
+Obtenir une conversation spécifique avec tous ses messages.
+
+**Response:**
+```json
+{
+  "_id": "conversation-id",
+  "agent_id": "agent-123",
+  "user_id": "user-456",
+  "title": "Weather Discussion",
+  "messages": [
+    {
+      "role": "user",
+      "content": "What's the weather?",
+      "timestamp": "2025-01-01T10:00:00",
+      "metadata": {},
+      "tool_calls": null,
+      "execution_id": null
+    },
+    {
+      "role": "assistant",
+      "content": "The weather is sunny...",
+      "timestamp": "2025-01-01T10:00:05",
+      "metadata": {"execution_id": "exec-123"},
+      "tool_calls": [{"tool": "weather_api", "arguments": {"city": "Paris"}, "result": {...}}],
+      "execution_id": "exec-123"
+    }
+  ],
+  "metadata": {},
+  "active": true,
+  "last_activity": "2025-01-01T10:00:05",
+  "created_at": "2025-01-01T10:00:00",
+  "updated_at": "2025-01-01T10:00:05",
+  "message_count": 2
+}
+```
+
+#### PUT /conversations/{conversation_id}
+Mettre à jour une conversation (titre, métadonnées, statut).
+
+**Request Body:**
+```json
+{
+  "title": "Updated Title",
+  "metadata": {"tags": ["important"]},
+  "active": false
+}
+```
+
+#### DELETE /conversations/{conversation_id}
+Supprimer une conversation et tous ses messages.
+
+#### POST /conversations/{conversation_id}/messages
+Ajouter un message à une conversation existante.
+
+**Request Body:**
+```json
+{
+  "role": "user",
+  "content": "Follow-up question",
+  "metadata": {},
+  "tool_calls": null,
+  "execution_id": null
+}
+```
+
+#### POST /conversations/{conversation_id}/clear
+Effacer tous les messages d'une conversation (mais garder la conversation).
+
+#### GET /conversations/agent/{agent_id}
+Obtenir toutes les conversations d'un agent avec pagination.
+
+**Query Parameters:**
+- `skip`: int (default: 0)
+- `limit`: int (default: 10, max: 100)
+
+**Response:** ConversationList (même format que GET /conversations/)
+
+#### GET /conversations/agent/{agent_id}/latest
+Obtenir la conversation la plus récente pour un agent.
+
+**Query Parameters:**
+- `user_id`: string - Pour obtenir la dernière conversation d'un utilisateur spécifique
+
+**Response:** Conversation object ou 404 si aucune conversation n'existe
+
+**Integration avec l'exécution d'agents:**
+
+Les endpoints d'exécution d'agents (`/agents/{agent_id}/execute`) acceptent maintenant des paramètres supplémentaires pour la persistance:
+
+```json
+{
+  "input": "User message",
+  "conversation_id": "existing-conversation-id",  // Optionnel
+  "save_conversation": true,  // Default: true
+  "execution_options": {}  // Optionnel
+}
+```
+
+**Response inclut maintenant:**
+```json
+{
+  "success": true,
+  "output": "Agent response",
+  "conversation_id": "conversation-id-used",  // ID de la conversation utilisée/créée
+  "execution_id": "exec-123",
+  "tool_calls": [...],
+  "iterations": 1,
+  "usage": {}
+}
+```
+
+### 🎨 Demos (/demos)
+
+#### POST /demos/
+Créer une nouvelle démo.
+
+**Request Body:**
+```json
+{
+  "name": "My Demo",
+  "description": "Demo description",
+  "html": "<html>...</html>",
+  "metadata": {}
 }
 ```
 

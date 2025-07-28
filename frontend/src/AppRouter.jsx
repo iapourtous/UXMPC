@@ -16,8 +16,8 @@ import LLMProfileFormAntd from './components/LLMProfileFormAntd';
 import ChatAntd from './components/ChatAntd';
 import AgentServiceCreator from './components/AgentServiceCreator';
 import MetaAgentCreator from './components/MetaAgentCreator';
-import MetaChat from './components/MetaChat';
 import DemoList from './components/DemoList';
+import ChatWithAgents from './components/ChatWithAgents';
 
 const { Content } = Layout;
 
@@ -54,7 +54,7 @@ function AppRouter() {
             
             {/* Chat Routes */}
             <Route path="/chat" element={<ChatAntd />} />
-            <Route path="/meta-chat" element={<MetaChat />} />
+            <Route path="/chat-agents" element={<ChatWithAgents />} />
             
             {/* Demos Routes */}
             <Route path="/demos" element={<DemoList />} />

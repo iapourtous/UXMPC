@@ -180,6 +180,14 @@ class AgentExecution(BaseModel):
         None,
         description="Optional execution options (timeout, etc.)"
     )
+    conversation_id: Optional[str] = Field(
+        None,
+        description="Optional conversation ID to continue existing conversation"
+    )
+    save_conversation: bool = Field(
+        True,
+        description="Whether to save this execution to conversation history"
+    )
 
 
 class AgentExecutionResponse(BaseModel):
@@ -197,6 +205,7 @@ class AgentExecutionResponse(BaseModel):
     )
     iterations: Optional[int] = Field(None, description="Number of iterations used")
     usage: Optional[Dict[str, Any]] = Field(None, description="Token usage statistics")
+    conversation_id: Optional[str] = Field(None, description="Conversation ID used/created for this execution")
 
 
 class ExecutionStep(str, Enum):

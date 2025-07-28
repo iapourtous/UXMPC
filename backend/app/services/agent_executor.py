@@ -3,6 +3,7 @@ import httpx
 import logging
 import uuid
 import asyncio
+from datetime import datetime
 from typing import Dict, Any, List, Optional, Union, AsyncGenerator
 from app.models.agent import (
     Agent, AgentExecution, AgentExecutionResponse,
@@ -12,6 +13,8 @@ from app.services.llm_crud import llm_crud
 from app.services.service_crud import service_crud
 from app.core.database import get_database
 from app.core.mongodb_logger import ServiceLogger
+from app.services.conversation_crud import conversation_crud
+from app.models.conversation import MessageCreate, ConversationCreate
 
 logger = logging.getLogger(__name__)
 
@@ -31,12 +34,53 @@ class AgentExecutor:
         # Create logger for this execution
         agent_logger = ServiceLogger(db, f"agent_{agent.id}", f"Agent: {agent.name}", execution_id)
         
+        # Handle conversation persistence
+        conversation_id = None
+        conversation = None
+        
+        if execution_request.save_conversation:
+            # Get or create conversation
+            if execution_request.conversation_id:
+                conversation = await conversation_crud.get(execution_request.conversation_id)
+                if conversation:
+                    conversation_id = conversation.id
+                else:
+                    logger.warning(f"Conversation {execution_request.conversation_id} not found, creating new one")
+            
+            if not conversation:
+                # Get latest conversation or create new one
+                conversation = await conversation_crud.get_latest_conversation()
+                if not conversation:
+                    # Create new conversation
+                    conversation = await conversation_crud.create(
+                        ConversationCreate(
+                            user_id=None,  # TODO: Add user support
+                            title=f"New Conversation - {datetime.utcnow().strftime('%Y-%m-%d %H:%M')}",
+                            metadata={"execution_id": execution_id}
+                        )
+                    )
+                conversation_id = conversation.id
+        
         try:
             await agent_logger.info(
                 f"Agent execution started",
                 agent=agent.name,
-                input_type=type(execution_request.input).__name__
+                input_type=type(execution_request.input).__name__,
+                conversation_id=conversation_id
             )
+            
+            # Save user message to conversation
+            if conversation_id and execution_request.save_conversation:
+                user_content = execution_request.input if isinstance(execution_request.input, str) else json.dumps(execution_request.input)
+                await conversation_crud.add_message(
+                    conversation_id,
+                    MessageCreate(
+                        role="user",
+                        content=user_content,
+                        metadata={"execution_id": execution_id},
+                        agent_id=None  # User messages don't have agent_id
+                    )
+                )
             
             # Validate input against schema
             if not self._validate_input(execution_request.input, agent.input_schema):
@@ -45,7 +89,8 @@ class AgentExecutor:
                 return AgentExecutionResponse(
                     success=False,
                     error=error,
-                    execution_id=execution_id
+                    execution_id=execution_id,
+                    conversation_id=conversation_id
                 )
             
             # Get LLM profile
@@ -56,7 +101,8 @@ class AgentExecutor:
                 return AgentExecutionResponse(
                     success=False,
                     error=error,
-                    execution_id=execution_id
+                    execution_id=execution_id,
+                    conversation_id=conversation_id
                 )
             
             # Prepare tools from MCP services
@@ -70,6 +116,23 @@ class AgentExecutor:
                     query=execution_request.input if isinstance(execution_request.input, str) else json.dumps(execution_request.input),
                     agent_logger=agent_logger
                 )
+            
+            # Load conversation history if conversation_id is provided
+            loaded_history = []
+            if conversation_id:
+                # Load messages from conversation
+                loaded_conversation = await conversation_crud.get(conversation_id)
+                if loaded_conversation and loaded_conversation.messages:
+                    # Convert stored messages to the format expected by LLM
+                    for msg in loaded_conversation.messages:
+                        loaded_history.append({
+                            "role": msg.role,
+                            "content": msg.content
+                        })
+            
+            # If no history was provided but we loaded from conversation, use that
+            if loaded_history and not execution_request.conversation_history:
+                execution_request.conversation_history = loaded_history
             
             # Build messages
             messages = self._build_messages(agent, execution_request, memory_context)
@@ -91,7 +154,8 @@ class AgentExecutor:
                 return AgentExecutionResponse(
                     success=False,
                     error=error,
-                    execution_id=execution_id
+                    execution_id=execution_id,
+                    conversation_id=conversation_id
                 )
             
             await agent_logger.info(
@@ -99,6 +163,24 @@ class AgentExecutor:
                 tool_calls_count=len(result.get("tool_calls", [])),
                 iterations=result.get("iterations", 1)
             )
+            
+            # Save assistant response to conversation
+            if conversation_id and execution_request.save_conversation:
+                assistant_content = result["output"] if isinstance(result["output"], str) else json.dumps(result["output"])
+                await conversation_crud.add_message(
+                    conversation_id,
+                    MessageCreate(
+                        role="assistant",
+                        content=assistant_content,
+                        metadata={
+                            "execution_id": execution_id,
+                            "tool_calls_count": len(result.get("tool_calls", [])),
+                            "iterations": result.get("iterations", 1)
+                        },
+                        tool_calls=result.get("tool_calls", []),
+                        agent_id=agent.id  # Include agent ID
+                    )
+                )
             
             # Save conversation to memory if enabled
             if hasattr(agent, 'memory_enabled') and agent.memory_enabled:
@@ -125,7 +207,8 @@ class AgentExecutor:
                 execution_id=execution_id,
                 tool_calls=result.get("tool_calls", []),
                 iterations=result.get("iterations", 1),
-                usage=result.get("usage", {})
+                usage=result.get("usage", {}),
+                conversation_id=conversation_id
             )
             
         except Exception as e:
@@ -133,10 +216,23 @@ class AgentExecutor:
             await agent_logger.error(error_msg, error=str(e))
             logger.error(error_msg, exc_info=True)
             
+            # Save error to conversation if applicable
+            if conversation_id and execution_request.save_conversation:
+                await conversation_crud.add_message(
+                    conversation_id,
+                    MessageCreate(
+                        role="assistant",
+                        content="I encountered an error while processing your request.",
+                        metadata={"execution_id": execution_id, "error": error_msg},
+                        agent_id=agent.id
+                    )
+                )
+            
             return AgentExecutionResponse(
                 success=False,
                 error=error_msg,
-                execution_id=execution_id
+                execution_id=execution_id,
+                conversation_id=conversation_id
             )
     
     def _validate_input(self, input_data: Union[Dict[str, Any], str], schema: Union[Dict[str, Any], str]) -> bool:

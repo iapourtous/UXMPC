@@ -40,7 +40,7 @@ class DemoBase(BaseModel):
     instructions: Optional[str] = Field(None, description="Custom presentation instructions if provided")
     description: str = Field(..., description="Brief description of the demo")
     html_content: str = Field(..., description="Complete HTML/CSS/JS content")
-    session_id: str = Field(..., description="Meta-chat session ID for reference")
+    session_id: str = Field(..., description="Session ID for reference")
     
     # New fields for enhanced query and agent info
     enhanced_message: Optional[str] = Field(None, description="Enhanced message generated after clarifications")

@@ -1,0 +1,59 @@
+{
+  "name": "perplexity_web_search",
+  "service_type": "tool",
+  "route": "/api/perplexity-search",
+  "method": "POST",
+  "params": [
+    {
+      "name": "query",
+      "type": "string",
+      "required": true,
+      "description": "The search query to send to Perplexity"
+    },
+    {
+      "name": "search_recency_filter",
+      "type": "string",
+      "required": false,
+      "description": "Filter for search recency: month, week, day, hour"
+    }
+  ],
+  "code": "def handler(**params):\n    import requests\n    import json\n    \n    # Validate required parameters\n    query = params.get('query')\n    if not query:\n        return {\"error\": \"query parameter is required\"}\n    \n    # Perplexity API configuration\n    api_key = \"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\"\n    url = \"https://api.perplexity.ai/chat/completions\"\n    \n    # Build the request payload\n    payload = {\n        \"model\": \"sonar-pro\",\n        \"messages\": [\n            {\n                \"role\": \"system\",\n                \"content\": \"You are a helpful search assistant. Provide comprehensive and accurate search results.\"\n            },\n            {\n                \"role\": \"user\",\n                \"content\": query\n            }\n        ],\n        \"temperature\": 0.2,\n        \"top_p\": 0.9,\n        \"search_domain_filter\": [],\n        \"return_images\": False,\n        \"return_related_questions\": True,\n        \"search_recency_filter\": params.get('search_recency_filter', 'month'),\n        \"frequency_penalty\": 0,\n        \"presence_penalty\": 0\n    }\n    \n    headers = {\n        \"Authorization\": f\"Bearer {api_key}\",\n        \"Content-Type\": \"application/json\"\n    }\n    \n    try:\n        # Make the API request\n        response = requests.post(url, headers=headers, json=payload, timeout=30)\n        response.raise_for_status()\n        \n        # Parse the response\n        data = response.json()\n        \n        # Extract the main content\n        if 'choices' in data and len(data['choices']) > 0:\n            content = data['choices'][0]['message']['content']\n            \n            # Build structured response\n            result = {\n                \"success\": True,\n                \"query\": query,\n                \"answer\": content,\n                \"model\": data.get('model', 'sonar-pro'),\n                \"usage\": data.get('usage', {})\n            }\n            \n            # Add citations if available\n            if 'citations' in data:\n                result['citations'] = data['citations']\n                \n            return result\n        else:\n            return {\n                \"success\": False,\n                \"error\": \"No response from Perplexity API\",\n                \"query\": query\n            }\n            \n    except requests.exceptions.Timeout:\n        return {\n            \"success\": False,\n            \"error\": \"Request timed out after 30 seconds\",\n            \"query\": query\n        }\n    except requests.exceptions.RequestException as e:\n        return {\n            \"success\": False,\n            \"error\": f\"API request failed: {str(e)}\",\n            \"query\": query\n        }\n    except Exception as e:\n        return {\n            \"success\": False,\n            \"error\": f\"Unexpected error: {str(e)}\",\n            \"query\": query\n        }",
+  "dependencies": ["requests"],
+  "description": "Web search using Perplexity Sonar Pro API",
+  "documentation": "This service performs web searches using Perplexity's Sonar Pro model. It returns comprehensive search results with citations.",
+  "active": false,
+  "output_schema": {
+    "type": "object",
+    "properties": {
+      "success": {
+        "type": "boolean",
+        "description": "Whether the search was successful"
+      },
+      "query": {
+        "type": "string",
+        "description": "The original search query"
+      },
+      "answer": {
+        "type": "string",
+        "description": "The search results from Perplexity"
+      },
+      "model": {
+        "type": "string",
+        "description": "The model used for the search"
+      },
+      "usage": {
+        "type": "object",
+        "description": "Token usage statistics"
+      },
+      "citations": {
+        "type": "array",
+        "description": "Source citations if available"
+      },
+      "error": {
+        "type": "string",
+        "description": "Error message if the search failed"
+      }
+    },
+    "required": ["success", "query"]
+  }
+}

@@ -49,6 +49,20 @@ export const agentsApi = {
   convertToTool: (id) => api.post(`/agents/${id}/convert-to-tool`),
 };
 
+// Conversations API
+export const conversationsApi = {
+  list: (params = {}) => api.get('/conversations', { params }),
+  get: (id) => api.get(`/conversations/${id}`),
+  create: (data) => api.post('/conversations/', data),
+  update: (id, data) => api.put(`/conversations/${id}`, data),
+  delete: (id) => api.delete(`/conversations/${id}`),
+  addMessage: (id, message) => api.post(`/conversations/${id}/messages`, message),
+  clearMessages: (id) => api.post(`/conversations/${id}/clear`),
+  getSummaries: (params = {}) => api.get('/conversations/summaries', { params }),
+  getLatestConversation: (userId = null) => 
+    api.get(`/conversations/latest`, { params: userId ? { user_id: userId } : {} }),
+};
+
 // Agent Memory API
 export const agentMemoryApi = {
   list: (agentId, params = {}) => api.get(`/agents/${agentId}/memory`, { params }),
