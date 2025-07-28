@@ -6,58 +6,73 @@
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.104+-green)](https://fastapi.tiangolo.com)
 [![React](https://img.shields.io/badge/React-18+-blue)](https://reactjs.org/)
 [![MongoDB](https://img.shields.io/badge/MongoDB-7.0+-green)](https://www.mongodb.com/)
+[![ChromaDB](https://img.shields.io/badge/ChromaDB-Embedded-purple)](https://www.trychroma.com/)
 [![MCP](https://img.shields.io/badge/MCP-Compatible-orange)](https://modelcontextprotocol.io)
 
 </div>
 
-UXMCP est une plateforme complète de gestion de services MCP (Model Context Protocol) qui permet de créer, déployer et gérer dynamiquement des services pour les agents IA. Avec son interface web intuitive et son agent créateur autonome, UXMCP révolutionne la façon de construire des outils pour l'IA.
+UXMCP est une plateforme complète de gestion de services MCP (Model Context Protocol) qui permet de créer, déployer et gérer dynamiquement des services pour les agents IA. Avec son interface web intuitive, ses agents intelligents et son système de création automatique, UXMCP révolutionne la façon de construire des outils pour l'IA.
 
 ## 🌟 Fonctionnalités Principales
 
-### 🤖 Agent Créateur Autonome
-- **Création automatique de services** par simple description en langage naturel
-- **Correction automatique des erreurs** - l'agent debug et corrige le code jusqu'à ce qu'il fonctionne
-- **Installation automatique des dépendances** - détecte et installe les packages manquants
-- **Génération de documentation** et schémas de sortie
+### 🤖 Agents IA Intelligents
+- **Configuration 7D avancée** : Backstory, Objectifs, Contraintes, Mémoire, Raisonnement, Personnalité, Politiques de décision
+- **Mémoire persistante avec ChromaDB** : Les agents se souviennent des interactions passées
+- **Accès à tous les outils MCP** : Utilisation dynamique de tous les services actifs
+- **Chat agentique avancé** : Interface de conversation avec prévisualisation HTML intégrée
+- **Sauvegarde de démos** : Transformation des réponses HTML en démos interactives
 
-### 🔧 Gestion Dynamique de Services
-- **3 types de services MCP** :
-  - **Tools** : Actions et calculs avec schémas de sortie structurés
+### 🛠️ Création Automatique de Services
+- **Agent créateur autonome** : Création de services par description en langage naturel
+- **Correction automatique** : L'agent débugue et corrige le code jusqu'à ce qu'il fonctionne
+- **Gestion des dépendances** : Installation automatique des packages Python nécessaires
+- **Tests intégrés** : Validation automatique avant activation
+
+### 🔧 Services MCP Dynamiques
+- **3 types de services** :
+  - **Tools** : Actions et calculs avec schémas structurés
   - **Resources** : Fournisseurs de contenu avec types MIME
   - **Prompts** : Templates dynamiques pour les LLMs
-- **Activation/désactivation en temps réel** sans redémarrage
-- **Routes HTTP dynamiques** ajoutées/retirées à la volée
-- **Intégration MCP native** pour tous les services actifs
+- **Activation/désactivation à chaud** : Sans redémarrage du système
+- **Routes HTTP dynamiques** : Endpoints créés automatiquement
+- **Intégration MCP native** : Compatible avec tous les clients MCP
 
-### 🤝 Système d'Agents IA
-- **Création d'agents personnalisés** avec profils LLM configurables
-- **Accès aux outils MCP** - les agents peuvent utiliser tous les services actifs
-- **Routes dynamiques** - chaque agent a son endpoint HTTP unique
-- **Support streaming** pour les réponses en temps réel
+### 💾 Conversations Persistantes
+- **Sauvegarde automatique** : Toutes les conversations sont enregistrées
+- **Historique consultable** : Retrouvez facilement vos échanges passés
+- **Multi-agents** : Utilisez différents agents dans la même conversation
+- **Export en démo** : Transformez les réponses HTML en démos partageables
 
-### 💬 Interface de Chat Intégrée
-- **Chat avec différents profils LLM** (GPT-4, Claude, etc.)
-- **Historique des conversations** persistant
-- **Support du streaming** pour les réponses longues
-- **Interface moderne** avec Ant Design
+### 🎨 Système de Démos Interactives
+- **Hébergement de démos HTML/CSS/JS** : Créez et partagez des démos web
+- **Création depuis le chat** : Sauvegardez directement les réponses HTML des agents
+- **Endpoints dynamiques** : Chaque démo a son URL unique
+- **Gestion complète** : Listez, modifiez et supprimez vos démos
 
-### 📊 Système de Logs Centralisé
-- **Logs structurés dans MongoDB** avec traçabilité complète
-- **API de requête puissante** avec filtres et agrégations
-- **Suivi d'exécution** par service et par execution_id
-- **Niveaux de log** configurables (DEBUG, INFO, WARNING, ERROR)
+### 🧠 Meta-Agent Créateur
+- **Création automatique d'agents** : Décrivez vos besoins, le meta-agent s'occupe du reste
+- **Analyse des capacités** : Identifie les outils manquants
+- **Création de services** : Génère automatiquement les services nécessaires
+- **Configuration optimale** : Configure l'agent avec les meilleurs paramètres
 
-### 🎨 Interface Web React
-- **Design moderne** avec Ant Design 5
-- **Navigation intuitive** entre services, agents, profils et logs
-- **Éditeur de code** avec coloration syntaxique
-- **Tests intégrés** pour valider les services
+### 📊 Système de Logs Avancé
+- **Logs MongoDB structurés** : Traçabilité complète des exécutions
+- **Filtrage puissant** : Par service, niveau, date, execution_id
+- **API de requête** : Recherche et agrégation avancées
+- **Interface web** : Visualisation en temps réel des logs
+
+### 🎯 Gestion des Profils LLM
+- **Multi-providers** : OpenAI, Anthropic, Google, et plus
+- **Configuration flexible** : Température, tokens, mode de réponse
+- **Sélection dynamique** : Changez de modèle à la volée
+- **Support streaming** : Réponses en temps réel
 
 ## 🚀 Installation Rapide
 
 ### Prérequis
 - Docker et Docker Compose
 - Ports disponibles : 8000 (API), 5173 (Frontend), 27018 (MongoDB)
+- 4GB de RAM minimum recommandé
 
 ### Installation
 
@@ -75,144 +90,172 @@ open http://localhost:5173
 
 ## 📋 Guide d'Utilisation
 
-### Création Automatique de Service par IA
+### 🎯 Création Automatique de Service par IA
 
-1. Allez dans l'onglet "Services"
-2. Cliquez sur "Create with AI"
-3. Décrivez votre service en langage naturel :
+1. Naviguez vers **Services** → **Create with AI**
+2. Décrivez votre service en langage naturel :
    ```
-   "Un service qui extrait le texte d'une page web avec BeautifulSoup"
+   Un service qui analyse le sentiment d'un texte avec TextBlob
    ```
-4. L'agent va :
-   - Générer le code Python
-   - Installer les dépendances nécessaires
-   - Tester et corriger jusqu'à ce que ça fonctionne
-   - Activer le service automatiquement
+3. L'agent va automatiquement :
+   - Générer le code Python approprié
+   - Installer TextBlob et ses dépendances
+   - Créer les tests et la documentation
+   - Activer le service une fois fonctionnel
 
-### Création Manuelle d'un Service
+### 🤝 Utilisation du Chat Agentique
 
-#### Exemple : Service Tool (Calculatrice)
+1. Allez dans **Agent Chat**
+2. Sélectionnez un agent dans la liste
+3. Commencez votre conversation
+4. Fonctionnalités spéciales :
+   - **Prévisualisation HTML** : Si l'agent génère du HTML, cliquez sur "Preview"
+   - **Sauvegarde en démo** : Transformez les réponses HTML en démos permanentes
+   - **Historique** : Retrouvez toutes vos conversations passées
+   - **Multi-agents** : Changez d'agent sans perdre la conversation
+
+### 🧠 Création d'Agent avec Meta-Agent
+
+1. Naviguez vers **Agents** → **Create Meta Agent**
+2. Décrivez votre besoin :
+   ```
+   J'ai besoin d'un agent expert en analyse de données qui peut 
+   faire des graphiques et des statistiques
+   ```
+3. Le Meta-Agent va :
+   - Analyser vos besoins
+   - Identifier les outils nécessaires
+   - Créer les services manquants
+   - Configurer l'agent optimal
+
+### 💡 Création Manuelle de Services
+
+#### Service Tool (Analyse de sentiment)
 ```python
 def handler(**params):
-    operation = params.get('operation', 'add')
-    a = float(params.get('a', 0))
-    b = float(params.get('b', 0))
+    from textblob import TextBlob
     
-    if operation == 'add':
-        result = a + b
-    elif operation == 'multiply':
-        result = a * b
-    elif operation == 'power':
-        result = a ** b
-    else:
-        return {"error": f"Unknown operation: {operation}"}
+    text = params.get('text', '')
+    if not text:
+        return {"error": "No text provided"}
+    
+    blob = TextBlob(text)
+    sentiment = blob.sentiment
     
     return {
-        "operation": operation,
-        "a": a,
-        "b": b,
-        "result": result
+        "text": text,
+        "polarity": sentiment.polarity,
+        "subjectivity": sentiment.subjectivity,
+        "sentiment": "positive" if sentiment.polarity > 0 else "negative" if sentiment.polarity < 0 else "neutral"
     }
 ```
 
-#### Exemple : Service Resource (Documentation)
+#### Service Resource (Données JSON)
 ```python
 def handler(**params):
-    doc_id = params.get('id', 'default')
+    import json
     
-    content = f"""# Documentation for {doc_id}
-    
-This is a sample resource providing documentation.
-Generated at: {datetime.datetime.utcnow().isoformat()}
-"""
+    data = {
+        "users": [
+            {"id": 1, "name": "Alice", "role": "admin"},
+            {"id": 2, "name": "Bob", "role": "user"}
+        ],
+        "timestamp": datetime.utcnow().isoformat()
+    }
     
     return {
-        "content": content,
-        "mimeType": "text/markdown"
+        "content": json.dumps(data, indent=2),
+        "mimeType": "application/json"
     }
 ```
 
-#### Exemple : Service Prompt (Template)
+#### Service Prompt (Template personnalisé)
 ```python
 def handler(**params):
-    language = params.get('language', 'Python')
-    task = params.get('task', 'explain this code')
+    context = params.get('context', 'general')
+    style = params.get('style', 'professional')
     
-    template = f"""You are an expert {language} developer.
+    template = f"""You are an AI assistant specialized in {context}.
+Your communication style is {style}.
 
-Task: {task}
+When responding:
+1. Be clear and concise
+2. Provide actionable insights
+3. Support your answers with examples
 
-Please provide a detailed response following best practices."""
+How can I help you today?"""
     
     return {"template": template}
 ```
 
-### Création d'un Agent IA
+### 🎭 Configuration d'un Agent
 
-1. Créez un profil LLM dans "LLM Profiles"
-2. Allez dans "Agents" et cliquez "Create New Agent"
-3. Configurez l'agent :
-   - **Name** : Nom unique de l'agent
-   - **System Prompt** : Instructions pour l'agent
-   - **LLM Profile** : Profil à utiliser
-   - **Tools** : Services MCP accessibles
+1. **Créez un profil LLM** dans "LLM Profiles"
+2. **Créez un nouvel agent** avec configuration 7D :
+   - **Backstory** : Histoire et expertise de l'agent
+   - **Objectives** : Buts et missions
+   - **Constraints** : Limites et règles
+   - **Memory** : Configuration de la mémoire
+   - **Reasoning** : Approche de raisonnement
+   - **Personality** : Traits de personnalité
+   - **Decision Policies** : Règles de décision
 
-### Utilisation des Services
+### 🎨 Création de Démos
 
-#### Via HTTP
-```bash
-# Service GET
-curl http://localhost:8000/api/calculator?operation=add&a=5&b=3
-
-# Service POST
-curl -X POST http://localhost:8000/api/web_extractor \
-  -H "Content-Type: application/json" \
-  -d '{"url": "https://example.com"}'
-```
-
-#### Via MCP
-Les services actifs sont exposés sur `http://localhost:8000/mcp` pour les clients MCP.
-
-#### Via Agents
-```bash
-curl -X POST http://localhost:8000/agents/my-agent/chat \
-  -H "Content-Type: application/json" \
-  -d '{"message": "Calculate 5 + 3"}'
-```
+1. **Depuis le chat** : Cliquez sur "Save as Demo" sur une réponse HTML
+2. **Via l'API** : POST vers `/demos/` avec le contenu HTML
+3. **Gestion** : Section "Demos" pour voir et gérer toutes vos démos
+4. **Partage** : Chaque démo a une URL unique accessible
 
 ## 🏗️ Architecture
 
 ```
 UXMCP/
-├── backend/                  # API FastAPI
+├── backend/                      # API FastAPI
 │   ├── app/
-│   │   ├── api/             # Endpoints REST
-│   │   │   ├── services.py  # CRUD services
-│   │   │   ├── agents.py    # Gestion agents
-│   │   │   ├── chat.py      # Interface chat
-│   │   │   ├── logs.py      # API logs
-│   │   │   └── llm.py       # Profils LLM
-│   │   ├── core/            # Core système
-│   │   │   ├── dynamic_router.py    # Routes dynamiques
-│   │   │   ├── mcp_manager.py       # Intégration MCP
-│   │   │   ├── agent_tools.py       # Outils pour agents
-│   │   │   └── mongodb_logger.py    # Système de logs
-│   │   ├── models/          # Modèles Pydantic
-│   │   └── services/        # Logic métier
-│   │       ├── agent_service.py     # Agent créateur
-│   │       └── service_crud.py      # CRUD services
-│   └── tests/               # Tests unitaires
-├── frontend/                # Interface React
+│   │   ├── api/                 # Endpoints REST
+│   │   │   ├── services.py      # CRUD services MCP
+│   │   │   ├── agents.py        # Gestion des agents
+│   │   │   ├── agent.py         # Agent créateur
+│   │   │   ├── agent_memory.py  # API mémoire agents
+│   │   │   ├── meta_agent.py    # Meta-agent créateur
+│   │   │   ├── conversations.py # Gestion conversations
+│   │   │   ├── demos.py         # Gestion démos
+│   │   │   ├── chat.py          # Interface chat
+│   │   │   ├── logs.py          # API logs
+│   │   │   └── llms.py          # Profils LLM
+│   │   ├── core/                # Core système
+│   │   │   ├── dynamic_router.py     # Routes dynamiques
+│   │   │   ├── mcp_manager.py        # Intégration MCP
+│   │   │   ├── agent_router.py       # Routes agents
+│   │   │   ├── agent_tools.py        # Outils pour agents
+│   │   │   └── mongodb_logger.py     # Système de logs
+│   │   ├── models/              # Modèles Pydantic
+│   │   │   ├── service.py       # Modèles services
+│   │   │   ├── agent.py         # Modèles agents
+│   │   │   ├── conversation.py  # Modèles conversations
+│   │   │   └── demo.py          # Modèles démos
+│   │   ├── services/            # Logique métier
+│   │   │   ├── agent_service.py      # Agent créateur
+│   │   │   ├── agent_executor.py     # Exécution agents
+│   │   │   ├── meta_agent_service.py # Service meta-agent
+│   │   │   └── conversation_crud.py  # CRUD conversations
+│   │   └── prompts/             # Templates prompts
+│   └── tests/                   # Tests unitaires
+├── frontend/                    # Interface React
 │   └── src/
-│       ├── components/      # Composants UI
-│       │   ├── ServiceList.jsx
-│       │   ├── AgentList.jsx
-│       │   ├── ChatInterface.jsx
-│       │   └── LogViewer.jsx
-│       ├── services/        # API client
-│       └── hooks/           # React hooks
-├── examples/                # Services d'exemple
-└── docker-compose.yml       # Configuration Docker
+│       ├── components/          # Composants UI
+│       │   ├── ServiceListAntd.jsx    # Liste services
+│       │   ├── AgentList.jsx          # Liste agents
+│       │   ├── ChatWithAgents.jsx     # Chat agentique
+│       │   ├── MetaAgentCreator.jsx   # Créateur meta-agent
+│       │   ├── DemoList.jsx           # Liste démos
+│       │   └── LogsView.jsx           # Visualiseur logs
+│       ├── services/            # API client
+│       └── hooks/               # React hooks
+├── examples/                    # Services d'exemple
+├── docker-compose.yml           # Configuration Docker
+└── Makefile                     # Commandes utiles
 ```
 
 ## 🔧 Configuration
@@ -226,62 +269,96 @@ Créez un fichier `.env` dans le dossier `backend` :
 MONGODB_URL=mongodb://mongo:27017
 DATABASE_NAME=uxmcp
 
+# ChromaDB
+CHROMA_PERSIST_DIRECTORY=/app/chroma_data
+CHROMA_COLLECTION_NAME=agent_memories
+
 # API
 MCP_SERVER_URL=http://localhost:8000/mcp
 LOG_LEVEL=INFO
 CORS_ORIGINS=["http://localhost:5173"]
 
-# Optionnel : Clés API pour les LLMs
+# LLM API Keys (optionnel)
 OPENAI_API_KEY=sk-...
 ANTHROPIC_API_KEY=sk-ant-...
+GOOGLE_API_KEY=...
 ```
 
 ### Configuration des Profils LLM
 
-Les profils LLM peuvent être configurés via l'interface ou l'API :
-
 ```json
 {
-  "name": "gpt-4-turbo",
-  "provider": "openai",
-  "model": "gpt-4-turbo-preview",
-  "api_key": "sk-...",
-  "endpoint": "https://api.openai.com/v1/chat/completions",
+  "name": "claude-3-opus",
+  "provider": "anthropic",
+  "model": "claude-3-opus-20240229",
+  "api_key": "sk-ant-...",
+  "endpoint": "https://api.anthropic.com/v1/messages",
   "max_tokens": 4096,
   "temperature": 0.7,
-  "mode": "json",  // Pour les réponses structurées
+  "mode": "text",  // ou "json" pour réponses structurées
   "active": true
 }
 ```
 
 ## 📚 API Reference
 
-### Services
+### Services MCP
 - `GET /services` - Liste tous les services
 - `POST /services` - Créer un service
 - `GET /services/{id}` - Détails d'un service
-- `PUT /services/{id}` - Mettre à jour un service
-- `DELETE /services/{id}` - Supprimer un service
-- `POST /services/{id}/activate` - Activer un service
-- `POST /services/{id}/deactivate` - Désactiver un service
-- `POST /services/{id}/test` - Tester un service
+- `PUT /services/{id}` - Mettre à jour
+- `DELETE /services/{id}` - Supprimer
+- `POST /services/{id}/activate` - Activer
+- `POST /services/{id}/deactivate` - Désactiver
+- `POST /services/{id}/test` - Tester
 
-### Agents
+### Agents IA
 - `GET /agents` - Liste tous les agents
 - `POST /agents` - Créer un agent
-- `POST /agents/{name}/chat` - Discuter avec un agent
-- `POST /agent/create-service` - Créer un service via IA
+- `GET /agents/{id}` - Détails agent
+- `PUT /agents/{id}` - Mettre à jour
+- `DELETE /agents/{id}` - Supprimer
+- `POST /agents/{id}/activate` - Activer
+- `POST /agents/{id}/execute` - Exécuter
+- `GET /agents/{id}/validate` - Valider config
+
+### Agent Memory
+- `GET /agents/{id}/memory` - Liste mémoires
+- `POST /agents/{id}/memory/search` - Recherche
+- `DELETE /agents/{id}/memory/{memory_id}` - Supprimer
+- `GET /agents/{id}/memory/summary` - Statistiques
+
+### Conversations
+- `GET /conversations` - Liste conversations
+- `POST /conversations` - Créer conversation
+- `GET /conversations/{id}` - Détails
+- `PUT /conversations/{id}` - Mettre à jour
+- `DELETE /conversations/{id}` - Supprimer
+- `POST /conversations/{id}/messages` - Ajouter message
+- `GET /conversations/summaries` - Résumés
+- `GET /conversations/latest` - Dernière conversation
+
+### Démos
+- `GET /demos` - Liste démos
+- `POST /demos` - Créer démo
+- `GET /demos/{name}` - Voir démo
+- `PUT /demos/{id}` - Mettre à jour
+- `DELETE /demos/{id}` - Supprimer
+
+### Meta-Agent
+- `POST /meta-agent/create` - Créer agent automatiquement
+- `POST /meta-agent/analyze` - Analyser besoins
+- `POST /meta-agent/suggest-tools` - Suggérer outils
+
+### AI Agent Créateur
+- `POST /agent/create-service` - Créer service par IA (SSE)
 
 ### Logs
 - `GET /logs/latest` - Logs récents
-- `GET /logs/services/{service_id}` - Logs d'un service
-- `GET /logs/search` - Recherche dans les logs
-- `GET /logs/stats` - Statistiques des logs
-
-### Chat
-- `GET /chat/profiles` - Profils disponibles
-- `POST /chat/stream` - Chat avec streaming
-- `GET /chat/history` - Historique des conversations
+- `GET /logs/{collection}` - Logs par collection
+- `GET /logs/app` - Logs application
+- `GET /logs/services/{service_id}` - Logs service
+- `GET /logs/search` - Recherche avancée
 
 ## 🛠️ Commandes Make
 
@@ -292,13 +369,13 @@ make down          # Arrêter tous les services
 make logs          # Suivre les logs
 make status        # Vérifier le statut
 make test          # Lancer les tests
-make build         # Construire les images Docker
+make build         # Construire les images
 make clean         # Nettoyer volumes et images
 
 # Développement
-make shell-api     # Shell dans le container API
+make shell-api     # Shell dans container API
 make shell-mongo   # Shell MongoDB
-make import-examples  # Importer les exemples
+make import-examples  # Importer exemples
 ```
 
 ## 🧪 Tests
@@ -312,29 +389,74 @@ docker-compose exec api pytest tests/unit/test_models.py -v
 
 # Avec couverture
 docker-compose exec api pytest --cov=app
+
+# Tests d'intégration
+docker-compose exec api pytest tests/integration/ -v
+```
+
+## 🎯 Cas d'Usage
+
+### 1. Assistant de Développement
+```python
+# Créez un agent avec accès aux outils de code
+agent_config = {
+    "name": "dev-assistant",
+    "backstory": "Expert Python avec 10 ans d'expérience",
+    "objectives": ["Aider au développement", "Réviser le code", "Suggérer des améliorations"],
+    "tools": ["code_analyzer", "test_runner", "documentation_generator"]
+}
+```
+
+### 2. Analyseur de Données
+```python
+# Service pour analyse de CSV
+def handler(**params):
+    import pandas as pd
+    import json
+    
+    csv_content = params.get('csv_content')
+    df = pd.read_csv(io.StringIO(csv_content))
+    
+    analysis = {
+        "shape": df.shape,
+        "columns": df.columns.tolist(),
+        "summary": df.describe().to_dict(),
+        "missing_values": df.isnull().sum().to_dict()
+    }
+    
+    return analysis
+```
+
+### 3. Générateur de Rapports
+```python
+# Agent avec mémoire pour suivi de projets
+agent = {
+    "name": "project-reporter",
+    "memory": {"enabled": True, "max_memories": 1000},
+    "personality": "Professionnel et synthétique",
+    "decision_policies": ["Prioriser les faits", "Éviter les répétitions"]
+}
 ```
 
 ## 📖 Guides Avancés
 
-### Ajouter un Nouveau Type de Service
+### Optimisation des Agents
+1. **Mémoire** : Activez ChromaDB pour les contextes longs
+2. **Tools** : Limitez aux outils nécessaires pour la performance
+3. **Prompts** : Utilisez des instructions claires et structurées
+4. **Température** : Ajustez selon le besoin (0.3 pour précision, 0.8 pour créativité)
 
-1. Étendre le modèle dans `models/service.py`
-2. Mettre à jour `mcp_manager.py` pour l'enregistrement
-3. Ajouter le support UI dans `ServiceForm.jsx`
-4. Documenter dans `service_documentation.py`
+### Sécurité
+1. **API Keys** : Stockez dans des variables d'environnement
+2. **CORS** : Configurez les origines autorisées en production
+3. **Validation** : Tous les inputs sont validés par Pydantic
+4. **Sandboxing** : L'exécution de code est isolée
 
-### Créer un Provider LLM Personnalisé
-
-1. Implémenter l'interface dans `services/llm_service.py`
-2. Ajouter la configuration dans `models/llm.py`
-3. Tester avec l'agent créateur
-
-### Débugger un Service
-
-1. Vérifier les logs : `make logs`
-2. Consulter les logs MongoDB via l'API
-3. Utiliser l'endpoint de test dans l'UI
-4. Examiner `/debug/mcp/info` pour l'état MCP
+### Performance
+1. **Cache** : Les services compilés sont mis en cache
+2. **Async** : Toute l'API est asynchrone
+3. **Indexes** : MongoDB indexes sur les champs fréquents
+4. **Pagination** : Toutes les listes supportent la pagination
 
 ## 🤝 Contribution
 
@@ -347,10 +469,28 @@ Les contributions sont les bienvenues !
 5. Ouvrir une Pull Request
 
 ### Guidelines
-- Suivre les conventions Python (PEP 8)
-- Ajouter des tests pour les nouvelles fonctionnalités
-- Mettre à jour la documentation
-- Utiliser des messages de commit descriptifs
+- Suivre PEP 8 pour Python
+- Tests requis pour nouvelles fonctionnalités
+- Documentation des endpoints API
+- Messages de commit descriptifs
+
+## 🐛 Troubleshooting
+
+### Problèmes Courants
+
+**Services qui ne s'activent pas**
+- Vérifiez les logs : `make logs`
+- Testez le service : bouton "Test" dans l'UI
+- Vérifiez les dépendances Python
+
+**Agents sans réponse**
+- Vérifiez le profil LLM est actif
+- Vérifiez les clés API
+- Consultez les logs de l'agent
+
+**Erreurs MongoDB**
+- Vérifiez que MongoDB est démarré : `make status`
+- Vérifiez l'espace disque disponible
 
 ## 📄 License
 
@@ -364,12 +504,14 @@ Ce projet est sous licence MIT - voir le fichier [LICENSE](LICENSE) pour plus de
 - [React](https://reactjs.org) - Framework UI
 - [Ant Design](https://ant.design) - Composants UI
 - [MongoDB](https://www.mongodb.com) - Base de données
+- [ChromaDB](https://www.trychroma.com) - Base vectorielle
 
 ## 🙏 Remerciements
 
 - L'équipe Anthropic pour le Model Context Protocol
 - La communauté FastAPI pour l'excellent framework
-- Tous les contributeurs du projet
+- Les contributeurs open source
+- Tous les utilisateurs et testeurs du projet
 
 ---
 
