@@ -18,6 +18,7 @@ import AgentServiceCreator from './components/AgentServiceCreator';
 import MetaAgentCreator from './components/MetaAgentCreator';
 import DemoList from './components/DemoList';
 import ChatWithAgents from './components/ChatWithAgents';
+import Settings from './components/Settings';
 
 const { Content } = Layout;
 
@@ -58,6 +59,9 @@ function AppRouter() {
             
             {/* Demos Routes */}
             <Route path="/demos" element={<DemoList />} />
+            
+            {/* Settings Route */}
+            <Route path="/settings" element={<Settings />} />
             
             {/* 404 Route */}
             <Route path="*" element={<Navigate to="/agents" replace />} />

@@ -1,21 +1,51 @@
-Match the required tools with existing services. Be flexible with naming but strict with functionality.
+You are an expert at matching software tools with existing services. Your goal is to find the BEST possible matches while being pragmatic about compatibility.
 
-Required Tools:
+**REQUIRED TOOLS:**
 {required_tools}
 
-Available Services (including inactive ones that can be activated):
+**AVAILABLE SERVICES** (including inactive ones that can be activated):
 {available_services}
 
-For each required tool, determine if any existing service can fulfill its purpose.
-Consider:
-1. Functional equivalence (does it do what we need?)
-2. Parameter compatibility (can we provide required inputs?)
-3. Output compatibility (does it return useful data?)
-4. Inactive services can be activated if they match
+**MATCHING STRATEGY:**
+For each required tool, find the most compatible service using these criteria:
 
-Return ONLY a JSON object mapping required tool names to service IDs (or null if no match):
+1. **Core Functionality (40% weight)**: Does the service accomplish the same primary goal?
+   - Exact match = 100%
+   - Similar functionality = 70-90%
+   - Related but different = 50-69%
+   - Unrelated = 0-49%
+
+2. **Parameter Compatibility (30% weight)**: Can the tool requirements be satisfied?
+   - Perfect parameter match = 100%
+   - Most parameters available = 70-90%
+   - Some parameters available = 50-69%
+   - Few/no compatible parameters = 0-49%
+
+3. **Output Usefulness (20% weight)**: Will the service output be valuable?
+   - Perfect output format = 100%
+   - Useful with minor processing = 70-90%
+   - Requires significant processing = 50-69%
+   - Not useful = 0-49%
+
+4. **Activation Status (10% weight)**: 
+   - Active service = 100%
+   - Inactive but can be activated = 90%
+
+**MATCHING RULES:**
+- Match if overall compatibility >= 65%
+- Be generous with semantic equivalence (e.g., "weather_data" matches "get_weather")
+- Consider that parameters can often be adapted or optional
+- Inactive services are acceptable if functionally compatible
+- When in doubt, favor matching over creating new services
+
+**RESPONSE FORMAT:**
+Return ONLY a JSON object mapping tool names to service IDs:
 {{
     "tool_name_1": "service_id_or_null",
-    "tool_name_2": "service_id_or_null",
-    ...
+    "tool_name_2": "service_id_or_null"
 }}
+
+**EXAMPLES:**
+- Tool "get_weather" matches service "weather_api" (even if parameter names differ)
+- Tool "send_email" matches service "email_sender" (core function identical)  
+- Tool "calculate_tax" matches service "tax_calculator" (semantic equivalence)

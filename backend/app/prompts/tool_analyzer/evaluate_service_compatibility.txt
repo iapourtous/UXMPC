@@ -1,28 +1,76 @@
-Evaluate if this service can fulfill the requirement:
+You are an expert software architect evaluating service compatibility. Provide a thorough analysis of whether this service can meet the requirement.
 
-Requirement: {requirement}
+**REQUIREMENT TO FULFILL:**
+{requirement}
 
-Service Details:
-- Name: {service_name}
-- Type: {service_type}
-- Description: {service_description}
-- Route: {service_route}
-- Parameters: {service_params}
-- Documentation: {service_documentation}
+**SERVICE BEING EVALUATED:**
+- **Name**: {service_name}
+- **Type**: {service_type}  
+- **Description**: {service_description}
+- **Endpoint**: {service_route}
+- **Parameters**: {service_params}
+- **Documentation**: {service_documentation}
 
-Analyze:
-1. Functional match (0-100): Does it do what's needed?
-2. Parameter match (0-100): Can we provide required inputs?
-3. Output usefulness (0-100): Is the output format useful?
-4. Overall compatibility (0-100): Would this work for the requirement?
+**EVALUATION CRITERIA:**
 
-Return ONLY a JSON object:
+**1. FUNCTIONAL COMPATIBILITY (40% weight)**
+- **100**: Perfect functional match, identical purpose
+- **80-99**: Excellent match, minor functional differences
+- **60-79**: Good match, covers most requirements
+- **40-59**: Partial match, covers some requirements
+- **20-39**: Limited match, tangentially related
+- **0-19**: No functional relationship
+
+**2. PARAMETER COMPATIBILITY (30% weight)**
+- **100**: All required parameters available with perfect types
+- **80-99**: Most parameters available, minor type differences
+- **60-79**: Key parameters available, some adaptation needed
+- **40-59**: Some parameters available, significant gaps
+- **20-39**: Few parameters match, major restructuring needed
+- **0-19**: Parameters incompatible
+
+**3. OUTPUT UTILITY (20% weight)**
+- **100**: Output format perfect for requirement
+- **80-99**: Output highly useful with minimal processing
+- **60-79**: Output useful but needs some processing
+- **40-59**: Output marginally useful, significant processing
+- **20-39**: Output barely useful, extensive processing
+- **0-19**: Output not useful for requirement
+
+**4. INTEGRATION EFFORT (10% weight)**
+- **100**: Ready to use as-is
+- **80-99**: Minimal configuration needed
+- **60-79**: Some setup/wrapper code needed
+- **40-59**: Moderate integration effort
+- **20-39**: Significant integration work
+- **0-19**: Extensive modification required
+
+**COMPATIBILITY THRESHOLD:**
+- **≥80**: Excellent compatibility, highly recommended
+- **70-79**: Good compatibility, recommended with minor notes
+- **60-69**: Acceptable compatibility, moderate adaptation
+- **50-59**: Marginal compatibility, significant work needed
+- **<50**: Not recommended, better to create new service
+
+**RESPONSE FORMAT:**
+Return ONLY this JSON structure:
+```json
 {{
     "functional_match": 0-100,
     "parameter_match": 0-100,
     "output_usefulness": 0-100,
+    "integration_effort": 0-100,
     "overall_compatibility": 0-100,
     "can_use": true/false,
-    "adaptation_needed": "description of any adaptations needed",
-    "reasoning": "brief explanation"
+    "confidence_level": "high|medium|low",
+    "adaptation_needed": "Specific adaptations required",
+    "reasoning": "Detailed explanation of compatibility assessment",
+    "recommendation": "Strong recommendation, concerns, or alternative suggestions"
 }}
+```
+
+**ANALYSIS INSTRUCTIONS:**
+1. Be objective and thorough in your evaluation
+2. Consider both current capability and potential with adaptation
+3. Factor in maintenance and long-term compatibility
+4. Provide specific, actionable insights in your reasoning

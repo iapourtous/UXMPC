@@ -2,7 +2,7 @@
 Agent Embedding Service
 
 This module provides embedding functionality for agents using sentence transformers.
-Used for semantic agent selection in meta-chat.
+Used for semantic agent selection in the agent system.
 """
 
 import logging

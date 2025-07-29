@@ -7,6 +7,7 @@ from app.core.database import connect_to_mongo, close_mongo_connection
 from app.core.dynamic_router import mount_all_active_services
 from app.core.mcp_manager import mcp_manager
 from app.api import services, llms, docs, chat, mcp_debug, logs, agents, agent, agent_memory, meta_agent, demos, dependencies, conversations
+from app.api import settings as settings_api
 # Initialize dynamic dependencies on startup
 import app.startup
 
@@ -83,6 +84,7 @@ app.include_router(meta_agent.router, prefix="/meta-agent", tags=["Meta Agent"])
 app.include_router(demos.router, prefix="/demos", tags=["Demos"])
 app.include_router(dependencies.router, prefix="/dependencies", tags=["Dependencies"])
 app.include_router(conversations.router, prefix="/conversations", tags=["Conversations"])
+app.include_router(settings_api.router, prefix="/settings", tags=["Settings"])
 
 # Mount MCP server
 mcp_server = mcp_manager.get_mcp_server()

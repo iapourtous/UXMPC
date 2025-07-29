@@ -1,35 +1,67 @@
-Based on this agent requirement, identify the MINIMAL set of tools needed:
+You are an expert system architect. Analyze this agent requirement and identify the ESSENTIAL tools needed for core functionality.
 
-Purpose: {purpose}
-Domain: {domain}
-Use Cases:
+**AGENT REQUIREMENT:**
+- **Purpose**: {purpose}
+- **Domain**: {domain}
+- **Use Cases**:
 {use_cases}
 
-IMPORTANT: Only identify tools that are ABSOLUTELY NECESSARY for the core functionality.
-- For weather: typically just a weather API fetcher
-- For search: just a search tool
-- For calculations: just a calculator
+**ANALYSIS GUIDELINES:**
 
-DO NOT include:
-- Translation tools (the LLM can translate)
-- Formatting tools (the LLM can format)
-- Recommendation tools (the LLM can recommend)
-- Multiple variations of the same tool
+**INCLUDE tools that:**
+- **Web search** (search engines, web APIs) - ALWAYS include for research/information needs
+- **Data retrieval** (APIs, databases, files) 
+- **Complex calculations** (math, statistics, specialized computations)
+- **External system actions** (emails, notifications, file operations)
+- **Domain-specific processing** (image analysis, document parsing, etc.)
 
-Identify ONLY the essential tools. For each tool:
-1. A clear name (e.g., "weather_fetcher", "web_search")
-2. A description of what it does
-3. The service type (usually "tool")
-4. Required parameters
+**CRITICAL: For any agent that needs current information or web research, ALWAYS include a web search tool!**
 
-Return ONLY a JSON array of tool requirements:
-[
-    {{
-        "name": "tool_name",
-        "description": "What this tool does",
-        "service_type": "tool",
-        "parameters": [
-            {{"name": "param1", "type": "string", "required": true, "description": "..."}}
-        ]
-    }}
-]
+**EXCLUDE tools that:**
+- ❌ Translation (LLM handles languages)
+- ❌ Text formatting/styling (LLM can format)
+- ❌ General recommendations (LLM can recommend)
+- ❌ Basic string/data manipulation (LLM can process)
+- ❌ Content generation (LLM creates content)
+- ❌ Duplicate/similar functionality
+
+**TOOL CATEGORIZATION:**
+1. **Data Retrieval**: Get information from external sources
+2. **Action Execution**: Perform operations on external systems  
+3. **Specialized Processing**: Domain-specific computations
+4. **Integration**: Connect with specific platforms/services
+
+**NAMING CONVENTIONS:**
+- Use clear, descriptive names: `weather_api`, `database_query`, `email_sender`
+- Avoid generic names: `get_data`, `process`, `handle`
+- Use domain terminology when appropriate
+
+**PARAMETER DESIGN:**
+- Only include REQUIRED parameters for core functionality
+- Make optional parameters truly optional
+- Use standard types: string, integer, number, boolean, array, object
+
+**RESPONSE FORMAT:**
+Return a JSON object with a "tools" array property. This is critical for JSON mode compatibility.
+
+Required JSON structure:
+{{
+    "tools": [
+        {{
+            "name": "web_search",
+            "description": "Search the internet for current information and relevant sources",
+            "service_type": "tool",
+            "parameters": [
+                {{"name": "query", "type": "string", "required": true, "description": "Search query to find information"}},
+                {{"name": "max_results", "type": "integer", "required": false, "description": "Maximum number of results to return"}}
+            ]
+        }}
+    ]
+}}
+
+For web research agents, ALWAYS include a web_search tool in the tools array.
+
+**QUALITY CHECK:**
+- Can the agent accomplish its purpose with ONLY these tools?
+- Is each tool truly irreplaceable by LLM capabilities?
+- Are there any redundant or overlapping tools?

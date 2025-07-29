@@ -31,7 +31,7 @@ class PromptLoader:
         Load a prompt from file and substitute variables.
         
         Args:
-            prompt_path: Path relative to prompts directory (e.g., "meta_chat/analyze_request.txt")
+            prompt_path: Path relative to prompts directory (e.g., "agent_service/analyze_request.txt")
             variables: Dictionary of variables to substitute in the prompt
             
         Returns:

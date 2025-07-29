@@ -3,11 +3,14 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { agentsApi, conversationsApi, demosApi } from '../services/api';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
-import { Select, Button, Input, Drawer, List, Typography, Popconfirm, message, Modal } from 'antd';
-import { SendOutlined, ClearOutlined, HistoryOutlined, DeleteOutlined, PlusOutlined, SaveOutlined, EyeOutlined, ExperimentOutlined } from '@ant-design/icons';
+import { Select, Button, Input, Drawer, List, Typography, Popconfirm, message, Modal, Tooltip, Tag } from 'antd';
+import { SendOutlined, ClearOutlined, HistoryOutlined, DeleteOutlined, PlusOutlined, SaveOutlined, EyeOutlined, ExperimentOutlined, CompressOutlined } from '@ant-design/icons';
+import axios from 'axios';
 
 const { TextArea } = Input;
 const { Title, Text } = Typography;
+
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
 
 function ChatWithAgents() {
   const [selectedAgent, setSelectedAgent] = useState('');
@@ -23,6 +26,7 @@ function ChatWithAgents() {
   const [demoTitle, setDemoTitle] = useState('');
   const [demoDescription, setDemoDescription] = useState('');
   const [demoHtmlContent, setDemoHtmlContent] = useState('');
+  const [globalSettings, setGlobalSettings] = useState(null);
   const messagesEndRef = useRef(null);
   const queryClient = useQueryClient();
   
@@ -56,6 +60,7 @@ function ChatWithAgents() {
         tool_calls: msg.tool_calls,
         agent_id: msg.agent_id
       }));
+      console.log('LOADING conversation with', displayMessages.length, 'messages');
       setMessages(displayMessages);
       message.success('Conversation loaded');
       
@@ -111,22 +116,32 @@ function ChatWithAgents() {
   // Save conversation with custom title
   const saveConversationMutation = useMutation({
     mutationFn: async (title) => {
+      console.log('SAVING CONVERSATION with', messages.length, 'messages');
+      console.log('Messages being saved:', messages.map(m => `${m.role}: ${m.content.substring(0, 50)}...`));
+      
+      const messagesToSave = messages.map(msg => ({
+        role: msg.role,
+        content: msg.content,
+        agent_id: msg.agent_id,
+        tool_calls: msg.tool_calls || [],
+        metadata: msg.metadata || {}
+      }));
+      
       if (currentConversationId) {
-        // Update existing conversation title
-        const response = await conversationsApi.update(currentConversationId, { title });
+        // Update existing conversation - FORCE overwrite with current messages
+        const response = await conversationsApi.update(currentConversationId, { 
+          title,
+          messages: messagesToSave
+        });
+        console.log('UPDATED conversation with', messagesToSave.length, 'messages');
         return response.data;
       } else {
-        // Create new conversation with title
+        // Create new conversation
         const response = await conversationsApi.create({
           title,
-          messages: messages.map(msg => ({
-            role: msg.role,
-            content: msg.content,
-            agent_id: msg.agent_id,
-            tool_calls: msg.tool_calls,
-            metadata: msg.metadata || {}
-          }))
+          messages: messagesToSave
         });
+        console.log('CREATED conversation with', messagesToSave.length, 'messages');
         return response.data;
       }
     },
@@ -136,6 +151,7 @@ function ChatWithAgents() {
       setSaveModalOpen(false);
       setConversationTitle('');
       message.success('Conversation saved successfully');
+      // DO NOT reload messages - keep the current state as-is
     },
     onError: () => {
       message.error('Failed to save conversation');
@@ -176,10 +192,17 @@ function ChatWithAgents() {
   // Send message mutation
   const sendMessageMutation = useMutation({
     mutationFn: async ({ agentId, message, conversationId }) => {
+      // Convert current messages to conversation history format
+      const conversationHistory = messages.map(msg => ({
+        role: msg.role === 'error' ? 'assistant' : msg.role, // Convert error to assistant for context
+        content: msg.content
+      }));
+      
       const response = await agentsApi.execute(agentId, {
         input: message,
         conversation_id: conversationId,
-        save_conversation: true,
+        conversation_history: conversationHistory, // Pass current chat history
+        save_conversation: false, // Disable auto-save to prevent overriding local changes
         execution_options: {
           timeout: 180000 // 3 minutes
         }
@@ -223,8 +246,28 @@ function ChatWithAgents() {
     scrollToBottom();
   }, [messages]);
   
+  // Fetch global settings
+  const fetchSettings = async () => {
+    try {
+      const response = await axios.get(`${API_URL}/settings`);
+      setGlobalSettings(response.data);
+    } catch (error) {
+      console.error('Failed to fetch settings:', error);
+    }
+  };
+
+  // Check if compaction would be active
+  const isCompactionActive = () => {
+    if (!globalSettings?.compaction_settings?.enabled) return false;
+    if (!globalSettings?.summary_llm_profile) return false;
+    if (messages.length <= globalSettings.compaction_settings.message_threshold) return false;
+    return true;
+  };
+
   // Auto-load latest conversation when component mounts
   useEffect(() => {
+    fetchSettings();
+    
     if (!currentConversationId) {
       conversationsApi.getLatestConversation()
         .then(response => {
@@ -263,6 +306,14 @@ function ChatWithAgents() {
   
   const handleClearChat = () => {
     createConversationMutation.mutate();
+  };
+  
+  const handleDeleteMessage = (index) => {
+    setMessages(prev => {
+      const newMessages = prev.filter((_, i) => i !== index);
+      console.log('Messages after deletion:', newMessages.length, 'messages');
+      return newMessages;
+    });
   };
   
   const handleAgentChange = (value) => {
@@ -432,86 +483,149 @@ function ChatWithAgents() {
         )}
         
         {currentConversationId && (
-          <div className="mt-2">
-            <Text type="secondary" className="text-xs">
+          <div className="mt-2 space-y-1">
+            <Text type="secondary" className="text-xs block">
               <SaveOutlined className="mr-1" />
               Conversation is being auto-saved
             </Text>
+            {isCompactionActive() && (
+              <Tooltip title={`Messages will be compacted after ${globalSettings.compaction_settings.message_threshold} messages. Currently at ${messages.length} messages.`}>
+                <Tag color="blue" icon={<CompressOutlined />} className="text-xs">
+                  Compaction Active
+                </Tag>
+              </Tooltip>
+            )}
+            {globalSettings?.user_context && (
+              <Tooltip title="User context is being provided to the agent">
+                <Tag color="green" className="text-xs">
+                  User Context Active
+                </Tag>
+              </Tooltip>
+            )}
           </div>
         )}
       </div>
       
       {/* Messages container */}
-      <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-gray-50">
+      <div className="flex-1 overflow-y-auto p-6 space-y-6 bg-gradient-to-br from-gray-50 via-blue-50/30 to-indigo-50/20">
         {messages.length === 0 && (
-          <div className="text-center text-gray-500 mt-8">
-            <p className="text-lg font-medium">No messages yet</p>
-            <p className="text-sm mt-1">Start a conversation with {currentAgent?.name || 'an agent'}!</p>
+          <div className="text-center py-12">
+            <div className="w-16 h-16 mx-auto mb-4 bg-gradient-to-br from-indigo-100 to-purple-100 rounded-2xl flex items-center justify-center">
+              <span className="text-2xl">💬</span>
+            </div>
+            <h3 className="text-xl font-semibold text-gray-700 mb-2">Ready to chat!</h3>
+            <p className="text-gray-500 max-w-md mx-auto leading-relaxed">
+              {currentAgent ? (
+                <>Start a conversation with <span className="font-medium text-indigo-600">{currentAgent.name}</span> by typing your message below.</>
+              ) : (
+                'Select an agent from the dropdown above to begin your conversation.'
+              )}
+            </p>
           </div>
         )}
         
         {messages.map((message, index) => (
           <div
             key={index}
-            className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
+            className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'} group`}
           >
             <div
-              className={`max-w-3xl rounded-lg px-4 py-2 ${
+              className={`max-w-5xl rounded-2xl px-6 py-4 relative shadow-sm hover:shadow-md transition-all duration-200 ${
                 message.role === 'user'
-                  ? 'bg-blue-600 text-white'
+                  ? 'bg-gradient-to-br from-blue-600 to-blue-700 text-white shadow-blue-200/50'
                   : message.role === 'assistant'
-                  ? 'bg-white border border-gray-200'
-                  : 'bg-red-50 border border-red-200 text-red-700'
+                  ? 'bg-white/90 backdrop-blur-sm border border-gray-100 shadow-gray-200/50'
+                  : 'bg-red-50/90 backdrop-blur-sm border border-red-200 text-red-700 shadow-red-200/50'
               }`}
             >
-              <div className="text-xs font-medium mb-1 opacity-70">
-                {message.role === 'user' ? 'You' : 
-                 message.role === 'assistant' ? (
-                   // Find agent name from agent_id in message
-                   agents.find(a => a.id === message.agent_id)?.name || 'Agent'
-                 ) : 'Error'}
-                {message.timestamp && (
-                  <span className="ml-2">
-                    {new Date(message.timestamp).toLocaleTimeString()}
-                  </span>
-                )}
+              {/* Delete button */}
+              <button
+                onClick={() => handleDeleteMessage(index)}
+                className="absolute -top-2 -right-2 w-7 h-7 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all duration-200 bg-red-500 hover:bg-red-600 text-white shadow-lg hover:shadow-xl transform hover:scale-110"
+                title="Delete message"
+              >
+                <span className="text-sm font-medium">×</span>
+              </button>
+              <div className="flex items-center gap-2 mb-3">
+                <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold ${
+                  message.role === 'user' 
+                    ? 'bg-white/20 text-white' 
+                    : message.role === 'assistant'
+                    ? 'bg-gradient-to-br from-indigo-500 to-purple-600 text-white'
+                    : 'bg-red-500 text-white'
+                }`}>
+                  {message.role === 'user' ? 'U' : 
+                   message.role === 'assistant' ? '🤖' : '⚠'}
+                </div>
+                <div className="flex flex-col">
+                  <div className={`text-sm font-medium ${message.role === 'user' ? 'text-white/90' : 'text-gray-700'}`}>
+                    {message.role === 'user' ? 'You' : 
+                     message.role === 'assistant' ? (
+                       agents.find(a => a.id === message.agent_id)?.name || 'Agent'
+                     ) : 'Error'}
+                  </div>
+                  {message.timestamp && (
+                    <div className={`text-xs ${message.role === 'user' ? 'text-white/70' : 'text-gray-500'}`}>
+                      {new Date(message.timestamp).toLocaleTimeString()}
+                    </div>
+                  )}
+                </div>
               </div>
               <div className="message-content">
                 {message.role === 'assistant' ? (
                   <ReactMarkdown 
                     remarkPlugins={[remarkGfm]}
-                    className="prose prose-sm max-w-none"
+                    className="prose prose-base max-w-none prose-gray prose-headings:text-gray-800 prose-p:text-gray-700 prose-p:leading-relaxed"
                     components={{
                       pre: ({node, ...props}) => (
-                        <pre className="bg-gray-100 rounded p-2 overflow-x-auto" {...props} />
+                        <pre className="bg-gray-50 border rounded-xl p-4 overflow-x-auto shadow-inner" {...props} />
                       ),
                       code: ({node, inline, ...props}) => (
                         inline ? 
-                          <code className="bg-gray-100 px-1 rounded" {...props} /> :
-                          <code {...props} />
+                          <code className="bg-gray-100 px-2 py-1 rounded-md text-sm font-mono" {...props} /> :
+                          <code className="text-sm" {...props} />
                       ),
                       a: ({node, ...props}) => (
-                        <a className="text-blue-600 hover:underline" target="_blank" rel="noopener noreferrer" {...props} />
+                        <a className="text-blue-600 hover:text-blue-700 underline decoration-2 underline-offset-2" target="_blank" rel="noopener noreferrer" {...props} />
                       ),
                       ul: ({node, ...props}) => (
-                        <ul className="list-disc list-inside" {...props} />
+                        <ul className="list-disc list-inside space-y-1" {...props} />
                       ),
                       ol: ({node, ...props}) => (
-                        <ol className="list-decimal list-inside" {...props} />
+                        <ol className="list-decimal list-inside space-y-1" {...props} />
+                      ),
+                      h1: ({node, ...props}) => (
+                        <h1 className="text-xl font-bold text-gray-800 mb-3 mt-4" {...props} />
+                      ),
+                      h2: ({node, ...props}) => (
+                        <h2 className="text-lg font-semibold text-gray-800 mb-2 mt-3" {...props} />
+                      ),
+                      h3: ({node, ...props}) => (
+                        <h3 className="text-base font-medium text-gray-800 mb-2 mt-2" {...props} />
+                      ),
+                      blockquote: ({node, ...props}) => (
+                        <blockquote className="border-l-4 border-indigo-200 pl-4 py-2 bg-indigo-50/50 rounded-r-lg" {...props} />
                       )
                     }}
                   >
                     {message.content}
                   </ReactMarkdown>
                 ) : (
-                  <div className="whitespace-pre-wrap break-words">
+                  <div className="whitespace-pre-wrap break-words text-base leading-relaxed">
                     {message.content}
                   </div>
                 )}
               </div>
               {message.tool_calls && message.tool_calls.length > 0 && (
-                <div className="mt-2 text-xs opacity-70">
-                  Used {message.tool_calls.length} tool{message.tool_calls.length > 1 ? 's' : ''}
+                <div className="mt-3 pt-3 border-t border-gray-100">
+                  <div className="flex items-center gap-2">
+                    <div className="w-4 h-4 rounded-full bg-gradient-to-r from-green-400 to-blue-500 flex items-center justify-center">
+                      <span className="text-white text-xs">🔧</span>
+                    </div>
+                    <span className="text-xs text-gray-600 font-medium">
+                      Used {message.tool_calls.length} tool{message.tool_calls.length > 1 ? 's' : ''}
+                    </span>
+                  </div>
                 </div>
               )}
               {/* HTML Preview and Save as Demo Buttons */}
@@ -549,11 +663,17 @@ function ChatWithAgents() {
         
         {sendMessageMutation.isPending && (
           <div className="flex justify-start">
-            <div className="bg-gray-200 rounded-lg px-4 py-2">
-              <div className="flex items-center space-x-2">
-                <div className="w-2 h-2 bg-gray-500 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></div>
-                <div className="w-2 h-2 bg-gray-500 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></div>
-                <div className="w-2 h-2 bg-gray-500 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></div>
+            <div className="bg-white/90 backdrop-blur-sm border border-gray-100 rounded-2xl px-6 py-4 shadow-sm">
+              <div className="flex items-center gap-3">
+                <div className="w-6 h-6 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center">
+                  <span className="text-white text-xs">🤖</span>
+                </div>
+                <div className="flex items-center space-x-1">
+                  <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></div>
+                  <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></div>
+                  <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></div>
+                </div>
+                <span className="text-sm text-gray-500 font-medium">Agent is thinking...</span>
               </div>
             </div>
           </div>
@@ -563,28 +683,40 @@ function ChatWithAgents() {
       </div>
       
       {/* Input form */}
-      <form onSubmit={handleSendMessage} className="p-4 bg-white border-t">
-        <div className="flex gap-2">
-          <TextArea
-            value={inputMessage}
-            onChange={(e) => setInputMessage(e.target.value)}
-            placeholder={selectedAgent ? "Type your message..." : "Select an agent first..."}
-            disabled={!selectedAgent || sendMessageMutation.isPending}
-            autoSize={{ minRows: 1, maxRows: 4 }}
-            onPressEnter={(e) => {
-              if (!e.shiftKey) {
-                e.preventDefault();
-                handleSendMessage(e);
-              }
-            }}
-            className="flex-1"
-          />
+      <form onSubmit={handleSendMessage} className="p-6 bg-white/80 backdrop-blur-sm border-t border-gray-100">
+        <div className="flex gap-3 items-end">
+          <div className="flex-1">
+            <TextArea
+              value={inputMessage}
+              onChange={(e) => setInputMessage(e.target.value)}
+              placeholder={selectedAgent ? "💬 Type your message here..." : "👋 Select an agent first to start chatting..."}
+              disabled={!selectedAgent || sendMessageMutation.isPending}
+              autoSize={{ minRows: 1, maxRows: 4 }}
+              onPressEnter={(e) => {
+                if (!e.shiftKey) {
+                  e.preventDefault();
+                  handleSendMessage(e);
+                }
+              }}
+              className="rounded-xl border-gray-200 shadow-sm hover:border-blue-300 focus:border-blue-500 transition-colors duration-200"
+              style={{
+                resize: 'none',
+                fontSize: '16px',
+                lineHeight: '1.5'
+              }}
+            />
+            <div className="text-xs text-gray-400 mt-1 ml-3">
+              Press Enter to send • Shift+Enter for new line
+            </div>
+          </div>
           <Button
             type="primary"
             htmlType="submit"
             icon={<SendOutlined />}
             disabled={!selectedAgent || !inputMessage.trim() || sendMessageMutation.isPending}
             loading={sendMessageMutation.isPending}
+            className="h-12 px-6 rounded-xl bg-gradient-to-r from-blue-600 to-blue-700 border-0 shadow-lg hover:shadow-xl transform hover:scale-105 transition-all duration-200"
+            size="large"
           >
             Send
           </Button>

@@ -1,10 +1,10 @@
 import json
 import re
-import httpx
 from typing import Dict, Any, List
 from app.models.service import ServiceParam
 from app.services.llm_crud import llm_crud
 from app.core.prompt_manager import load_prompt
+from app.core.llm_client import llm_client
 import logging
 
 logger = logging.getLogger(__name__)
@@ -124,51 +124,33 @@ class ServiceGenerator:
         )
         
         try:
-            # Call LLM API
-            messages = []
-            if llm_profile.system_prompt:
-                messages.append({"role": "system", "content": llm_profile.system_prompt})
-            messages.append({"role": "user", "content": prompt})
+            # Call LLM using centralized client
+            content = await llm_client.call_simple(
+                llm_profile=llm_profile,
+                prompt=prompt,
+                system_message=llm_profile.system_prompt,
+                temperature=0.7
+            )
             
-            endpoint = llm_profile.endpoint or "https://api.openai.com/v1/chat/completions"
-            headers = {
-                "Authorization": f"Bearer {llm_profile.api_key}",
-                "Content-Type": "application/json"
-            }
-            
-            payload = {
-                "model": llm_profile.model,
-                "messages": messages,
-                "temperature": 0.7,
-                "max_tokens": llm_profile.max_tokens
-            }
-            
-            # Use JSON mode if available
+            if not content:
+                logger.warning("LLM call returned empty content, using fallback")
+                return self._generate_fallback(service_data)
+                
+            # Parse the response
             if llm_profile.mode == "json":
-                payload["response_format"] = {"type": "json_object"}
-            
-            async with httpx.AsyncClient(timeout=60.0) as client:
-                response = await client.post(endpoint, headers=headers, json=payload)
-                response.raise_for_status()
-                
-                result = response.json()
-                content = result["choices"][0]["message"]["content"]
-                
-                # Parse the response
-                if llm_profile.mode == "json":
-                    generated = json.loads(content)
+                generated = json.loads(content)
+            else:
+                # Try to extract JSON from the response
+                json_match = re.search(r'\{[\s\S]*\}', content)
+                if json_match:
+                    generated = json.loads(json_match.group())
                 else:
-                    # Try to extract JSON from the response
-                    import re
-                    json_match = re.search(r'\{[\s\S]*\}', content)
-                    if json_match:
-                        generated = json.loads(json_match.group())
-                    else:
-                        # Fallback generation
-                        return self._generate_fallback(service_data)
+                    # Fallback generation
+                    logger.warning("No JSON found in response, using fallback")
+                    return self._generate_fallback(service_data)
                 
-                # Post-process the generated data
-                return self._post_process_generated(generated, service_data)
+            # Post-process the generated data
+            return self._post_process_generated(generated, service_data)
                 
         except Exception as e:
             logger.error(f"Failed to generate service with LLM: {str(e)}")

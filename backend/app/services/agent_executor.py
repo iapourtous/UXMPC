@@ -15,6 +15,8 @@ from app.core.database import get_database
 from app.core.mongodb_logger import ServiceLogger
 from app.services.conversation_crud import conversation_crud
 from app.models.conversation import MessageCreate, ConversationCreate
+from app.services.conversation_compactor import conversation_compactor
+from app.services.settings_crud import settings_crud
 
 logger = logging.getLogger(__name__)
 
@@ -137,11 +139,83 @@ class AgentExecutor:
             # Build messages
             messages = self._build_messages(agent, execution_request, memory_context)
             
+            # Apply conversation compaction if enabled
+            messages_for_agent = messages
+            compaction_applied = False
+            
+            # Get global settings for compaction
+            global_settings = await settings_crud.get_or_create()
+            
+            # Check if we should compact the conversation
+            await agent_logger.info(
+                "Compaction check",
+                compaction_enabled=global_settings.compaction_settings.enabled,
+                has_conversation_history=bool(execution_request.conversation_history),
+                history_length=len(execution_request.conversation_history) if execution_request.conversation_history else 0
+            )
+            
+            if global_settings.compaction_settings.enabled and execution_request.conversation_history:
+                # Prepare full message list including history for compaction check
+                full_messages = []
+                if execution_request.conversation_history:
+                    full_messages.extend(execution_request.conversation_history)
+                # Add current user message
+                if messages and messages[-1]["role"] == "user":
+                    full_messages.append(messages[-1])
+                
+                # Attempt compaction
+                compacted_messages, was_compacted = await conversation_compactor.compact_conversation(
+                    messages=full_messages,
+                    user_context=global_settings.user_context,
+                    settings=global_settings
+                )
+                
+                if was_compacted:
+                    # Rebuild messages with compacted version
+                    # Keep system messages from agent configuration (backstory, objectives, etc.)
+                    agent_system_messages = [msg for msg in messages if msg["role"] == "system" and "User Context:" not in msg["content"] and "Previous Conversation Summary:" not in msg["content"]]
+                    
+                    # The compacted_messages already include user context and summary, so combine them properly
+                    messages_for_agent = agent_system_messages + compacted_messages
+                    compaction_applied = True
+                    
+                    await agent_logger.info(
+                        "Applied conversation compaction",
+                        original_message_count=len(full_messages),
+                        compacted_message_count=len(compacted_messages),
+                        agent_system_messages_count=len(agent_system_messages),
+                        final_messages_count=len(messages_for_agent)
+                    )
+                    
+                    # Log the structure for debugging
+                    for i, msg in enumerate(messages_for_agent):
+                        role = msg["role"]
+                        content_preview = msg["content"][:100] + "..." if len(msg["content"]) > 100 else msg["content"]
+                        await agent_logger.debug(f"Message {i}: {role} - {content_preview}")
+                elif global_settings.user_context:
+                    # No compaction but add user context if available
+                    user_context_msg = {
+                        "role": "system",
+                        "content": f"User Context: {global_settings.user_context}"
+                    }
+                    # Insert user context after agent system messages
+                    system_msg_count = sum(1 for msg in messages if msg["role"] == "system")
+                    messages_for_agent = messages[:system_msg_count] + [user_context_msg] + messages[system_msg_count:]
+            elif global_settings.user_context and not execution_request.conversation_history:
+                # No history but add user context if available
+                user_context_msg = {
+                    "role": "system",
+                    "content": f"User Context: {global_settings.user_context}"
+                }
+                # Insert user context after agent system messages
+                system_msg_count = sum(1 for msg in messages if msg["role"] == "system")
+                messages_for_agent = messages[:system_msg_count] + [user_context_msg] + messages[system_msg_count:]
+            
             # Execute with LLM
             result = await self._call_llm_with_tools(
                 llm_profile=llm_profile,
                 agent=agent,
-                messages=messages,
+                messages=messages_for_agent,
                 tools=tools,
                 agent_logger=agent_logger,
                 max_iterations=agent.max_iterations
@@ -193,7 +267,7 @@ class AgentExecutor:
                     agent_logger=agent_logger
                 )
             
-            # Update usage history for meta-chat selection
+            # Update usage history for agent selection
             await self._update_usage_history(
                 agent=agent,
                 query=execution_request.input if isinstance(execution_request.input, str) else json.dumps(execution_request.input),
@@ -373,12 +447,12 @@ class AgentExecutor:
             if memory_config.get('active_memory', True):
                 system_content += """# Memory Management
 You have access to memory management tools:
-- **memory_search**: Search your memory BEFORE using external tools to check if you already know the answer
+- **memory_search**: Search your memory BEFORE using other available tools to check if you already know the answer
 - **memory_store**: Save important findings, user preferences, and key information for future use (importance 0.8+ for critical info)
 - **memory_analyze**: Analyze your memory patterns to understand past interactions
 
 Memory usage guidelines:
-1. Always search your memory first before using external tools
+1. Always search your memory first before using other available tools
 2. Store important discoveries and user preferences with appropriate importance levels
 3. Use descriptive content when storing memories for better future retrieval
 4. Check memory_analyze periodically to understand your knowledge gaps
@@ -389,8 +463,18 @@ Memory usage guidelines:
         if agent.system_prompt:
             system_content += agent.system_prompt
         
-        # Add instruction about providing final answer
-        system_content += "\n\nIMPORTANT: When you have gathered enough information to answer the user's question completely, provide your final answer WITHOUT making any more tool calls. The absence of tool calls in your response indicates that you have completed your task."
+        # Add critical constraints about links and web access
+        system_content += """
+
+# CRITICAL CONSTRAINTS
+- You do NOT have access to the internet, search engines, or web browsing capabilities
+- You CANNOT generate, invent, or hallucinate URL links
+- You CANNOT claim to have performed web searches or accessed websites
+- If you don't have a specific tool to access information, clearly state this limitation
+- Use ONLY the tools that are explicitly provided to you
+- Base your responses ONLY on your training knowledge and stored memory
+
+IMPORTANT: When you have gathered enough information to answer the user's question completely, provide your final answer WITHOUT making any more tool calls. The absence of tool calls in your response indicates that you have completed your task."""
         
         # Only add system message if there's content
         if system_content.strip():

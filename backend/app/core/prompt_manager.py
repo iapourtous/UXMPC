@@ -36,7 +36,6 @@ class PromptManager:
     def _ensure_directories(self):
         """Ensure all prompt directories exist"""
         subdirs = [
-            "meta_chat",
             "agent_service", 
             "meta_agent",
             "service_generator",
@@ -53,7 +52,7 @@ class PromptManager:
         """Load a prompt from file with variable substitution
         
         Args:
-            prompt_path: Path relative to prompts directory (e.g., "meta_chat/analyze_request.txt")
+            prompt_path: Path relative to prompts directory (e.g., "agent_service/analyze_request.txt")
             **kwargs: Variables to substitute in the prompt
             
         Returns:

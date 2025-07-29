@@ -8,7 +8,8 @@ import {
   MessageOutlined,
   FileSearchOutlined,
   ToolOutlined,
-  AppstoreOutlined
+  AppstoreOutlined,
+  SettingOutlined
 } from '@ant-design/icons';
 
 const { Header } = Layout;
@@ -52,6 +53,11 @@ const AppHeader = () => {
       key: '/logs',
       icon: <FileSearchOutlined />,
       label: 'Logs',
+    },
+    {
+      key: '/settings',
+      icon: <SettingOutlined />,
+      label: 'Settings',
     }
   ];
 
@@ -69,6 +75,7 @@ const AppHeader = () => {
     if (currentPath.startsWith('/chat')) return '/chat';
     if (currentPath.startsWith('/demos')) return '/demos';
     if (currentPath.startsWith('/logs')) return '/logs';
+    if (currentPath.startsWith('/settings')) return '/settings';
     return '/agents';
   };
 

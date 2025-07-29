@@ -27,6 +27,7 @@ from app.services.agent_service import create_agent as create_service_agent
 from app.core.tool_analyzer import ToolAnalyzer
 from app.core.dynamic_router import mount_service
 from app.core.prompt_manager import load_prompt
+from app.core.llm_client import llm_client
 import httpx
 
 logger = logging.getLogger(__name__)
@@ -464,37 +465,14 @@ Error Handling: {specification.get('error_handling', 'Return clear error message
         prompt: str,
         temperature: float = 0.7
     ) -> Optional[str]:
-        """Call the LLM API"""
+        """Call the LLM API using centralized client"""
         try:
-            endpoint = self.llm_profile.endpoint or "https://api.openai.com/v1/chat/completions"
-            headers = {
-                "Authorization": f"Bearer {self.llm_profile.api_key}",
-                "Content-Type": "application/json"
-            }
-            
-            messages = [
-                {"role": "system", "content": "You are an expert AI architect designing intelligent agents."},
-                {"role": "user", "content": prompt}
-            ]
-            
-            payload = {
-                "model": self.llm_profile.model,
-                "messages": messages,
-                "temperature": temperature,
-                "max_tokens": self.llm_profile.max_tokens
-            }
-            
-            # Add JSON mode if supported
-            if self.llm_profile.mode == "json":
-                payload["response_format"] = {"type": "json_object"}
-            
-            async with httpx.AsyncClient(timeout=60.0) as client:
-                response = await client.post(endpoint, headers=headers, json=payload)
-                response.raise_for_status()
-                
-                result = response.json()
-                return result["choices"][0]["message"]["content"]
-                
+            return await llm_client.call_simple(
+                llm_profile=self.llm_profile,
+                prompt=prompt,
+                system_message="You are an expert AI architect designing intelligent agents.",
+                temperature=temperature
+            )
         except Exception as e:
             logger.error(f"LLM API call failed: {str(e)}")
             return None

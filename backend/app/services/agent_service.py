@@ -19,6 +19,7 @@ from app.core.service_documentation import (
     get_common_errors_solutions
 )
 from app.core.prompt_manager import load_prompt
+from app.core.llm_client import llm_client
 import logging
 
 logger = logging.getLogger(__name__)
@@ -824,31 +825,17 @@ class ServiceCreatorAgent:
         messages: List[Dict[str, str]],
         temperature: float = 0.7
     ) -> Optional[str]:
-        """Call the LLM API"""
+        """Call the LLM API using centralized client"""
         try:
-            endpoint = self.llm_profile.endpoint or "https://api.openai.com/v1/chat/completions"
-            headers = {
-                "Authorization": f"Bearer {self.llm_profile.api_key}",
-                "Content-Type": "application/json"
-            }
+            response = await llm_client.call(
+                llm_profile=self.llm_profile,
+                messages=messages,
+                temperature=temperature
+            )
             
-            payload = {
-                "model": self.llm_profile.model,
-                "messages": messages,
-                "temperature": temperature,
-                "max_tokens": self.llm_profile.max_tokens
-            }
-            
-            # Add JSON mode if supported
-            if self.llm_profile.mode == "json":
-                payload["response_format"] = {"type": "json_object"}
-            
-            async with httpx.AsyncClient(timeout=60.0) as client:
-                response = await client.post(endpoint, headers=headers, json=payload)
-                response.raise_for_status()
-                
-                result = response.json()
-                return result["choices"][0]["message"]["content"]
+            if response and "choices" in response and response["choices"]:
+                return response["choices"][0]["message"]["content"]
+            return None
                 
         except Exception as e:
             logger.error(f"LLM API call failed: {str(e)}")

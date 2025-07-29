@@ -31,13 +31,6 @@ class ConversationCreate(ConversationBase):
     pass
 
 
-class ConversationUpdate(BaseModel):
-    """Model for updating a conversation"""
-    title: Optional[str] = None
-    metadata: Optional[Dict[str, Any]] = None
-    active: Optional[bool] = None
-
-
 class MessageCreate(BaseModel):
     """Model for adding a message to a conversation"""
     role: str = Field(..., description="Message role (user, assistant, system)")
@@ -46,6 +39,14 @@ class MessageCreate(BaseModel):
     tool_calls: Optional[List[Dict[str, Any]]] = Field(None, description="Tool calls made during this message")
     execution_id: Optional[str] = Field(None, description="Execution ID if message was from agent execution")
     agent_id: Optional[str] = Field(None, description="ID of the agent that generated this message (for assistant messages)")
+
+
+class ConversationUpdate(BaseModel):
+    """Model for updating a conversation"""
+    title: Optional[str] = None
+    metadata: Optional[Dict[str, Any]] = None
+    active: Optional[bool] = None
+    messages: Optional[List[MessageCreate]] = None
 
 
 class ConversationInDB(ConversationBase):

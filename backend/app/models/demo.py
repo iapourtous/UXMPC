@@ -1,7 +1,7 @@
 """
 Demo Models
 
-Models for storing interactive HTML/CSS/JS demos from meta-chat
+Models for storing interactive HTML/CSS/JS demos
 """
 
 from pydantic import BaseModel, Field, field_validator

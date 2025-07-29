@@ -3,6 +3,7 @@ import httpx
 from typing import Dict, Any, List
 from app.models.service import Service
 from app.services.llm_crud import llm_crud
+from app.core.llm_client import llm_client
 import logging
 
 logger = logging.getLogger(__name__)
@@ -101,56 +102,34 @@ class TestService:
         )
         
         try:
-            # Use the same approach as ChatService
-            messages = []
+            # Use centralized LLM client
+            content = await llm_client.call_simple(
+                llm_profile=llm_profile,
+                prompt=prompt,
+                system_message=llm_profile.system_prompt,
+                temperature=0.3  # Lower temperature for more consistent test generation
+            )
             
-            # Add system prompt if provided
-            if llm_profile.system_prompt:
-                messages.append({"role": "system", "content": llm_profile.system_prompt})
-            
-            # Add our test generation prompt
-            messages.append({"role": "user", "content": prompt})
-            
-            # Call LLM API
-            endpoint = llm_profile.endpoint or "https://api.openai.com/v1/chat/completions"
-            headers = {
-                "Authorization": f"Bearer {llm_profile.api_key}",
-                "Content-Type": "application/json"
-            }
-            
-            payload = {
-                "model": llm_profile.model,
-                "messages": messages,
-                "temperature": 0.3,  # Lower temperature for more consistent test generation
-                "max_tokens": llm_profile.max_tokens
-            }
-            
-            # Use JSON mode only if the LLM profile supports it
-            if llm_profile.mode == "json":
-                payload["response_format"] = {"type": "json_object"}
-            
-            async with httpx.AsyncClient(timeout=60.0) as client:
-                response = await client.post(endpoint, headers=headers, json=payload)
-                response.raise_for_status()
+            if not content:
+                logger.warning("LLM call returned empty content, using default test cases")
+                return self._generate_default_test_cases(service)
                 
-                result = response.json()
-                content = result["choices"][0]["message"]["content"]
-                
-                # Parse JSON response
-                data = json.loads(content)
-                # Handle if the response is wrapped in an object
-                if "test_cases" in data:
-                    return data["test_cases"]
-                elif isinstance(data, list):
-                    return data
+            # Parse JSON response
+            data = json.loads(content)
+            # Handle if the response is wrapped in an object
+            if "test_cases" in data:
+                return data["test_cases"]
+            elif isinstance(data, list):
+                return data
+            else:
+                # Try to extract array from the response
+                import re
+                json_match = re.search(r'\[[\s\S]*\]', content)
+                if json_match:
+                    return json.loads(json_match.group())
                 else:
-                    # Try to extract array from the response
-                    import re
-                    json_match = re.search(r'\[[\s\S]*\]', content)
-                    if json_match:
-                        return json.loads(json_match.group())
-                    else:
-                        return self._generate_default_test_cases(service)
+                    logger.warning("No valid test cases array found, using default")
+                    return self._generate_default_test_cases(service)
                         
         except Exception as e:
             import traceback
@@ -270,44 +249,25 @@ class TestService:
         )
         
         try:
-            # Use the same approach as ChatService
-            messages = []
+            # Use centralized LLM client
+            content = await llm_client.call_simple(
+                llm_profile=llm_profile,
+                prompt=prompt,
+                system_message=llm_profile.system_prompt,
+                temperature=0.1  # Very low temperature for consistent validation
+            )
             
-            # Add system prompt if provided
-            if llm_profile.system_prompt:
-                messages.append({"role": "system", "content": llm_profile.system_prompt})
-            
-            # Add our validation prompt
-            messages.append({"role": "user", "content": prompt})
-            
-            # Call LLM API
-            endpoint = llm_profile.endpoint or "https://api.openai.com/v1/chat/completions"
-            headers = {
-                "Authorization": f"Bearer {llm_profile.api_key}",
-                "Content-Type": "application/json"
-            }
-            
-            payload = {
-                "model": llm_profile.model,
-                "messages": messages,
-                "temperature": 0.1,  # Very low temperature for consistent validation
-                "max_tokens": llm_profile.max_tokens
-            }
-            
-            # Use JSON mode only if the LLM profile supports it
-            if llm_profile.mode == "json":
-                payload["response_format"] = {"type": "json_object"}
-            
-            async with httpx.AsyncClient(timeout=60.0) as client:
-                response = await client.post(endpoint, headers=headers, json=payload)
-                response.raise_for_status()
+            if not content:
+                logger.warning("LLM call returned empty content for validation")
+                return {
+                    "valid": actual_response.get("status") == 200,
+                    "issues": ["LLM validation returned empty response"],
+                    "summary": "LLM validation failed - no response"
+                }
                 
-                result = response.json()
-                content = result["choices"][0]["message"]["content"]
-                
-                # Parse JSON response
-                validation = json.loads(content)
-                return validation
+            # Parse JSON response
+            validation = json.loads(content)
+            return validation
                 
         except Exception as e:
             logger.error(f"Failed to validate with LLM: {str(e)}")

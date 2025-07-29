@@ -107,7 +107,7 @@ class AgentBase(BaseModel):
         description="Policies for making decisions and taking actions"
     )
     
-    # Usage history for meta-chat selection
+    # Usage history for agent selection
     usage_history: List[Dict[str, str]] = Field(
         default=[],
         description="History of recent queries and responses (max 3 entries)"
