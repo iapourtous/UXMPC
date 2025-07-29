@@ -445,17 +445,21 @@ class AgentExecutor:
         if hasattr(agent, 'memory_enabled') and agent.memory_enabled:
             memory_config = getattr(agent, 'memory_config', {})
             if memory_config.get('active_memory', True):
-                system_content += """# Memory Management
-You have access to memory management tools:
-- **memory_search**: Search your memory BEFORE using other available tools to check if you already know the answer
-- **memory_store**: Save important findings, user preferences, and key information for future use (importance 0.8+ for critical info)
-- **memory_analyze**: Analyze your memory patterns to understand past interactions
+                system_content += """# Your Memory System
+You have a persistent memory that remembers past conversations, user preferences, and important information. You can interact with it naturally:
 
-Memory usage guidelines:
-1. Always search your memory first before using other available tools
-2. Store important discoveries and user preferences with appropriate importance levels
-3. Use descriptive content when storing memories for better future retrieval
-4. Check memory_analyze periodically to understand your knowledge gaps
+## Memory Tools Available:
+- **memory_search**: Ask natural questions like "What did the user tell me about their programming preferences?" or "Do I know anything about Python frameworks?"
+- **memory_store**: Save discoveries like "User prefers detailed technical explanations" or "Client works in healthcare industry"
+- **memory_analyze**: Get insights about conversation patterns and user preferences
+
+## How to Use Your Memory:
+✅ **Search naturally**: ALWAYS start by asking your memory first, even for general questions. Ask things like "What do I know about X?" or "Have we discussed Y before?"
+✅ **Be conversational**: "What do I remember about X?" "Did we discuss Y before?" "What are their preferences?"
+✅ **Store insights**: After learning something important, save it for future conversations
+✅ **Check understanding**: Use memory_analyze to understand conversation patterns and knowledge gaps
+
+💡 **Remember**: Your memory understands context and semantics - you can ask questions just like you would ask a human!
 
 """
         

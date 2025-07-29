@@ -64,8 +64,14 @@ async def memory_search(
             search_request=search_request
         )
         
-        # Filter by minimum score
+        # Filter by minimum score, but always return best results if none meet threshold
         filtered_results = [r for r in results if r.score >= min_score]
+        
+        # If no results meet the threshold, take the best available ones
+        if not filtered_results and results:
+            # Take up to k best results, regardless of score
+            sorted_results = sorted(results, key=lambda x: x.score, reverse=True)
+            filtered_results = sorted_results[:min(k, len(sorted_results))]
         
         # Format results
         memories = []
@@ -300,12 +306,12 @@ async def memory_analyze(
 MEMORY_TOOLS = [
     {
         "name": "memory_search",
-        "description": "Search through your memory using semantic similarity. Always use this before external tools to check if you already know the answer.",
+        "description": "Search your memory by asking natural questions like 'What did the user tell me about their job?' or 'Do we have any conversation about Python?'. Use this FIRST before external tools to check if you already know the answer.",
         "handler": memory_search,
         "parameters": {
             "query": {
                 "type": "string",
-                "description": "Search query to find relevant memories",
+                "description": "Natural language question like 'What programming languages does the user prefer?' or 'What did we discuss about AI?'",
                 "required": True
             },
             "k": {

@@ -72,7 +72,7 @@ class VectorStore:
         
         # Initialize sentence transformer for embeddings
         if SentenceTransformer:
-            self.embedding_model = SentenceTransformer('all-MiniLM-L6-v2')
+            self.embedding_model = SentenceTransformer('intfloat/multilingual-e5-large')
         else:
             logger.warning("SentenceTransformer not available - using mock embeddings")
             self.embedding_model = None
@@ -128,7 +128,9 @@ class VectorStore:
         # Generate embedding if not provided
         if embedding is None:
             if self.embedding_model:
-                embedding = self.embedding_model.encode(content).tolist()
+                # Use E5 passage prefix for document embeddings
+                prefixed_content = f"passage: {content}"
+                embedding = self.embedding_model.encode(prefixed_content).tolist()
             else:
                 # Fallback to simple hash-based embedding
                 embedding = self._simple_embedding(content)
@@ -173,7 +175,9 @@ class VectorStore:
         
         # Generate query embedding
         if self.embedding_model:
-            query_embedding = self.embedding_model.encode(query).tolist()
+            # Use E5 query prefix for search queries
+            prefixed_query = f"query: {query}"
+            query_embedding = self.embedding_model.encode(prefixed_query).tolist()
         else:
             query_embedding = self._simple_embedding(query)
         
@@ -281,7 +285,8 @@ class VectorStore:
                 if embedding is None:
                     # Generate new embedding for new content
                     if self.embedding_model:
-                        embedding = self.embedding_model.encode(content).tolist()
+                        prefixed_content = f"passage: {content}"
+                        embedding = self.embedding_model.encode(prefixed_content).tolist()
                     else:
                         embedding = self._simple_embedding(content)
             
