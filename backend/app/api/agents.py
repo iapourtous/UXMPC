@@ -1,6 +1,6 @@
 from fastapi import APIRouter, HTTPException, Depends, Request
 from fastapi.responses import StreamingResponse
-from typing import List, Optional, AsyncGenerator
+from typing import List, Optional, AsyncGenerator, Dict, Any
 import json
 import asyncio
 from app.models.agent import (
@@ -358,3 +358,241 @@ async def debug_agent_prompt(agent_id: str, execution_request: AgentExecution):
     except Exception as e:
         logger.error(f"Debug prompt failed: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Debug failed: {str(e)}")
+
+
+# MCP Connection endpoints for agents
+@router.get("/{agent_id}/mcp-tools")
+async def get_agent_mcp_tools(agent_id: str):
+    """Get all MCP tools available to an agent (local + external)"""
+    try:
+        agent = await agent_crud.get(agent_id)
+        if not agent:
+            raise HTTPException(status_code=404, detail="Agent not found")
+        
+        # Import here to avoid circular imports
+        from app.core.mcp_agent_tools import MCPAgentTools
+        from app.core.agent_tools import AgentTools
+        from fastapi import FastAPI
+        
+        # Create tools instance (we'll need the app instance)
+        app = FastAPI()  # This is a placeholder - ideally get from dependency
+        agent_tools = AgentTools(app)
+        mcp_tools = MCPAgentTools(agent_tools)
+        
+        # Get all tools for this agent
+        all_tools = await mcp_tools.get_all_tools_for_agent(agent.mcp_connections)
+        
+        # Separate local and external tools
+        local_tools = [t for t in all_tools if t.get("source") == "local"]
+        external_tools = [t for t in all_tools if t.get("source") == "mcp_external"]
+        
+        return {
+            "agent_id": agent_id,
+            "agent_name": agent.name,
+            "local_tools": local_tools,
+            "external_tools": external_tools,
+            "total_tools": len(all_tools),
+            "mcp_connections": agent.mcp_connections,
+            "mcp_config": agent.mcp_config
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to get agent MCP tools: {str(e)}")
+        raise HTTPException(status_code=500, detail="Failed to get agent MCP tools")
+
+
+@router.post("/{agent_id}/mcp-connections")
+async def assign_mcp_connection(agent_id: str, connection_data: Dict[str, Any]):
+    """Assign an MCP connection to an agent"""
+    try:
+        agent = await agent_crud.get(agent_id)
+        if not agent:
+            raise HTTPException(status_code=404, detail="Agent not found")
+        
+        connection_id = connection_data.get("connection_id")
+        if not connection_id:
+            raise HTTPException(status_code=400, detail="connection_id is required")
+        
+        # Verify connection exists
+        from app.services.mcp_connection_service import mcp_connection_service
+        connection = await mcp_connection_service.get_connection(connection_id)
+        if not connection:
+            raise HTTPException(status_code=404, detail="MCP connection not found")
+        
+        # Add connection to agent if not already present
+        if connection_id not in agent.mcp_connections:
+            updated_connections = agent.mcp_connections + [connection_id]
+            
+            # Update agent
+            update_data = AgentUpdate(mcp_connections=updated_connections)
+            updated_agent = await agent_crud.update(agent_id, update_data)
+            
+            if not updated_agent:
+                raise HTTPException(status_code=500, detail="Failed to update agent")
+            
+            return {
+                "message": f"MCP connection '{connection.name}' assigned to agent '{agent.name}'",
+                "connection_id": connection_id,
+                "connection_name": connection.name,
+                "agent_mcp_connections": updated_agent.mcp_connections
+            }
+        else:
+            return {
+                "message": f"MCP connection '{connection.name}' already assigned to agent '{agent.name}'",
+                "connection_id": connection_id,
+                "connection_name": connection.name,
+                "agent_mcp_connections": agent.mcp_connections
+            }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to assign MCP connection: {str(e)}")
+        raise HTTPException(status_code=500, detail="Failed to assign MCP connection")
+
+
+@router.delete("/{agent_id}/mcp-connections/{connection_id}")
+async def unassign_mcp_connection(agent_id: str, connection_id: str):
+    """Remove an MCP connection from an agent"""
+    try:
+        agent = await agent_crud.get(agent_id)
+        if not agent:
+            raise HTTPException(status_code=404, detail="Agent not found")
+        
+        # Remove connection from agent if present
+        if connection_id in agent.mcp_connections:
+            updated_connections = [conn_id for conn_id in agent.mcp_connections if conn_id != connection_id]
+            
+            # Update agent
+            update_data = AgentUpdate(mcp_connections=updated_connections)
+            updated_agent = await agent_crud.update(agent_id, update_data)
+            
+            if not updated_agent:
+                raise HTTPException(status_code=500, detail="Failed to update agent")
+            
+            return {
+                "message": f"MCP connection unassigned from agent '{agent.name}'",
+                "connection_id": connection_id,
+                "agent_mcp_connections": updated_agent.mcp_connections
+            }
+        else:
+            return {
+                "message": f"MCP connection not assigned to agent '{agent.name}'",
+                "connection_id": connection_id,
+                "agent_mcp_connections": agent.mcp_connections
+            }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to unassign MCP connection: {str(e)}")
+        raise HTTPException(status_code=500, detail="Failed to unassign MCP connection")
+
+
+@router.put("/{agent_id}/mcp-config")
+async def update_agent_mcp_config(agent_id: str, mcp_config: Dict[str, Any]):
+    """Update MCP configuration for an agent"""
+    try:
+        agent = await agent_crud.get(agent_id)
+        if not agent:
+            raise HTTPException(status_code=404, detail="Agent not found")
+        
+        # Import the config model
+        from app.models.mcp_connection import MCPAgentConfig
+        
+        # Validate config
+        try:
+            validated_config = MCPAgentConfig(**mcp_config)
+        except Exception as e:
+            raise HTTPException(status_code=400, detail=f"Invalid MCP config: {str(e)}")
+        
+        # Update agent
+        update_data = AgentUpdate(mcp_config=validated_config)
+        updated_agent = await agent_crud.update(agent_id, update_data)
+        
+        if not updated_agent:
+            raise HTTPException(status_code=500, detail="Failed to update agent")
+        
+        return {
+            "message": f"MCP configuration updated for agent '{agent.name}'",
+            "mcp_config": updated_agent.mcp_config
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to update MCP config: {str(e)}")
+        raise HTTPException(status_code=500, detail="Failed to update MCP config")
+
+
+@router.get("/{agent_id}/mcp-connections")
+async def get_agent_mcp_connections(agent_id: str):
+    """Get detailed information about agent's MCP connections"""
+    try:
+        agent = await agent_crud.get(agent_id)
+        if not agent:
+            raise HTTPException(status_code=404, detail="Agent not found")
+        
+        # Import here to avoid circular imports
+        from app.core.mcp_agent_tools import MCPAgentTools
+        from app.core.agent_tools import AgentTools
+        from fastapi import FastAPI
+        
+        # Create tools instance
+        app = FastAPI()  # Placeholder
+        agent_tools = AgentTools(app)
+        mcp_tools = MCPAgentTools(agent_tools)
+        
+        # Get connection details
+        connections_info = await mcp_tools.list_connections_for_agent(agent.mcp_connections)
+        
+        return {
+            "agent_id": agent_id,
+            "agent_name": agent.name,
+            "mcp_connections": connections_info,
+            "mcp_config": agent.mcp_config,
+            "connections_count": len(connections_info)
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to get agent MCP connections: {str(e)}")
+        raise HTTPException(status_code=500, detail="Failed to get agent MCP connections")
+
+
+@router.post("/{agent_id}/mcp-tools/{tool_name}/execute")
+async def execute_agent_mcp_tool(agent_id: str, tool_name: str, tool_params: Dict[str, Any]):
+    """Execute an MCP tool for an agent"""
+    try:
+        agent = await agent_crud.get(agent_id)
+        if not agent:
+            raise HTTPException(status_code=404, detail="Agent not found")
+        
+        # Import here to avoid circular imports
+        from app.core.mcp_agent_tools import MCPAgentTools
+        from app.core.agent_tools import AgentTools
+        from fastapi import FastAPI
+        
+        # Create tools instance
+        app = FastAPI()  # Placeholder
+        agent_tools = AgentTools(app)
+        mcp_tools = MCPAgentTools(agent_tools)
+        
+        # Execute the tool
+        result = await mcp_tools.execute_tool_for_agent(
+            agent.mcp_connections,
+            tool_name,
+            tool_params.get("parameters", {}),
+            agent.mcp_config.dict() if agent.mcp_config else {}
+        )
+        
+        return result
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to execute MCP tool: {str(e)}")
+        raise HTTPException(status_code=500, detail="Failed to execute MCP tool")

@@ -19,6 +19,8 @@ import MetaAgentCreator from './components/MetaAgentCreator';
 import DemoList from './components/DemoList';
 import ChatWithAgents from './components/ChatWithAgents';
 import Settings from './components/Settings';
+import MCPConnectionList from './components/MCPConnectionList';
+import MCPConnectionForm from './components/MCPConnectionForm';
 
 const { Content } = Layout;
 
@@ -59,6 +61,11 @@ function AppRouter() {
             
             {/* Demos Routes */}
             <Route path="/demos" element={<DemoList />} />
+            
+            {/* MCP Connections Routes */}
+            <Route path="/mcp-connections" element={<MCPConnectionList />} />
+            <Route path="/mcp-connections/new" element={<MCPConnectionForm />} />
+            <Route path="/mcp-connections/:id/edit" element={<MCPConnectionForm />} />
             
             {/* Settings Route */}
             <Route path="/settings" element={<Settings />} />

@@ -14,14 +14,15 @@ UXMCP (Universal eXtensible MCP) est un gestionnaire de services MCP (Model Cont
 - **CORS**: Activé pour toutes les origines (configurable en production)
 
 ### Composants Principaux
-1. **Services MCP**: Gestion des tools, resources et prompts
+1. **Services MCP**: Gestion des tools, resources et prompts internes
 2. **Agents IA**: Système d'agents avec configuration 7D
 3. **AI Agent**: Agent autonome pour création automatique de services
 4. **LLM Profiles**: Gestion des profils de modèles de langage
 5. **Meta-Agent**: Création automatique d'agents et d'outils
-6. **Demos System**: Hébergement de démos HTML/CSS/JS interactives
-7. **Chat Interface**: Interface de chat intégrée
-8. **Logging System**: Système de logs MongoDB intégré
+6. **MCP Client**: Connexions vers serveurs MCP externes (Context7, APIs externes)
+7. **Demos System**: Hébergement de démos HTML/CSS/JS interactives
+8. **Chat Interface**: Interface de chat intégrée
+9. **Logging System**: Système de logs MongoDB intégré
 
 ## Endpoints API
 
@@ -454,6 +455,200 @@ Suggérer des outils pour un objectif donné.
 
 #### GET /meta-agent/templates
 Obtenir des modèles d'agents prédéfinis.
+
+### 🔗 Connexions MCP Externes (/mcp-connections)
+
+Le système de connexions MCP permet d'intégrer des serveurs MCP externes et de rendre leurs outils disponibles aux agents. Cette fonctionnalité étend les capacités des agents en leur donnant accès à des services externes comme Context7, des APIs personnalisées, ou d'autres serveurs MCP.
+
+#### POST /mcp-connections/
+Créer une nouvelle connexion vers un serveur MCP externe.
+
+**Request Body:**
+```json
+{
+  "name": "Context7 Documentation Server",
+  "description": "Up-to-date code documentation and examples from Context7",
+  "server_url": "http://172.19.0.1:3001/mcp",
+  "transport_type": "sse|http|stdio",
+  "auth_type": "none|oauth|api_key|basic",
+  "config": {
+    "timeout": 30,
+    "retry_attempts": 3,
+    "description": "Provides up-to-date documentation for popular libraries",
+    "api_key_header": "X-API-Key"  // Pour auth_type=api_key
+  }
+}
+```
+
+**Response:**
+```json
+{
+  "id": "689276d852d1d4dc9cabc86f",
+  "name": "Context7 Documentation Server",
+  "description": "Up-to-date code documentation and examples from Context7",
+  "server_url": "http://172.19.0.1:3001/mcp",
+  "transport_type": "sse",
+  "auth_type": "none",
+  "status": "inactive",
+  "config": {...},
+  "created_at": "2025-08-05T21:25:44.543000",
+  "updated_at": "2025-08-05T21:25:44.543000",
+  "last_sync": null,
+  "last_error": null,
+  "last_ping": null,
+  "ping_interval": 300,
+  "retry_count": 0,
+  "max_retries": 3
+}
+```
+
+#### GET /mcp-connections/
+Lister toutes les connexions MCP.
+
+**Query Parameters:**
+- `skip`: int (default: 0)
+- `limit`: int (default: 100)
+
+**Response:** Array des objets de connexion MCP
+
+#### GET /mcp-connections/{connection_id}
+Obtenir une connexion MCP spécifique.
+
+**Response:** Objet connexion MCP ou 404 si non trouvée
+
+#### PUT /mcp-connections/{connection_id}
+Mettre à jour une connexion MCP existante.
+
+**Request Body:** Même structure que POST (champs optionnels)
+
+#### DELETE /mcp-connections/{connection_id}
+Supprimer une connexion MCP et toutes ses données associées.
+
+**Response:** 204 No Content ou 404 si non trouvée
+
+#### POST /mcp-connections/{connection_id}/test
+Tester la connectivité et les capacités d'un serveur MCP.
+
+**Response:**
+```json
+{
+  "success": true,
+  "response_time": 0.083473,
+  "server_info": {"name": "Context7 Documentation Server"},
+  "tools_count": 2,
+  "resources_count": 0,
+  "prompts_count": 0,
+  "error": null,
+  "tested_at": "2025-08-05T21:39:30.483199"
+}
+```
+
+#### POST /mcp-connections/{connection_id}/sync
+Synchroniser et mettre en cache les outils, ressources et prompts du serveur MCP.
+
+**Response:**
+```json
+{
+  "message": "Server synchronized successfully",
+  "tools_count": 2,
+  "resources_count": 0,
+  "prompts_count": 0,
+  "cached_at": "2025-08-05T21:39:35.789179"
+}
+```
+
+#### GET /mcp-connections/{connection_id}/tools
+Obtenir les outils disponibles depuis une connexion MCP (depuis le cache).
+
+**Response:**
+```json
+{
+  "connection_id": "689276d852d1d4dc9cabc86f",
+  "connection_name": "Context7 Documentation Server",
+  "tools": [
+    {
+      "name": "resolve-library-id",
+      "description": "Resolves a package/product name to a Context7-compatible library ID...",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "libraryName": {
+            "type": "string",
+            "description": "Library name to search for..."
+          }
+        },
+        "required": ["libraryName"]
+      }
+    }
+  ],
+  "tools_count": 2
+}
+```
+
+#### GET /mcp-connections/{connection_id}/resources
+Obtenir les ressources disponibles depuis une connexion MCP.
+
+#### GET /mcp-connections/{connection_id}/prompts
+Obtenir les prompts disponibles depuis une connexion MCP.
+
+#### POST /mcp-connections/{connection_id}/tools/{tool_name}/execute
+Exécuter un outil spécifique depuis une connexion MCP externe.
+
+**Request Body:**
+```json
+{
+  "parameters": {
+    "libraryName": "react",
+    "topic": "hooks typescript",
+    "tokens": 15000
+  }
+}
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "result": {
+    "content": [
+      {
+        "type": "text",
+        "text": "Documentation content here..."
+      }
+    ]
+  },
+  "execution_time": 1.234,
+  "server_info": {"server_name": "Context7 Documentation Server"},
+  "error": null
+}
+```
+
+#### Authentification MCP
+
+Le système supporte plusieurs types d'authentification :
+
+- **none**: Aucune authentification
+- **oauth**: OAuth 2.0 avec tokens Bearer
+- **api_key**: Clé API dans un header personnalisé
+- **basic**: HTTP Basic Authentication
+
+#### Intégration avec les Agents
+
+Les outils MCP externes sont automatiquement disponibles aux agents qui ont des connexions MCP assignées. Dans la configuration d'un agent :
+
+```json
+{
+  "name": "tech_doc_expert",
+  "mcp_services": ["service1", "service2"],  // Services internes
+  "mcp_connections": ["689276d852d1d4dc9cabc86f"], // Connexions externes
+  "mcp_config": {
+    "auto_sync": true,
+    "cache_ttl": 300
+  }
+}
+```
+
+Les outils externes apparaissent avec le préfixe `mcp_{connection_id}_{tool_name}` lors de l'exécution pour éviter les conflits.
 
 ### 📊 Logs (/logs)
 

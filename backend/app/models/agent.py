@@ -3,6 +3,7 @@ from typing import Optional, List, Dict, Any, Union
 from datetime import datetime
 from bson import ObjectId
 from app.models.service import PyObjectId
+from app.models.mcp_connection import MCPAgentConfig
 from enum import Enum
 
 
@@ -118,6 +119,16 @@ class AgentBase(BaseModel):
         default=None,
         description="Average embedding of responses in usage history for semantic agent selection"
     )
+    
+    # MCP External Connections
+    mcp_connections: List[str] = Field(
+        default=[],
+        description="List of external MCP connection IDs this agent can use"
+    )
+    mcp_config: MCPAgentConfig = Field(
+        default_factory=MCPAgentConfig,
+        description="Configuration for MCP integration"
+    )
 
 
 class AgentCreate(AgentBase):
@@ -152,6 +163,8 @@ class AgentUpdate(BaseModel):
     decision_policies: Optional[Dict[str, Any]] = None
     usage_history: Optional[List[Dict[str, str]]] = None
     response_embedding: Optional[List[float]] = None
+    mcp_connections: Optional[List[str]] = None
+    mcp_config: Optional[MCPAgentConfig] = None
 
 
 class AgentInDB(AgentBase):

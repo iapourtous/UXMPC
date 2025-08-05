@@ -9,7 +9,8 @@ import {
   FileSearchOutlined,
   ToolOutlined,
   AppstoreOutlined,
-  SettingOutlined
+  SettingOutlined,
+  LinkOutlined
 } from '@ant-design/icons';
 
 const { Header } = Layout;
@@ -28,6 +29,11 @@ const AppHeader = () => {
       key: '/llms',
       icon: <DatabaseOutlined />,
       label: 'LLM Profiles',
+    },
+    {
+      key: '/mcp-connections',
+      icon: <LinkOutlined />,
+      label: 'MCP Connections',
     },
     {
       key: '/agents',
@@ -70,6 +76,7 @@ const AppHeader = () => {
     const currentPath = location.pathname;
     if (currentPath.startsWith('/services')) return '/services';
     if (currentPath.startsWith('/llms')) return '/llms';
+    if (currentPath.startsWith('/mcp-connections')) return '/mcp-connections';
     if (currentPath.startsWith('/agents')) return '/agents';
     if (currentPath === '/chat-agents') return '/chat-agents';
     if (currentPath.startsWith('/chat')) return '/chat';

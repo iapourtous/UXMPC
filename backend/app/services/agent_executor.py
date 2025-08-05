@@ -382,6 +382,37 @@ class AgentExecutor:
                 memory_tools = await self._create_memory_tools(agent)
                 tools.extend(memory_tools)
         
+        # Add external MCP tools from connections
+        if hasattr(agent, 'mcp_connections') and agent.mcp_connections:
+            from app.services.mcp_client_service import mcp_client_service
+            await agent_logger.info(f"Adding external MCP tools from {len(agent.mcp_connections)} connections")
+            
+            for connection_id in agent.mcp_connections:
+                try:
+                    # Get tools from MCP connection
+                    mcp_tools = await mcp_client_service.get_available_tools(connection_id)
+                    await agent_logger.debug(f"Retrieved {len(mcp_tools)} tools from connection {connection_id}")
+                    
+                    # Convert MCP tools to OpenAI function format
+                    for mcp_tool in mcp_tools:
+                        tool = {
+                            "type": "function",
+                            "function": {
+                                "name": f"mcp_{connection_id}_{mcp_tool['name']}",  # Prefix to avoid conflicts
+                                "description": mcp_tool.get('description', f"MCP tool: {mcp_tool['name']}"),
+                                "parameters": mcp_tool.get('inputSchema', {
+                                    "type": "object",
+                                    "properties": {},
+                                    "required": []
+                                })
+                            }
+                        }
+                        tools.append(tool)
+                        await agent_logger.debug(f"Prepared external MCP tool: {mcp_tool['name']} from connection {connection_id}")
+                        
+                except Exception as e:
+                    await agent_logger.error(f"Failed to load tools from MCP connection {connection_id}: {e}")
+        
         return tools
     
     def _build_messages(self, agent: Agent, execution_request: AgentExecution, memory_context: Optional[str] = None) -> List[Dict[str, str]]:
@@ -675,7 +706,29 @@ IMPORTANT: When you have gathered enough information to answer the user's questi
                     results.append(result)
                     continue
                 
-                # Otherwise, call the MCP service
+                # Check if it's an external MCP tool
+                if tool_name.startswith("mcp_") and agent and hasattr(agent, 'mcp_connections'):
+                    from app.services.mcp_client_service import mcp_client_service
+                    
+                    # Parse connection_id and tool name from prefixed name
+                    # Format: mcp_{connection_id}_{tool_name}
+                    parts = tool_name.split("_", 2)  # Split into mcp, connection_id, tool_name
+                    if len(parts) >= 3:
+                        connection_id = parts[1]
+                        actual_tool_name = parts[2]
+                        
+                        # Execute external MCP tool
+                        mcp_result = await mcp_client_service.execute_tool(connection_id, actual_tool_name, tool_args)
+                        
+                        if mcp_result.success:
+                            result = mcp_result.result
+                        else:
+                            result = {"error": f"MCP tool execution failed: {mcp_result.error}"}
+                        
+                        results.append(result)
+                        continue
+                
+                # Otherwise, call the internal MCP service
                 service = await service_crud.get_by_name(tool_name)
                 if not service:
                     result = {"error": f"Service '{tool_name}' not found"}

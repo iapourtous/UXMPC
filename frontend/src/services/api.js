@@ -91,4 +91,40 @@ export const demosApi = {
   delete: (id) => api.delete(`/demos/${id}`),
 };
 
+// MCP Connections API
+export const mcpConnectionsApi = {
+  listConnections: () => api.get('/mcp-connections/').then(response => response.data),
+  getConnection: (id) => api.get(`/mcp-connections/${id}`).then(response => response.data),
+  createConnection: (data) => api.post('/mcp-connections/', data).then(response => response.data),
+  updateConnection: (id, data) => api.put(`/mcp-connections/${id}`, data).then(response => response.data),
+  deleteConnection: (id) => api.delete(`/mcp-connections/${id}`).then(response => response.data),
+  
+  // Connection testing and sync
+  testConnection: (id) => api.post(`/mcp-connections/${id}/test`).then(response => response.data),
+  syncConnection: (id) => api.post(`/mcp-connections/${id}/sync`).then(response => response.data),
+  
+  // Tools, resources, prompts
+  getConnectionTools: (id) => api.get(`/mcp-connections/${id}/tools`).then(response => response.data),
+  getConnectionResources: (id) => api.get(`/mcp-connections/${id}/resources`).then(response => response.data),
+  getConnectionPrompts: (id) => api.get(`/mcp-connections/${id}/prompts`).then(response => response.data),
+  
+  // Tool execution
+  executeTool: (connectionId, toolName, toolCall) => 
+    api.post(`/mcp-connections/${connectionId}/tools/${toolName}/execute`, toolCall).then(response => response.data),
+  
+  // Authentication
+  getAuthStatus: (id) => api.get(`/mcp-connections/${id}/auth`).then(response => response.data),
+  startOAuthFlow: (id, authConfig) => api.post(`/mcp-connections/${id}/auth/oauth`, authConfig).then(response => response.data),
+  handleOAuthCallback: (id, code, state) => 
+    api.post(`/mcp-connections/${id}/auth/callback`, { code, state }).then(response => response.data),
+  refreshToken: (id) => api.post(`/mcp-connections/${id}/auth/refresh`).then(response => response.data),
+  storeApiKey: (id, apiKeyData) => api.post(`/mcp-connections/${id}/auth/api-key`, apiKeyData).then(response => response.data),
+  deleteAuth: (id) => api.delete(`/mcp-connections/${id}/auth`).then(response => response.data),
+  
+  // Management
+  getSessionsInfo: () => api.get('/mcp-connections/sessions/info').then(response => response.data),
+  cleanupSessions: (maxIdleMinutes = 30) => 
+    api.post('/mcp-connections/sessions/cleanup', { max_idle_minutes: maxIdleMinutes }).then(response => response.data),
+};
+
 export default api;

@@ -38,7 +38,7 @@ import {
 } from '@ant-design/icons';
 import CodeMirror from '@uiw/react-codemirror';
 import { json } from '@codemirror/lang-json';
-import { agentsApi, llmApi, servicesApi } from '../services/api';
+import { agentsApi, llmApi, servicesApi, mcpConnectionsApi } from '../services/api';
 
 const { Option } = Select;
 const { TextArea } = Input;
@@ -51,6 +51,7 @@ const AgentForm = () => {
   const [loading, setLoading] = useState(false);
   const [llmProfiles, setLlmProfiles] = useState([]);
   const [services, setServices] = useState([]);
+  const [mcpConnections, setMcpConnections] = useState([]);
   const [inputSchemaType, setInputSchemaType] = useState('text');
   const [outputSchemaType, setOutputSchemaType] = useState('text');
   const [showAdvanced, setShowAdvanced] = useState(false);
@@ -68,12 +69,14 @@ const AgentForm = () => {
 
   const fetchDependencies = async () => {
     try {
-      const [llmResponse, servicesResponse] = await Promise.all([
+      const [llmResponse, servicesResponse, mcpResponse] = await Promise.all([
         llmApi.list(true), // Only active LLM profiles
-        servicesApi.list(true) // Only active services
+        servicesApi.list(true), // Only active services
+        mcpConnectionsApi.listConnections() // All MCP connections
       ]);
       setLlmProfiles(llmResponse.data);
       setServices(servicesResponse.data);
+      setMcpConnections(mcpResponse.filter(conn => conn.status === 'active'));
     } catch (error) {
       message.error('Failed to fetch dependencies');
     }
@@ -335,6 +338,78 @@ const AgentForm = () => {
               </Form.Item>
             </Col>
           </Row>
+
+          <Divider>
+            <Space>
+              <ApiOutlined />
+              External MCP Connections
+            </Space>
+          </Divider>
+
+          <Alert
+            message="External MCP Servers"
+            description="Connect to external MCP servers to extend your agent's capabilities with additional tools and resources."
+            type="info"
+            showIcon
+            style={{ marginBottom: 16 }}
+          />
+
+          <Form.Item
+            name="mcp_connections"
+            label={
+              <Space>
+                MCP Connections
+                <Tooltip title="Select external MCP server connections for this agent">
+                  <InfoCircleOutlined />
+                </Tooltip>
+              </Space>
+            }
+          >
+            <Select
+              mode="multiple"
+              placeholder="Select MCP connections to enable"
+              showSearch
+              optionFilterProp="children"
+              notFoundContent={
+                mcpConnections.length === 0 ? 
+                "No active MCP connections available" : 
+                "No matching connections"
+              }
+            >
+              {mcpConnections.map(connection => (
+                <Option key={connection.id} value={connection.id}>
+                  <Space>
+                    <ApiOutlined style={{ color: connection.status === 'active' ? '#52c41a' : '#8c8c8c' }} />
+                    {connection.name}
+                    <Text type="secondary">
+                      ({connection.transport_type} - {connection.auth_type})
+                    </Text>
+                  </Space>
+                </Option>
+              ))}
+            </Select>
+          </Form.Item>
+
+          {mcpConnections.length === 0 && (
+            <Alert
+              message="No MCP Connections Available"
+              description={
+                <div>
+                  No active MCP connections found. 
+                  <Button 
+                    type="link" 
+                    size="small" 
+                    onClick={() => window.open('/mcp-connections', '_blank')}
+                  >
+                    Create MCP Connection
+                  </Button>
+                </div>
+              }
+              type="warning"
+              showIcon
+              style={{ marginBottom: 16 }}
+            />
+          )}
 
           <Divider>Prompts</Divider>
 

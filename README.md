@@ -55,6 +55,14 @@ UXMCP est une plateforme complète de gestion de services MCP (Model Context Pro
 - **Création de services** : Génère automatiquement les services nécessaires
 - **Configuration optimale** : Configure l'agent avec les meilleurs paramètres
 
+### 🔗 Connexions MCP Externes
+- **Intégration serveurs externes** : Connectez-vous à Context7, APIs personnalisées, autres serveurs MCP
+- **Authentification multiple** : Support OAuth, API Key, Basic Auth
+- **Cache intelligent** : Mise en cache des outils et ressources pour de meilleures performances
+- **Outils transparents** : Les outils externes apparaissent naturellement dans les agents
+- **Monitoring avancé** : Test de connectivité, ping automatique, retry intelligent
+- **Transport multiple** : Support SSE, HTTP, et stdio pour maximum de compatibilité
+
 ### 📊 Système de Logs Avancé
 - **Logs MongoDB structurés** : Traçabilité complète des exécutions
 - **Filtrage puissant** : Par service, niveau, date, execution_id
@@ -200,6 +208,47 @@ How can I help you today?"""
    - **Personality** : Traits de personnalité
    - **Decision Policies** : Règles de décision
 
+### 🔗 Connexions MCP Externes
+
+UXMCP peut se connecter à des serveurs MCP externes pour étendre les capacités des agents.
+
+#### Connexion à Context7 (Documentation)
+
+1. **Cloner et démarrer Context7** :
+   ```bash
+   git clone https://github.com/upstash/context7.git
+   cd context7
+   npm install && npm run build
+   npm start -- --transport http --port 3001
+   ```
+
+2. **Créer la connexion dans UXMCP** :
+   - Naviguez vers "MCP Connections"
+   - Créez une nouvelle connexion :
+     - **Nom** : Context7 Documentation Server
+     - **URL** : `http://172.19.0.1:3001/mcp` (adresse Docker)
+     - **Transport** : SSE
+     - **Auth** : None
+
+3. **Tester et synchroniser** :
+   - Cliquez "Test Connection" (doit montrer 2 outils détectés)
+   - Cliquez "Sync" pour mettre en cache les outils
+
+4. **Assigner à un agent** :
+   - Éditez un agent existant ou créez-en un nouveau
+   - Dans "MCP Connections", sélectionnez votre connexion Context7
+   - L'agent aura maintenant accès à `resolve-library-id` et `get-library-docs`
+
+#### Exemple d'utilisation
+```
+Agent: Comment utiliser React hooks avec TypeScript ?
+
+L'agent utilisera automatiquement :
+1. resolve-library-id("react") → trouve l'ID Context7 de React
+2. get-library-docs("/reactjs/react.dev", topic="hooks typescript") 
+   → récupère la documentation officielle
+```
+
 ### 🎨 Création de Démos
 
 1. **Depuis le chat** : Cliquez sur "Save as Demo" sur une réponse HTML
@@ -233,12 +282,15 @@ UXMCP/
 │   │   ├── models/              # Modèles Pydantic
 │   │   │   ├── service.py       # Modèles services
 │   │   │   ├── agent.py         # Modèles agents
+│   │   │   ├── mcp_connection.py # Modèles connexions MCP
 │   │   │   ├── conversation.py  # Modèles conversations
 │   │   │   └── demo.py          # Modèles démos
 │   │   ├── services/            # Logique métier
 │   │   │   ├── agent_service.py      # Agent créateur
 │   │   │   ├── agent_executor.py     # Exécution agents
 │   │   │   ├── meta_agent_service.py # Service meta-agent
+│   │   │   ├── mcp_connection_service.py # CRUD connexions MCP
+│   │   │   ├── mcp_client_service.py # Client MCP externe
 │   │   │   └── conversation_crud.py  # CRUD conversations
 │   │   └── prompts/             # Templates prompts
 │   └── tests/                   # Tests unitaires
@@ -249,6 +301,7 @@ UXMCP/
 │       │   ├── AgentList.jsx          # Liste agents
 │       │   ├── ChatWithAgents.jsx     # Chat agentique
 │       │   ├── MetaAgentCreator.jsx   # Créateur meta-agent
+│       │   ├── MCPConnectionList.jsx  # Liste connexions MCP
 │       │   ├── DemoList.jsx           # Liste démos
 │       │   └── LogsView.jsx           # Visualiseur logs
 │       ├── services/            # API client
