@@ -4,7 +4,7 @@ import { agentsApi, conversationsApi, demosApi } from '../services/api';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { Select, Button, Input, Drawer, List, Typography, Popconfirm, message, Modal, Tooltip, Tag } from 'antd';
-import { SendOutlined, ClearOutlined, HistoryOutlined, DeleteOutlined, PlusOutlined, SaveOutlined, EyeOutlined, ExperimentOutlined, CompressOutlined } from '@ant-design/icons';
+import { SendOutlined, ClearOutlined, HistoryOutlined, DeleteOutlined, PlusOutlined, SaveOutlined, EyeOutlined, ExperimentOutlined, CompressOutlined, BugOutlined } from '@ant-design/icons';
 import axios from 'axios';
 
 const { TextArea } = Input;
@@ -27,6 +27,9 @@ function ChatWithAgents() {
   const [demoDescription, setDemoDescription] = useState('');
   const [demoHtmlContent, setDemoHtmlContent] = useState('');
   const [globalSettings, setGlobalSettings] = useState(null);
+  const [debugModalOpen, setDebugModalOpen] = useState(false);
+  const [debugPromptData, setDebugPromptData] = useState(null);
+  const [debugUserMessage, setDebugUserMessage] = useState('');
   const messagesEndRef = useRef(null);
   const queryClient = useQueryClient();
   
@@ -411,6 +414,37 @@ function ChatWithAgents() {
       htmlContent: demoHtmlContent
     });
   };
+
+  // Debug prompt function
+  const handleDebugPrompt = async (userMessage) => {
+    if (!selectedAgent) {
+      message.warning('Please select an agent first');
+      return;
+    }
+
+    try {
+      setDebugUserMessage(userMessage);
+      
+      // Convert current messages to conversation history format
+      const conversationHistory = messages.map(msg => ({
+        role: msg.role === 'error' ? 'assistant' : msg.role,
+        content: msg.content
+      }));
+
+      const response = await axios.post(`${API_URL}/agents/${selectedAgent}/debug-prompt`, {
+        input: userMessage,
+        conversation_id: currentConversationId,
+        conversation_history: conversationHistory,
+        save_conversation: false
+      });
+
+      setDebugPromptData(response.data);
+      setDebugModalOpen(true);
+    } catch (error) {
+      console.error('Debug prompt error:', error);
+      message.error('Failed to debug prompt: ' + (error.response?.data?.detail || error.message));
+    }
+  };
   
   // Filter agents that have text input/output schemas
   const textAgents = agents.filter(agent => {
@@ -486,7 +520,7 @@ function ChatWithAgents() {
           <div className="mt-2 space-y-1">
             <Text type="secondary" className="text-xs block">
               <SaveOutlined className="mr-1" />
-              Conversation is being auto-saved
+              Manual save only - use Save button to preserve conversation
             </Text>
             {isCompactionActive() && (
               <Tooltip title={`Messages will be compacted after ${globalSettings.compaction_settings.message_threshold} messages. Currently at ${messages.length} messages.`}>
@@ -710,6 +744,16 @@ function ChatWithAgents() {
             </div>
           </div>
           <Button
+            icon={<BugOutlined />}
+            onClick={() => handleDebugPrompt(inputMessage)}
+            disabled={!selectedAgent || !inputMessage.trim()}
+            className="h-12 px-4 rounded-xl bg-orange-500 hover:bg-orange-600 border-0 shadow-lg hover:shadow-xl transform hover:scale-105 transition-all duration-200 text-white"
+            size="large"
+            title="Debug this prompt"
+          >
+            Debug
+          </Button>
+          <Button
             type="primary"
             htmlType="submit"
             icon={<SendOutlined />}
@@ -893,6 +937,97 @@ function ChatWithAgents() {
             </Text>
           </div>
         </div>
+      </Modal>
+      
+      {/* Debug Prompt Modal */}
+      <Modal
+        title={`Debug Prompt - ${debugPromptData?.agent_name || 'Agent'}`}
+        open={debugModalOpen}
+        onCancel={() => {
+          setDebugModalOpen(false);
+          setDebugPromptData(null);
+          setDebugUserMessage('');
+        }}
+        footer={[
+          <Button key="close" onClick={() => {
+            setDebugModalOpen(false);
+            setDebugPromptData(null);
+            setDebugUserMessage('');
+          }}>
+            Close
+          </Button>
+        ]}
+        width="90%"
+        style={{ top: 20 }}
+        bodyStyle={{ height: 'calc(80vh - 108px)', padding: '20px', overflow: 'auto' }}
+      >
+        {debugPromptData && (
+          <div className="space-y-6">
+            {/* Summary */}
+            <div className="bg-gray-50 p-4 rounded-lg">
+              <h3 className="font-semibold mb-2">Prompt Summary</h3>
+              <div className="grid grid-cols-2 gap-4 text-sm">
+                <div><strong>Agent:</strong> {debugPromptData.agent_name}</div>
+                <div><strong>Memory Enabled:</strong> {debugPromptData.memory_enabled ? 'Yes' : 'No'}</div>
+                <div><strong>History Messages:</strong> {debugPromptData.conversation_history_count}</div>
+                <div><strong>Compaction Applied:</strong> {debugPromptData.compaction_applied ? 'Yes' : 'No'}</div>
+                <div><strong>Total Messages:</strong> {debugPromptData.message_breakdown.total}</div>
+                <div><strong>System/User/Assistant:</strong> {debugPromptData.message_breakdown.system_messages}/{debugPromptData.message_breakdown.user_messages}/{debugPromptData.message_breakdown.assistant_messages}</div>
+              </div>
+            </div>
+
+            {/* User Input */}
+            <div>
+              <h3 className="font-semibold mb-2">User Input</h3>
+              <div className="bg-blue-50 p-3 rounded border-l-4 border-blue-500">
+                <pre className="whitespace-pre-wrap text-sm">{debugUserMessage}</pre>
+              </div>
+            </div>
+
+            {/* Memory Context */}
+            {debugPromptData.memory_context && (
+              <div>
+                <h3 className="font-semibold mb-2">Memory Context</h3>
+                <div className="bg-purple-50 p-3 rounded border-l-4 border-purple-500">
+                  <pre className="whitespace-pre-wrap text-sm">{debugPromptData.memory_context}</pre>
+                </div>
+              </div>
+            )}
+
+            {/* Global Settings */}
+            <div>
+              <h3 className="font-semibold mb-2">Global Settings</h3>
+              <div className="bg-yellow-50 p-3 rounded border-l-4 border-yellow-500">
+                <div className="text-sm">
+                  <div><strong>Compaction Enabled:</strong> {debugPromptData.global_settings.compaction_enabled ? 'Yes' : 'No'}</div>
+                  {debugPromptData.global_settings.user_context && (
+                    <div><strong>User Context:</strong> {debugPromptData.global_settings.user_context}</div>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* Final Messages */}
+            <div>
+              <h3 className="font-semibold mb-2">Complete Prompt Messages ({debugPromptData.final_messages.length} messages)</h3>
+              <div className="space-y-3 max-h-96 overflow-y-auto">
+                {debugPromptData.final_messages.map((msg, index) => (
+                  <div key={index} className={`p-3 rounded border-l-4 ${
+                    msg.role === 'system' ? 'bg-gray-50 border-gray-500' :
+                    msg.role === 'user' ? 'bg-blue-50 border-blue-500' :
+                    'bg-green-50 border-green-500'
+                  }`}>
+                    <div className="flex justify-between items-center mb-2">
+                      <strong className="text-sm uppercase tracking-wide">{msg.role}</strong>
+                      <span className="text-xs text-gray-500">Message {index + 1}</span>
+                    </div>
+                    <pre className="whitespace-pre-wrap text-sm font-mono">{msg.content}</pre>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
       </Modal>
     </div>
   );

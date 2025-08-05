@@ -244,7 +244,7 @@ const Settings = () => {
                     >
                       <InputNumber
                         min={50}
-                        max={500}
+                        max={2000}
                         step={50}
                         style={{ width: 150 }}
                         addonAfter="tokens"
@@ -252,12 +252,23 @@ const Settings = () => {
                     </Form.Item>
                   </Space>
 
-                  <Alert
-                    message="Example"
-                    description={`With current settings: After ${form.getFieldValue('message_threshold') || 5} messages, the system will summarize older messages (except the last ${form.getFieldValue('preserve_last_n') || 3}) into ~${form.getFieldValue('summary_max_tokens') || 100} tokens.`}
-                    type="success"
-                    showIcon
-                  />
+                  <Form.Item
+                    noStyle
+                    shouldUpdate={(prevValues, currentValues) => 
+                      prevValues.message_threshold !== currentValues.message_threshold ||
+                      prevValues.preserve_last_n !== currentValues.preserve_last_n ||
+                      prevValues.summary_max_tokens !== currentValues.summary_max_tokens
+                    }
+                  >
+                    {({ getFieldValue }) => (
+                      <Alert
+                        message="Example"
+                        description={`With current settings: After ${getFieldValue('message_threshold') || 5} messages, the system will summarize older messages (except the last ${getFieldValue('preserve_last_n') || 3}) into ~${getFieldValue('summary_max_tokens') || 100} tokens.`}
+                        type="success"
+                        showIcon
+                      />
+                    )}
+                  </Form.Item>
                 </>
               )
             }

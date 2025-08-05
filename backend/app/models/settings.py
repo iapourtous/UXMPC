@@ -16,7 +16,7 @@ class ConversationCompactionSettings(BaseModel):
     enabled: bool = Field(True, description="Enable automatic conversation compaction")
     message_threshold: int = Field(5, ge=2, description="Compact after this many messages")
     preserve_last_n: int = Field(3, ge=1, description="Number of recent messages to preserve uncompacted")
-    summary_max_tokens: int = Field(100, ge=50, le=500, description="Maximum tokens for summary of old messages")
+    summary_max_tokens: int = Field(100, ge=50, le=2000, description="Maximum tokens for summary of old messages")
 
 
 class GlobalSettingsBase(BaseModel):

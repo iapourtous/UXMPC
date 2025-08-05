@@ -173,6 +173,10 @@ async def memory_store(
         
         logger.info(f"Stored memory {memory_id} for agent {agent_id}")
         
+        # Check and enforce memory limit
+        from app.services.agent_memory_service import agent_memory_service
+        await agent_memory_service._enforce_memory_limit(agent_id)
+        
         return {
             "success": True,
             "memory_id": memory_id,

@@ -58,7 +58,8 @@ class ConversationCompactor:
         self, 
         messages: List[Dict[str, Any]], 
         user_context: Optional[str] = None,
-        settings: Optional[GlobalSettings] = None
+        settings: Optional[GlobalSettings] = None,
+        current_user_message: Optional[str] = None
     ) -> Tuple[List[Dict[str, Any]], bool]:
         """
         Compact a conversation by summarizing old messages
@@ -67,6 +68,7 @@ class ConversationCompactor:
             messages: Full conversation history
             user_context: User context to prepend
             settings: Global settings (will fetch if not provided)
+            current_user_message: Current user message to optimize summary for
             
         Returns:
             Tuple of (compacted messages for agent, whether compaction occurred)
@@ -97,7 +99,8 @@ class ConversationCompactor:
             summary = await self._create_summary(
                 messages_to_summarize, 
                 llm_profile,
-                settings.compaction_settings.summary_max_tokens
+                settings.compaction_settings.summary_max_tokens,
+                current_user_message
             )
             
             # Build compacted conversation
@@ -137,7 +140,8 @@ class ConversationCompactor:
         self, 
         messages: List[Dict[str, Any]], 
         llm_profile: Any,
-        max_tokens: int
+        max_tokens: int,
+        current_user_message: Optional[str] = None
     ) -> str:
         """Create a concise summary of messages using LLM"""
         
@@ -147,9 +151,16 @@ class ConversationCompactor:
             for msg in messages
         ])
         
-        # Create summarization prompt
+        # Create context-aware summarization prompt
+        context_instruction = ""
+        if current_user_message:
+            context_instruction = f"""
+Current user query: "{current_user_message}"
+
+Pay special attention to information that might be relevant to answering this current query. """
+
         prompt = f"""Summarize the following conversation in {max_tokens} tokens or less. 
-Focus on key points, decisions made, and important context.
+Focus on key points, decisions made, and important context.{context_instruction}
 
 Conversation:
 {conversation_text}

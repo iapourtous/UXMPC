@@ -92,6 +92,10 @@ class AgentMemoryService:
             memories.append(AgentMemory(**memory_dict))
         
         logger.info(f"Saved {len(memories)} conversation messages for agent {agent_id}")
+        
+        # Check and enforce memory limit
+        await self._enforce_memory_limit(agent_id)
+        
         return memories
     
     async def load_context(
@@ -261,6 +265,9 @@ class AgentMemoryService:
             content=preference_content,
             metadata=memory_dict['metadata']
         )
+        
+        # Check and enforce memory limit
+        await self._enforce_memory_limit(agent_id)
         
         return AgentMemory(**memory_dict)
     
@@ -443,6 +450,126 @@ class AgentMemoryService:
         # Sort by frequency
         topics = sorted(word_freq.items(), key=lambda x: x[1], reverse=True)
         return [topic[0] for topic in topics]
+    
+    async def _enforce_memory_limit(self, agent_id: str):
+        """
+        Enforce memory limit by removing least useful memories when limit is exceeded
+        
+        Uses intelligent scoring based on:
+        - Importance level (preferences > user_messages > agent_responses)
+        - Access frequency (higher access_count = higher priority)
+        - Recency (recent last_accessed = higher priority)
+        - Age (older created_at = lower priority)
+        """
+        from app.services.agent_crud import agent_crud
+        
+        # Get agent's memory configuration
+        agent = await agent_crud.get(agent_id)
+        if not agent or not agent.memory_enabled:
+            return
+            
+        max_memories = agent.memory_config.get('max_memories', 1000)
+        
+        # Get current memory count
+        db = get_database()
+        current_count = await db[self.collection_name].count_documents({"agent_id": agent_id})
+        
+        if current_count <= max_memories:
+            return  # No cleanup needed
+            
+        # Calculate how many memories to remove (10% buffer)
+        target_count = int(max_memories * 0.9)  # Remove to 90% of limit
+        memories_to_remove = current_count - target_count
+        
+        logger.info(f"Memory limit exceeded for agent {agent_id}: {current_count}/{max_memories}. Removing {memories_to_remove} memories.")
+        
+        # Get all memories with utility scoring
+        memories = await db[self.collection_name].find({"agent_id": agent_id}).to_list(None)
+        
+        if not memories:
+            return
+            
+        # Calculate utility scores for each memory
+        now = datetime.utcnow()
+        max_access = max([m.get('access_count', 0) for m in memories])
+        max_access = max(max_access, 1)  # Avoid division by zero
+        
+        memory_scores = []
+        for memory in memories:
+            score = self._calculate_utility_score(memory, now, max_access)
+            memory_scores.append({
+                'id': memory['_id'],
+                'score': score,
+                'content_preview': memory['content'][:50] + '...',
+                'importance': memory.get('importance', 0.5),
+                'access_count': memory.get('access_count', 0),
+                'content_type': memory.get('content_type', 'unknown')
+            })
+        
+        # Sort by utility score (ascending - lowest scores first for removal)
+        memory_scores.sort(key=lambda x: x['score'])
+        
+        # Remove the least useful memories
+        memories_to_delete = memory_scores[:memories_to_remove]
+        memory_ids = [m['id'] for m in memories_to_delete]
+        
+        # Log what's being removed
+        logger.info(f"Removing {len(memories_to_delete)} low-utility memories:")
+        for mem in memories_to_delete[:5]:  # Log first 5
+            logger.info(f"  - Score: {mem['score']:.3f}, Type: {mem['content_type']}, "
+                       f"Access: {mem['access_count']}, Content: {mem['content_preview']}")
+        
+        # Delete from MongoDB
+        delete_result = await db[self.collection_name].delete_many({
+            "_id": {"$in": memory_ids}
+        })
+        
+        # Delete from vector store
+        vector_store = self.vector_store
+        for memory_id in memory_ids:
+            try:
+                vector_store.delete_memory(agent_id, str(memory_id))
+            except Exception as e:
+                logger.warning(f"Failed to delete memory {memory_id} from vector store: {e}")
+        
+        logger.info(f"Successfully removed {delete_result.deleted_count} memories. New count: {current_count - delete_result.deleted_count}")
+    
+    def _calculate_utility_score(self, memory: dict, now: datetime, max_access: int) -> float:
+        """
+        Calculate utility score for a memory (higher = more useful)
+        
+        Formula: importance(40%) + usage(30%) + recency(20%) + age_penalty(10%)
+        """
+        # 1. Importance factor (0.0 - 1.0)
+        importance = memory.get('importance', 0.5)
+        importance_factor = importance  # Already 0-1
+        
+        # 2. Usage factor (0.0 - 1.0) 
+        access_count = memory.get('access_count', 0)
+        usage_factor = access_count / max_access if max_access > 0 else 0
+        
+        # 3. Recency factor (0.0 - 1.0)
+        last_accessed = memory.get('last_accessed')
+        if last_accessed:
+            days_since_access = (now - last_accessed).days
+            recency_factor = max(0, 1 - (days_since_access / 30))  # Decay over 30 days
+        else:
+            recency_factor = 0  # Never accessed
+            
+        # 4. Age penalty (0.0 - 1.0, but inverted - older = lower score)
+        created_at = memory.get('created_at', now)
+        days_old = (now - created_at).days
+        age_factor = max(0, 1 - (days_old / 90))  # Decay over 90 days
+        
+        # Weighted combination
+        utility_score = (
+            importance_factor * 0.4 +  # 40% importance
+            usage_factor * 0.3 +       # 30% usage frequency  
+            recency_factor * 0.2 +     # 20% recent access
+            age_factor * 0.1           # 10% age (newer = better)
+        )
+        
+        return utility_score
 
 
 # Singleton instance

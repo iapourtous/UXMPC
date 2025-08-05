@@ -167,7 +167,8 @@ class AgentExecutor:
                 compacted_messages, was_compacted = await conversation_compactor.compact_conversation(
                     messages=full_messages,
                     user_context=global_settings.user_context,
-                    settings=global_settings
+                    settings=global_settings,
+                    current_user_message=execution_request.input if isinstance(execution_request.input, str) else json.dumps(execution_request.input)
                 )
                 
                 if was_compacted:
@@ -714,7 +715,7 @@ IMPORTANT: When you have gathered enough information to answer the user's questi
         self,
         agent: Agent,
         query: str,
-        agent_logger: ServiceLogger
+        agent_logger: Optional[ServiceLogger]
     ) -> Optional[str]:
         """Load relevant context from agent's memory"""
         try:
@@ -738,13 +739,15 @@ IMPORTANT: When you have gathered enough information to answer the user's questi
             
             if context_parts:
                 context = "\n\n".join(context_parts)
-                await agent_logger.info(f"Loaded {len(context_parts)} relevant memories")
+                if agent_logger:
+                    await agent_logger.info(f"Loaded {len(context_parts)} relevant memories")
                 return context
             
             return None
             
         except Exception as e:
-            await agent_logger.error(f"Failed to load memory context: {str(e)}")
+            if agent_logger:
+                await agent_logger.error(f"Failed to load memory context: {str(e)}")
             return None
     
     async def _create_memory_tools(self, agent: Agent) -> List[Dict[str, Any]]:
