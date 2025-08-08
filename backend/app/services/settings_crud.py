@@ -104,6 +104,12 @@ class SettingsCRUD:
         if not update_data:
             return current_settings
         
+        # Validate service generation LLM profile if provided
+        if 'service_generation_llm_profile' in update_data and update_data['service_generation_llm_profile']:
+            available_profiles = await self.get_all_llm_profiles()
+            if update_data['service_generation_llm_profile'] not in available_profiles:
+                raise ValueError(f"Invalid service generation LLM profile. Available profiles: {', '.join(available_profiles)}")
+        
         # Add updated_at timestamp
         update_data["updated_at"] = datetime.utcnow()
         
@@ -133,6 +139,21 @@ class SettingsCRUD:
                 text_profiles.append(llm.name)
         
         return sorted(text_profiles)
+    
+    async def get_all_llm_profiles(self) -> list[str]:
+        """Get list of JSON-mode LLM profiles (for service generation)"""
+        from app.services.llm_crud import llm_crud
+        
+        # Get all active LLM profiles
+        llm_profiles = await llm_crud.list(active_only=True)
+        
+        # Filter for JSON-mode profiles only (service generation requires JSON)
+        json_profiles = []
+        for llm in llm_profiles:
+            if llm.active and hasattr(llm, 'mode') and llm.mode == "json":
+                json_profiles.append(llm.name)
+        
+        return sorted(json_profiles)
 
 
 # Create singleton instance

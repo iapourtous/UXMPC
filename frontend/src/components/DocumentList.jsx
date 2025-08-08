@@ -12,6 +12,7 @@ import {
 } from '@ant-design/icons';
 import { documentsApi, workspacesApi } from '../services/api';
 import DocumentUpload from './DocumentUpload';
+import DocumentEdit from './DocumentEdit';
 
 const { Title, Text, Paragraph } = Typography;
 const { TabPane } = Tabs;
@@ -28,6 +29,7 @@ const DocumentList = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [uploadModalVisible, setUploadModalVisible] = useState(false);
   const [previewModalVisible, setPreviewModalVisible] = useState(false);
+  const [editModalVisible, setEditModalVisible] = useState(false);
   const [selectedDocument, setSelectedDocument] = useState(null);
   const [documentContent, setDocumentContent] = useState('');
   const [workspaceStats, setWorkspaceStats] = useState(null);
@@ -178,6 +180,21 @@ const DocumentList = () => {
     }
   };
 
+  const handleEdit = (document) => {
+    setSelectedDocument(document);
+    setEditModalVisible(true);
+  };
+
+  const handleEditSuccess = (updatedDocument) => {
+    // Update the document in the list
+    setDocuments(prevDocs => 
+      prevDocs.map(doc => 
+        doc.id === updatedDocument.id ? updatedDocument : doc
+      )
+    );
+    message.success('Document updated successfully');
+  };
+
   const handleSearch = async () => {
     if (!searchQuery.trim()) {
       loadDocuments();
@@ -278,6 +295,13 @@ const DocumentList = () => {
               icon={<EyeOutlined />}
               size="small"
               onClick={() => handlePreview(record)}
+            />
+          </Tooltip>
+          <Tooltip title="Edit">
+            <Button
+              icon={<EditOutlined />}
+              size="small"
+              onClick={() => handleEdit(record)}
             />
           </Tooltip>
           <Tooltip title="Download">
@@ -558,6 +582,13 @@ const DocumentList = () => {
           </>
         )}
       </Modal>
+
+      <DocumentEdit
+        visible={editModalVisible}
+        document={selectedDocument}
+        onCancel={() => setEditModalVisible(false)}
+        onSuccess={handleEditSuccess}
+      />
     </div>
   );
 };

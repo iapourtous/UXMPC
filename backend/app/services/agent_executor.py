@@ -420,7 +420,9 @@ class AgentExecutor:
         messages = []
         
         # Build enhanced system prompt with agent's identity
-        system_content = ""
+        # Add current date at the beginning of every prompt
+        current_date = datetime.utcnow().strftime('%d/%m/%Y')
+        system_content = f"Date d'aujourd'hui : {current_date}\n\n"
         
         # Add backstory if available
         if hasattr(agent, 'backstory') and agent.backstory:

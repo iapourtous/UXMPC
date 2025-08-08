@@ -25,6 +25,14 @@ class GlobalSettingsBase(BaseModel):
         None, 
         description="LLM profile name to use for summarizing conversations (text-only profiles)"
     )
+    service_generation_llm_profile: Optional[str] = Field(
+        None,
+        description="Default LLM profile for MCP service generation"
+    )
+    auto_use_generation_profile: bool = Field(
+        True,
+        description="Automatically use global generation profile if none specified in service creation"
+    )
     user_context: Optional[str] = Field(
         None, 
         description="Persistent user context provided to all agents (e.g., user preferences, language, expertise level)"
@@ -43,6 +51,8 @@ class GlobalSettingsCreate(GlobalSettingsBase):
 class GlobalSettingsUpdate(BaseModel):
     """Model for updating global settings"""
     summary_llm_profile: Optional[str] = None
+    service_generation_llm_profile: Optional[str] = None
+    auto_use_generation_profile: Optional[bool] = None
     user_context: Optional[str] = None
     compaction_settings: Optional[ConversationCompactionSettings] = None
 

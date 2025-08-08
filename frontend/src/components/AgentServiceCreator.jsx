@@ -49,9 +49,11 @@ const AgentServiceCreator = () => {
   const [serviceId, setServiceId] = useState(null);
   const [error, setError] = useState(null);
   const [useExternalApi, setUseExternalApi] = useState(false);
+  const [globalSettings, setGlobalSettings] = useState(null);
 
   useEffect(() => {
     fetchLLMProfiles();
+    fetchGlobalSettings();
   }, []);
 
   const fetchLLMProfiles = async () => {
@@ -67,6 +69,18 @@ const AgentServiceCreator = () => {
       setLlmProfiles(jsonProfiles);
     } catch (error) {
       message.error('Failed to fetch LLM profiles');
+    }
+  };
+
+  const fetchGlobalSettings = async () => {
+    try {
+      const response = await fetch('http://localhost:8000/settings/');
+      if (response.ok) {
+        const settings = await response.json();
+        setGlobalSettings(settings);
+      }
+    } catch (error) {
+      console.error('Failed to fetch global settings:', error);
     }
   };
 
@@ -289,11 +303,10 @@ const AgentServiceCreator = () => {
 
           <Form.Item
             name="llm_profile"
-            label="LLM Profile"
-            rules={[{ required: true, message: 'Please select an LLM profile' }]}
+            label="LLM Profile (Optional)"
             extra={
               <Space direction="vertical" size="small">
-                <Text type="secondary">Choose which AI model to use for creating the service</Text>
+                <Text type="secondary">Choose which AI model to use for creating the service (uses global default if not selected)</Text>
                 <Text type="warning">
                   <InfoCircleOutlined /> Only LLM profiles with JSON mode are shown (required for structured responses)
                 </Text>
@@ -301,10 +314,15 @@ const AgentServiceCreator = () => {
             }
           >
             <Select
-              placeholder="Select LLM profile (JSON mode)"
+              placeholder={
+                globalSettings?.service_generation_llm_profile && globalSettings?.auto_use_generation_profile 
+                  ? `Use global default (${globalSettings.service_generation_llm_profile}) or select one`
+                  : "Select LLM profile (JSON mode) - optional"
+              }
               disabled={loading}
               showSearch
               optionFilterProp="children"
+              allowClear
               notFoundContent={
                 <Empty 
                   description="No JSON-mode LLM profiles found"
@@ -329,6 +347,20 @@ const AgentServiceCreator = () => {
                 </Option>
               ))}
             </Select>
+            {globalSettings?.service_generation_llm_profile && globalSettings?.auto_use_generation_profile && (
+              <div style={{ marginTop: 8 }}>
+                <Text type="success" style={{ fontSize: '12px' }}>
+                  ✓ Global service generation profile configured: {globalSettings.service_generation_llm_profile}
+                </Text>
+              </div>
+            )}
+            {(!globalSettings?.service_generation_llm_profile || !globalSettings?.auto_use_generation_profile) && llmProfiles.length === 0 && (
+              <div style={{ marginTop: 8 }}>
+                <Text type="warning" style={{ fontSize: '12px' }}>
+                  ⚠️ No global profile configured and no JSON profiles available. Configure in Settings or create a profile.
+                </Text>
+              </div>
+            )}
           </Form.Item>
 
           {/* External API Configuration */}

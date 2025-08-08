@@ -23,6 +23,8 @@ export default function ServiceForm({ service, onClose }) {
   const { data: llmProfiles } = useLLMProfiles(true);
   
   const [isGenerating, setIsGenerating] = useState(false);
+  const [globalSettings, setGlobalSettings] = useState(null);
+  const [jsonLlmProfiles, setJsonLlmProfiles] = useState([]);
   
   const [formData, setFormData] = useState({
     name: '',
@@ -72,6 +74,31 @@ export default function ServiceForm({ service, onClose }) {
       });
     }
   }, [service]);
+
+  // Fetch global settings and JSON LLM profiles
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        const [settingsResponse, jsonProfilesResponse] = await Promise.all([
+          fetch('http://localhost:8000/settings'),
+          fetch('http://localhost:8000/settings/llm-profiles-json')
+        ]);
+        
+        if (settingsResponse.ok) {
+          const settings = await settingsResponse.json();
+          setGlobalSettings(settings);
+        }
+        
+        if (jsonProfilesResponse.ok) {
+          const profiles = await jsonProfilesResponse.json();
+          setJsonLlmProfiles(profiles);
+        }
+      } catch (error) {
+        console.error('Failed to fetch data:', error);
+      }
+    };
+    fetchData();
+  }, []);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -142,11 +169,12 @@ export default function ServiceForm({ service, onClose }) {
   };
 
   // Check if we can generate with AI
+  const hasGlobalProfile = globalSettings?.service_generation_llm_profile && 
+                          globalSettings?.auto_use_generation_profile;
   const canGenerate = formData.name && 
                      formData.route && 
-                     formData.llm_profile && 
                      formData.description &&
-                     !service; // Only for new services
+                     !service; // Only for new services - Profile is now truly optional
 
   const handleGenerate = async () => {
     try {
@@ -163,7 +191,7 @@ export default function ServiceForm({ service, onClose }) {
           route: formData.route,
           method: formData.method,
           description: formData.description,
-          llm_profile: formData.llm_profile,
+          llm_profile: formData.llm_profile || null, // Let backend use global if null
         }),
       });
 
@@ -268,23 +296,40 @@ export default function ServiceForm({ service, onClose }) {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700">LLM Profile (Optional)</label>
+              <label className="block text-sm font-medium text-gray-700">
+                LLM Profile (Optional for AI Generation)
+              </label>
               <select
                 name="llm_profile"
                 value={formData.llm_profile}
                 onChange={handleChange}
                 className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
               >
-                <option value="">No LLM profile</option>
-                {llmProfiles?.map((profile) => (
-                  <option key={profile.id} value={profile.name}>
-                    {profile.name} ({profile.model})
+                <option value="">
+                  {hasGlobalProfile 
+                    ? `Use global default (${globalSettings.service_generation_llm_profile})`
+                    : 'No LLM profile'
+                  }
+                </option>
+                {jsonLlmProfiles?.map((profileName) => (
+                  <option key={profileName} value={profileName}>
+                    {profileName}
                   </option>
                 ))}
               </select>
-              {(!llmProfiles || llmProfiles.length === 0) && (
-                <p className="mt-1 text-xs text-gray-500">
-                  No active LLM profiles found. Create one in the LLM Profiles tab.
+              {hasGlobalProfile && (
+                <p className="mt-1 text-xs text-green-600">
+                  ✓ Global service generation profile configured: {globalSettings.service_generation_llm_profile}
+                </p>
+              )}
+              {(!jsonLlmProfiles || jsonLlmProfiles.length === 0) && !hasGlobalProfile && (
+                <p className="mt-1 text-xs text-orange-600">
+                  No JSON-mode LLM profiles available. Configure a global profile in Settings or create one in LLM Profiles tab.
+                </p>
+              )}
+              {(!jsonLlmProfiles || jsonLlmProfiles.length === 0) && hasGlobalProfile && (
+                <p className="mt-1 text-xs text-blue-600">
+                  No additional profiles needed - using global configuration.
                 </p>
               )}
             </div>
@@ -328,7 +373,13 @@ export default function ServiceForm({ service, onClose }) {
             </div>
             {canGenerate && (
               <p className="mt-1 text-xs text-purple-600">
-                All required fields are filled. Click "Generate with AI" to auto-complete the service.
+                Ready to generate! Click "Generate with AI" to auto-complete the service.
+                {!formData.llm_profile && hasGlobalProfile && (
+                  <span> Will use global profile: {globalSettings.service_generation_llm_profile}</span>
+                )}
+                {!formData.llm_profile && !hasGlobalProfile && (
+                  <span> No profile selected - generation may fail if no global profile configured.</span>
+                )}
               </p>
             )}
           </div>

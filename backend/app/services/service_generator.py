@@ -94,8 +94,17 @@ Prompts return a template string that can include parameters.
 
 class ServiceGenerator:
     
-    async def generate_service(self, service_data: Dict[str, Any], llm_profile_name: str) -> Dict[str, Any]:
+    async def generate_service(self, service_data: Dict[str, Any], llm_profile_name: str = None) -> Dict[str, Any]:
         """Generate a complete service implementation using LLM"""
+        
+        # If no LLM profile specified, try to use global settings
+        if not llm_profile_name:
+            from app.services.settings_crud import settings_crud
+            settings = await settings_crud.get_or_create()
+            if settings.auto_use_generation_profile and settings.service_generation_llm_profile:
+                llm_profile_name = settings.service_generation_llm_profile
+            else:
+                raise ValueError("No LLM profile specified and no global service generation profile configured")
         
         # Get the LLM profile
         llm_profile = await llm_crud.get_by_name(llm_profile_name)

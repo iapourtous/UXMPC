@@ -17,7 +17,7 @@ class GenerateServiceRequest(BaseModel):
     route: str
     method: str = "GET"
     description: str
-    llm_profile: str
+    llm_profile: Optional[str] = None
 
 
 @router.post("/", response_model=Service)

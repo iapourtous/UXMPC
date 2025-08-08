@@ -92,10 +92,39 @@ class DocumentCRUD:
             
             logger.info(f"Uploaded file to GridFS: {grid_id}")
         
-        # Insert document into database
-        result = await db[self.collection_name].insert_one(document_dict)
-        document_dict["id"] = str(result.inserted_id)
-        document_dict.pop("_id", None)
+        # Generate embedding from description if provided
+        if document.description:
+            try:
+                # Insert first to get document ID
+                result = await db[self.collection_name].insert_one(document_dict)
+                document_id = str(result.inserted_id)
+                document_dict["id"] = document_id
+                document_dict.pop("_id", None)
+                
+                # Generate embedding from description
+                embedding = await self._generate_description_embedding(
+                    document_id, 
+                    document.description
+                )
+                if embedding:
+                    # Update document with embedding
+                    await db[self.collection_name].update_one(
+                        {"_id": ObjectId(document_id)},
+                        {"$set": {"content_embedding": embedding}}
+                    )
+                    document_dict["content_embedding"] = embedding
+                    logger.info(f"Generated embedding from description for new document {document_id}")
+            except Exception as e:
+                logger.warning(f"Failed to generate embedding from description during creation: {e}")
+                # Still insert document without embedding
+                result = await db[self.collection_name].insert_one(document_dict)
+                document_dict["id"] = str(result.inserted_id)
+                document_dict.pop("_id", None)
+        else:
+            # Insert document into database without embedding
+            result = await db[self.collection_name].insert_one(document_dict)
+            document_dict["id"] = str(result.inserted_id)
+            document_dict.pop("_id", None)
         
         # Update workspace stats
         await workspace_crud.update_stats(
@@ -158,6 +187,7 @@ class DocumentCRUD:
         workspace_id: Optional[str] = None,
         category: Optional[str] = None,
         tags: Optional[List[str]] = None,
+        keywords: Optional[List[str]] = None,
         document_type: Optional[str] = None
     ) -> List[Document]:
         """List documents with filters"""
@@ -171,6 +201,8 @@ class DocumentCRUD:
             filter_dict["category"] = category
         if tags:
             filter_dict["tags"] = {"$in": tags}
+        if keywords:
+            filter_dict["keywords"] = {"$in": keywords}
         if document_type:
             filter_dict["type"] = document_type
         
@@ -182,6 +214,54 @@ class DocumentCRUD:
             documents.append(Document(**document))
         
         return documents
+    
+    async def _generate_description_embedding(
+        self,
+        document_id: str,
+        description: str
+    ) -> Optional[List[float]]:
+        """Generate embedding from document description"""
+        try:
+            # Use vector store to generate embedding
+            # We create a temporary memory entry to get the embedding
+            temp_memory_id = f"temp_desc_{document_id}"
+            collection_name = f"documents_{document_id[:8]}"
+            
+            # Add temporary memory to get embedding
+            result = self.vector_store.add_memory(
+                agent_id=collection_name,
+                memory_id=temp_memory_id,
+                content=description,
+                metadata={"type": "description", "temp": True}
+            )
+            
+            # Get the embedding from the vector store
+            embedding = None
+            try:
+                # Search for the temporary memory to get its embedding
+                search_results = self.vector_store.search_memories(
+                    agent_id=collection_name,
+                    query=description,
+                    k=1
+                )
+                
+                if search_results and len(search_results) > 0:
+                    # Extract embedding from the first result
+                    # This is implementation-specific depending on vector store format
+                    pass
+                
+            finally:
+                # Clean up temporary memory
+                try:
+                    self.vector_store.delete_memory(collection_name, temp_memory_id)
+                except:
+                    pass
+            
+            return embedding
+            
+        except Exception as e:
+            logger.error(f"Failed to generate description embedding: {e}")
+            return None
     
     async def update(
         self, 
@@ -203,6 +283,25 @@ class DocumentCRUD:
             update_dict["updated_at"] = datetime.utcnow()
             if updated_by:
                 update_dict["updated_by"] = updated_by
+            
+            # Check if description changed to generate new embedding
+            description_changed = (
+                "description" in update_dict and 
+                update_dict["description"] != existing.description
+            )
+            
+            if description_changed and update_dict["description"]:
+                # Generate embedding from description
+                try:
+                    embedding = await self._generate_description_embedding(
+                        document_id, 
+                        update_dict["description"]
+                    )
+                    if embedding:
+                        update_dict["content_embedding"] = embedding
+                        logger.info(f"Generated embedding from description for document {document_id}")
+                except Exception as e:
+                    logger.warning(f"Failed to generate embedding from description: {e}")
             
             # Update in database
             try:

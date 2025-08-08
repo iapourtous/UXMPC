@@ -20,9 +20,11 @@ UXMCP (Universal eXtensible MCP) est un gestionnaire de services MCP (Model Cont
 4. **LLM Profiles**: Gestion des profils de modèles de langage
 5. **Meta-Agent**: Création automatique d'agents et d'outils
 6. **MCP Client**: Connexions vers serveurs MCP externes (Context7, APIs externes)
-7. **Demos System**: Hébergement de démos HTML/CSS/JS interactives
-8. **Chat Interface**: Interface de chat intégrée
-9. **Logging System**: Système de logs MongoDB intégré
+7. **Workspace Management**: Gestion d'espaces de travail pour organiser les documents
+8. **Document Management**: Upload, extraction et recherche sémantique de documents
+9. **Demos System**: Hébergement de démos HTML/CSS/JS interactives
+10. **Chat Interface**: Interface de chat intégrée
+11. **Logging System**: Système de logs MongoDB intégré
 
 ## Endpoints API
 
@@ -597,6 +599,8 @@ Exécuter un outil spécifique depuis une connexion MCP externe.
 **Request Body:**
 ```json
 {
+  "connection_id": "689276d852d1d4dc9cabc86f",
+  "tool_name": "resolve-library-id",
   "parameters": {
     "libraryName": "react",
     "topic": "hooks typescript",
@@ -620,6 +624,138 @@ Exécuter un outil spécifique depuis une connexion MCP externe.
   "execution_time": 1.234,
   "server_info": {"server_name": "Context7 Documentation Server"},
   "error": null
+}
+```
+
+#### GET /mcp-connections/{connection_id}/auth
+Obtenir le statut d'authentification d'une connexion.
+
+**Response:**
+```json
+{
+  "connection_id": "689276d852d1d4dc9cabc86f",
+  "auth_type": "oauth",
+  "has_auth": true,
+  "is_valid": true,
+  "expires_at": "2025-08-09T10:00:00.000Z",
+  "scopes": ["read", "write"]
+}
+```
+
+#### POST /mcp-connections/{connection_id}/auth/oauth
+Démarrer un flow d'authentification OAuth.
+
+**Request Body:**
+```json
+{
+  "client_id": "your-client-id",
+  "client_secret": "your-client-secret",
+  "authorization_url": "https://example.com/oauth/authorize",
+  "token_url": "https://example.com/oauth/token",
+  "scopes": ["read", "write"],
+  "redirect_uri": "http://localhost:8000/oauth/callback"
+}
+```
+
+**Response:**
+```json
+{
+  "authorization_url": "https://example.com/oauth/authorize?client_id=...&state=abc123",
+  "state": "abc123"
+}
+```
+
+#### POST /mcp-connections/{connection_id}/auth/callback
+Traiter le callback OAuth après autorisation utilisateur.
+
+**Request Body:**
+```json
+{
+  "code": "authorization-code-from-oauth-provider",
+  "state": "abc123"
+}
+```
+
+**Response:**
+```json
+{
+  "message": "OAuth authentication successful",
+  "expires_at": "2025-08-09T10:00:00.000Z"
+}
+```
+
+#### POST /mcp-connections/{connection_id}/auth/refresh
+Actualiser un token d'accès expiré.
+
+**Response:**
+```json
+{
+  "message": "Token refreshed successfully",
+  "expires_at": "2025-08-09T10:00:00.000Z"
+}
+```
+
+#### POST /mcp-connections/{connection_id}/auth/api-key
+Stocker une clé API pour l'authentification.
+
+**Request Body:**
+```json
+{
+  "api_key": "sk-abc123def456",
+  "additional_data": {
+    "key_name": "production-key",
+    "permissions": "read-write"
+  }
+}
+```
+
+**Response:**
+```json
+{
+  "message": "API key stored successfully"
+}
+```
+
+#### DELETE /mcp-connections/{connection_id}/auth
+Supprimer les informations d'authentification d'une connexion.
+
+**Response:**
+```json
+{
+  "message": "Authentication deleted successfully"
+}
+```
+
+#### GET /mcp-connections/sessions/info
+Obtenir des informations sur les sessions MCP actives.
+
+**Response:**
+```json
+{
+  "active_sessions": 3,
+  "sessions": [
+    {
+      "connection_id": "689276d852d1d4dc9cabc86f",
+      "connection_name": "Context7 Documentation Server",
+      "status": "connected",
+      "last_activity": "2025-08-08T10:00:00.000Z",
+      "uptime_seconds": 1800
+    }
+  ],
+  "total_connections": 5
+}
+```
+
+#### POST /mcp-connections/sessions/cleanup
+Nettoyer les sessions MCP inactives.
+
+**Query Parameters:**
+- `max_idle_minutes`: int (default: 30) - Durée max d'inactivité avant nettoyage
+
+**Response:**
+```json
+{
+  "message": "Cleaned up 2 inactive sessions"
 }
 ```
 
@@ -649,6 +785,368 @@ Les outils MCP externes sont automatiquement disponibles aux agents qui ont des 
 ```
 
 Les outils externes apparaissent avec le préfixe `mcp_{connection_id}_{tool_name}` lors de l'exécution pour éviter les conflits.
+
+### 📁 Espaces de Travail (/api/workspaces)
+
+Le système d'espaces de travail permet d'organiser et gérer les documents de manière structurée, avec des permissions par agent et des paramètres configurables.
+
+#### POST /api/workspaces/
+Créer un nouvel espace de travail.
+
+**Request Body:**
+```json
+{
+  "name": "projet-documentation",
+  "description": "Espace de travail pour la documentation du projet",
+  "owner_id": "user-123", // Optionnel
+  "agent_ids": ["agent-456", "agent-789"], // Agents avec accès
+  "is_public": false,
+  "settings": {
+    "max_file_size": 104857600, // 100MB en bytes
+    "allowed_types": ["pdf", "docx", "markdown", "text"], // Types autorisés
+    "auto_extract": true, // Extraction automatique de contenu
+    "auto_embed": true, // Génération automatique d'embeddings
+    "retention_days": 365 // Rétention des documents (null = illimité)
+  },
+  "metadata": {
+    "project": "uxmcp-v2",
+    "department": "engineering"
+  }
+}
+```
+
+**Response:**
+```json
+{
+  "id": "workspace-123",
+  "name": "projet-documentation",
+  "description": "Espace de travail pour la documentation du projet",
+  "owner_id": "user-123",
+  "agent_ids": ["agent-456", "agent-789"],
+  "is_public": false,
+  "settings": {
+    "max_file_size": 104857600,
+    "allowed_types": ["pdf", "docx", "markdown", "text"],
+    "auto_extract": true,
+    "auto_embed": true,
+    "retention_days": 365
+  },
+  "metadata": {
+    "project": "uxmcp-v2",
+    "department": "engineering"
+  },
+  "document_count": 0,
+  "total_size": 0,
+  "created_at": "2025-08-08T10:00:00.000Z",
+  "updated_at": "2025-08-08T10:00:00.000Z"
+}
+```
+
+#### GET /api/workspaces/
+Lister tous les espaces de travail avec filtres optionnels.
+
+**Query Parameters:**
+- `skip`: int (default: 0) - Nombre d'éléments à ignorer
+- `limit`: int (default: 100, max: 1000) - Nombre max de résultats
+- `agent_id`: string - Filtrer par agent ayant accès
+- `is_public`: bool - Filtrer par visibilité publique
+
+**Response:** Array des objets workspace
+
+#### GET /api/workspaces/{workspace_id}
+Obtenir un espace de travail spécifique.
+
+**Response:** Objet workspace complet ou 404 si non trouvé
+
+#### GET /api/workspaces/by-name/{name}
+Obtenir un espace de travail par son nom.
+
+**Response:** Objet workspace ou 404 si non trouvé
+
+#### PUT /api/workspaces/{workspace_id}
+Mettre à jour un espace de travail existant.
+
+**Request Body:**
+```json
+{
+  "name": "nouveau-nom",
+  "description": "Description mise à jour",
+  "agent_ids": ["agent-456", "agent-789", "agent-new"],
+  "is_public": true,
+  "settings": {
+    "max_file_size": 209715200, // 200MB
+    "auto_extract": false
+  },
+  "metadata": {
+    "status": "active",
+    "last_review": "2025-08-08"
+  }
+}
+```
+
+**Response:** Objet workspace mis à jour
+
+#### DELETE /api/workspaces/{workspace_id}
+Supprimer un espace de travail et tous ses documents.
+
+**Response:** 
+```json
+{
+  "message": "Workspace deleted successfully"
+}
+```
+
+#### POST /api/workspaces/{workspace_id}/agents/{agent_id}
+Ajouter un agent à la liste d'accès de l'espace de travail.
+
+**Response:**
+```json
+{
+  "message": "Agent agent-123 added to workspace projet-documentation"
+}
+```
+
+#### DELETE /api/workspaces/{workspace_id}/agents/{agent_id}
+Retirer un agent de la liste d'accès de l'espace de travail.
+
+**Response:**
+```json
+{
+  "message": "Agent agent-123 removed from workspace projet-documentation"
+}
+```
+
+#### GET /api/workspaces/{workspace_id}/stats
+Obtenir des statistiques détaillées d'un espace de travail.
+
+**Response:**
+```json
+{
+  "workspace_id": "workspace-123",
+  "document_count": 45,
+  "total_size": 267845632, // Taille totale en bytes
+  "document_types": {
+    "pdf": 20,
+    "docx": 15,
+    "markdown": 8,
+    "text": 2
+  },
+  "categories": {
+    "documentation": 25,
+    "code": 10,
+    "data": 5,
+    "report": 5
+  },
+  "recent_uploads": [
+    {
+      "document_id": "doc-456",
+      "name": "guide-installation.pdf",
+      "uploaded_at": "2025-08-07T15:30:00.000Z",
+      "size": 2048576
+    }
+  ],
+  "most_accessed": [
+    {
+      "document_id": "doc-123",
+      "name": "api-reference.md",
+      "access_count": 150,
+      "last_accessed": "2025-08-08T09:45:00.000Z"
+    }
+  ],
+  "agent_access": [
+    {
+      "agent_id": "agent-456",
+      "agent_name": "Documentation Assistant",
+      "access_count": 75
+    }
+  ]
+}
+```
+
+### 📄 Gestion de Documents (/api/documents)
+
+Le système de gestion de documents permet d'uploader, stocker, extraire et rechercher du contenu dans différents formats de fichiers avec support de la recherche sémantique.
+
+#### POST /api/documents/
+Créer un nouveau document avec upload de fichier optionnel.
+
+**Request Body (multipart/form-data):**
+```
+name: "guide-utilisateur" (required)
+type: "pdf" (required) - DocumentType enum
+workspace_id: "workspace-123" (required)
+description: "Guide d'utilisation complet" (optional)
+category: "documentation" (optional) - DocumentCategory enum
+tags: "guide,tutorial,pdf" (optional) - comma-separated tags
+keywords: "docker,setup,installation" (optional) - comma-separated keywords
+is_public: false (optional, default: false)
+file: [binary file data] (optional)
+```
+
+**DocumentType enum:**
+`pdf | text | markdown | html | json | csv | docx | xlsx | image | other`
+
+**DocumentCategory enum:**
+`documentation | code | data | report | presentation | reference | manual | other`
+
+**Response:**
+```json
+{
+  "id": "doc-456",
+  "name": "guide-utilisateur",
+  "type": "pdf",
+  "description": "Guide d'utilisation complet",
+  "workspace_id": "workspace-123",
+  "category": "documentation",
+  "tags": ["guide", "tutorial", "pdf"],
+  "keywords": ["docker", "setup", "installation"],
+  "content": "Contenu extrait automatiquement...", // Si extraction réussie
+  "content_embedding": null, // Sera généré automatiquement
+  "blob_id": "gridfs-blob-789", // ID GridFS pour le fichier original
+  "file_size": 2048576,
+  "mime_type": "application/pdf",
+  "metadata": {},
+  "access_count": 0,
+  "last_accessed": null,
+  "is_public": false,
+  "chunk_ids": [], // IDs des chunks dans le vector store
+  "created_at": "2025-08-08T10:00:00.000Z",
+  "updated_at": "2025-08-08T10:00:00.000Z",
+  "created_by": null,
+  "updated_by": null
+}
+```
+
+**Note:** Si une description est fournie lors de la création, un embedding sera automatiquement généré pour permettre la recherche sémantique.
+
+#### GET /api/documents/
+Lister les documents avec filtres optionnels.
+
+**Query Parameters:**
+- `skip`: int (default: 0) - Pagination
+- `limit`: int (default: 100, max: 1000) - Limite de résultats
+- `workspace_id`: string - Filtrer par espace de travail
+- `category`: DocumentCategory - Filtrer par catégorie
+- `tags`: string - Filtrer par tags (comma-separated)
+- `keywords`: string - Filtrer par keywords (comma-separated)
+- `type`: DocumentType - Filtrer par type de document
+
+**Response:** Array des objets document
+
+#### GET /api/documents/{document_id}
+Obtenir un document spécifique.
+
+**Response:** Objet document complet
+
+#### GET /api/documents/{document_id}/download
+Télécharger le fichier original d'un document.
+
+**Response:** Streaming file download avec headers appropriés
+```
+Content-Type: application/pdf (ou mime type du fichier)
+Content-Disposition: attachment; filename="guide-utilisateur.pdf"
+```
+
+#### GET /api/documents/{document_id}/content
+Obtenir le contenu textuel extrait d'un document.
+
+**Response:**
+```json
+{
+  "content": "Contenu textuel extrait du document...",
+  "message": "No content available" // Si pas d'extraction disponible
+}
+```
+
+Si le contenu n'est pas encore extrait, l'endpoint tentera automatiquement l'extraction.
+
+#### PUT /api/documents/{document_id}
+Mettre à jour les métadonnées d'un document.
+
+**Request Body:**
+```json
+{
+  "name": "nouveau-nom",
+  "description": "Nouvelle description",
+  "category": "reference",
+  "tags": ["updated", "reference", "important"],
+  "keywords": ["api", "documentation", "guide"],
+  "metadata": {
+    "author": "John Doe",
+    "version": "2.0"
+  },
+  "is_public": true
+}
+```
+
+**Response:** Objet document mis à jour
+
+**Note:** Si la description est modifiée, un nouvel embedding sera automatiquement généré pour améliorer la recherche sémantique.
+
+#### DELETE /api/documents/{document_id}
+Supprimer un document et son contenu de fichier.
+
+**Response:**
+```json
+{
+  "message": "Document deleted successfully"
+}
+```
+
+#### POST /api/documents/search
+Rechercher des documents avec support de recherche sémantique.
+
+**Request Body:**
+```json
+{
+  "query": "guide installation docker kubernetes",
+  "workspace_ids": ["workspace-123", "workspace-456"], // Optionnel
+  "categories": ["documentation", "manual"], // Optionnel
+  "tags": ["docker", "k8s"], // Optionnel
+  "keywords": ["kubernetes", "container", "deployment"], // Optionnel
+  "types": ["pdf", "markdown"], // Optionnel
+  "date_from": "2025-01-01T00:00:00.000Z", // Optionnel
+  "date_to": "2025-12-31T23:59:59.000Z", // Optionnel
+  "use_semantic": true, // Active la recherche sémantique
+  "limit": 10 // Max 100
+}
+```
+
+**Response:**
+```json
+[
+  {
+    "document": {
+      "id": "doc-456",
+      "name": "docker-installation-guide",
+      "type": "pdf",
+      "description": "Complete Docker installation guide",
+      "workspace_id": "workspace-123",
+      "category": "documentation",
+      "tags": ["docker", "installation", "guide"],
+      // ... autres propriétés du document
+    },
+    "score": 0.892, // Score de pertinence (0-1)
+    "excerpt": "...Docker installation steps for Kubernetes...",
+    "highlights": [
+      "Docker installation on Ubuntu",
+      "Kubernetes integration guide"
+    ]
+  }
+]
+```
+
+#### POST /api/documents/{document_id}/extract
+Forcer l'extraction et l'indexation du contenu d'un document.
+
+**Response:**
+```json
+{
+  "message": "Content extracted and indexed successfully",
+  "content_length": 15420,
+  "preview": "Docker is a platform that enables developers to..."
+}
+```
 
 ### 📊 Logs (/logs)
 
@@ -771,105 +1269,6 @@ Sauvegarder une conversation complète en mémoire.
 #### GET /agents/{agent_id}/memory/stats
 Obtenir des statistiques détaillées sur la mémoire de l'agent.
 
-### 📝 Feedback System (/feedback)
-
-#### POST /feedback/
-Créer un nouveau feedback.
-
-**Request Body:**
-```json
-{
-  "rating": "positive",  // ou "negative"
-  "message": "Great response!",
-  "agent_used": "agent-name",
-  "query": "Original user query",
-  "response": "Agent response",
-  "metadata": {
-    "response_time": 1.23,
-    "sources_used": ["source1", "source2"]
-  }
-}
-```
-
-**Response:** Feedback object avec ID généré
-
-#### GET /feedback/{feedback_id}
-Obtenir un feedback spécifique.
-
-**Response:**
-```json
-{
-  "id": "feedback-id",
-  "rating": "positive",
-  "message": "Great response!",
-  "agent_used": "agent-name",
-  "created_at": "2025-01-01T00:00:00",
-  "query": "Original user query",
-  "response": "Agent response",
-  "metadata": {}
-}
-```
-
-#### GET /feedback/
-Lister les feedbacks avec pagination et filtres.
-
-**Query Parameters:**
-- `page`: int (default: 1)
-- `per_page`: int (default: 20, max: 100)
-- `rating`: string (positive|negative)
-- `agent_used`: string (nom de l'agent)
-- `start_date`: datetime
-- `end_date`: datetime
-
-**Response:**
-```json
-{
-  "feedbacks": [...],
-  "total": 100,
-  "page": 1,
-  "per_page": 20,
-  "pages": 5
-}
-```
-
-#### GET /feedback/stats/overview
-Obtenir des statistiques globales sur les feedbacks.
-
-**Response:**
-```json
-{
-  "total_feedbacks": 1000,
-  "positive_count": 750,
-  "negative_count": 250,
-  "positive_percentage": 75.0,
-  "by_date": {
-    "2025-01-01": {"positive": 10, "negative": 2},
-    "2025-01-02": {"positive": 15, "negative": 3}
-  },
-  "most_used_agents": [
-    {"agent": "agent1", "count": 150},
-    {"agent": "agent2", "count": 100}
-  ]
-}
-```
-
-#### GET /feedback/stats/by-agent
-Obtenir des statistiques de feedback par agent.
-
-**Response:**
-```json
-{
-  "agents": [
-    {
-      "agent": "agent1",
-      "total": 100,
-      "positive": 80,
-      "negative": 20,
-      "positive_percentage": 80.0
-    }
-  ]
-}
-```
 
 ### 💬 Conversations (/conversations)
 
@@ -1317,22 +1716,27 @@ Obtenir la documentation utilisée par l'agent comme contexte.
 - **Support API externes** : Intégration facile avec APIs tierces
 - **Documentation contextuelle** : L'agent comprend le système UXMCP
 
-### 8. **Feedback System**
-- **Collecte de feedback** : Rating positif/négatif avec contexte
-- **Analytics intégrés** : Statistiques par agent et globales
-- **Amélioration continue** : Les feedbacks guident l'optimisation
-
-### 9. **Demos System**
+### 8. **Demos System**
 - **HTML/CSS/JS interactif** : Démos complètes hébergées
 - **Gestion par tags** : Organisation et recherche faciles
 - **Versioning intégré** : Métadonnées de version
 - **Serving direct** : Accès par nom d'URL simple
 
-### 10. **Meta-Chat Enhancement**
-- **Amélioration de requêtes** : Transformation de requêtes vagues en précises
-- **Instructions optimisées** : Génération d'instructions HTML détaillées
-- **Suggestion de sources** : Recommandations de sources de données
-- **Classification intelligente** : Type et complexité de requête
+### 9. **Workspace & Document Management System**
+- **Organisation hiérarchique** : Workspaces → Documents → Content
+- **Extraction multi-format** : PDF, DOCX, XLSX, images, texte, etc.
+- **Recherche sémantique** : Vector embeddings avec ChromaDB
+- **Permissions granulaires** : Accès par agent et visibilité publique/privée
+- **Métadonnées enrichies** : Tags, catégories, statistiques d'accès
+- **Pipeline automatique** : Upload → Extraction → Indexation → Recherche
+
+### 10. **External MCP Connections**
+- **Connexions multi-protocoles** : SSE, HTTP, stdio pour serveurs MCP externes
+- **Authentification complète** : OAuth, API keys, Basic auth
+- **Cache intelligent** : Mise en cache des capacités et sessions
+- **Session management** : Gestion automatique des connexions actives
+- **Tool integration** : Outils externes disponibles pour tous les agents
+- **Auto-discovery** : Synchronisation automatique des capacités serveur
 
 ## Sécurité
 
@@ -1341,6 +1745,10 @@ Obtenir la documentation utilisée par l'agent comme contexte.
 - ⚠️ **CORS ouvert** : Accepte toutes les origines
 - ⚠️ **Exécution de code** : Le code des services est exécuté dynamiquement
 - ⚠️ **API Keys** : Stockées en clair dans MongoDB
+- ⚠️ **Upload de fichiers** : Pas de validation anti-malware
+- ⚠️ **Extraction de contenu** : Vulnérable aux fichiers malveillants
+- ⚠️ **Connexions MCP externes** : Authentification stockée en base
+- ⚠️ **Recherche sémantique** : Pas de filtrage du contenu sensible
 
 ### Recommandations Production
 1. Implémenter l'authentification JWT/OAuth
@@ -1349,6 +1757,12 @@ Obtenir la documentation utilisée par l'agent comme contexte.
 4. Chiffrer les API keys sensibles
 5. Limiter les rate limits
 6. Valider strictement les inputs
+7. Ajouter validation anti-malware pour uploads
+8. Implémenter scan de sécurité pour contenu extrait
+9. Chiffrer les credentials des connexions MCP
+10. Filtrage du contenu sensible dans la recherche
+11. Quotas de stockage par workspace
+12. Audit trail pour accès aux documents
 
 ## Exemples d'Utilisation
 
@@ -1427,21 +1841,6 @@ def handler(city):
 }
 ```
 
-### Collecter du Feedback
-```python
-# POST /feedback/
-{
-  "rating": "positive",
-  "message": "The agent provided accurate weather information with great formatting",
-  "agent_used": "weather-assistant",
-  "query": "What's the weather in Paris?",
-  "response": "Current weather in Paris: 18°C, partly cloudy...",
-  "metadata": {
-    "response_time": 0.85,
-    "sources_used": ["OpenWeatherMap"]
-  }
-}
-```
 
 ### Créer une Démo Interactive
 ```python
@@ -1471,23 +1870,133 @@ def handler(city):
 }
 ```
 
-### Améliorer une Requête avec Meta-Chat
+
+### Workflow Complet: Workspace + Documents + Agent
+
+#### 1. Créer un Espace de Travail
 ```python
-# POST /meta-chat/enhance
+# POST /api/workspaces/
 {
-  "query": "show me sales data",
-  "instructions": "make it pretty",
-  "llm_profile": "gpt4-profile"
+  "name": "knowledge-base",
+  "description": "Base de connaissances technique",
+  "agent_ids": ["doc-assistant-123"],
+  "is_public": false,
+  "settings": {
+    "max_file_size": 52428800,  # 50MB
+    "allowed_types": ["pdf", "docx", "markdown", "text"],
+    "auto_extract": true,
+    "auto_embed": true
+  }
+}
+```
+
+#### 2. Uploader des Documents
+```bash
+# Upload multiple documents
+curl -X POST "http://localhost:8000/api/documents/" \
+  -F "name=api-documentation" \
+  -F "type=pdf" \
+  -F "workspace_id=workspace-123" \
+  -F "category=documentation" \
+  -F "tags=api,reference,guide" \
+  -F "file=@./docs/api-guide.pdf"
+
+curl -X POST "http://localhost:8000/api/documents/" \
+  -F "name=user-manual" \
+  -F "type=docx" \
+  -F "workspace_id=workspace-123" \
+  -F "category=manual" \
+  -F "tags=user,manual,guide" \
+  -F "file=@./docs/user-manual.docx"
+```
+
+#### 3. Créer un Agent avec Accès aux Documents
+```python
+# POST /agents/
+{
+  "name": "documentation_assistant",
+  "llm_profile": "gpt4-profile",
+  "system_prompt": "You are a documentation assistant with access to technical documents. Help users find information and answer questions based on the available documentation.",
+  "backstory": "Expert in technical documentation with access to comprehensive knowledge base",
+  "objectives": [
+    "Help users find relevant documentation",
+    "Answer questions based on document content",
+    "Provide accurate technical guidance"
+  ],
+  "memory_enabled": true,
+  "workspace_access": ["workspace-123"], // Nouveau: accès workspace
+  "endpoint": "/api/agent/docs-assistant"
+}
+```
+
+#### 4. Rechercher dans les Documents
+```python
+# POST /api/documents/search
+{
+  "query": "authentication configuration setup",
+  "workspace_ids": ["workspace-123"],
+  "use_semantic": true,
+  "limit": 5
 }
 
-# Response:
+# Response inclut les documents pertinents avec scores et excerpts
+```
+
+#### 5. Utiliser l'Agent avec Contexte Documentaire
+```python
+# L'agent peut maintenant accéder automatiquement aux documents
+# POST /agents/documentation_assistant/execute
 {
-  "enhanced_query": "Retrieve sales data for the current quarter including revenue by product category, top-performing regions, and year-over-year growth comparison",
-  "enhanced_instructions": "Create an interactive HTML dashboard with: 1) Bar chart for revenue by category with hover tooltips, 2) Geographic heat map for regional performance, 3) Line graph showing monthly trends with YoY comparison, 4) Summary cards with key metrics. Use a modern color scheme with blue/green gradients and ensure mobile responsiveness.",
-  "suggested_sources": ["Internal sales database", "CRM system", "Analytics platform"],
-  "query_type": "business_analytics",
-  "complexity": "moderate"
+  "input": "How do I configure OAuth authentication?",
+  "execution_options": {
+    "use_document_context": true,  // Nouveau: utilise contexte docs
+    "max_document_results": 3
+  }
 }
+
+# L'agent recherchera automatiquement dans les documents 
+# et utilisera le contenu pour répondre
+```
+
+### Connecter un Serveur MCP Externe
+```python
+# 1. Créer la connexion
+# POST /mcp-connections/
+{
+  "name": "GitHub Integration",
+  "description": "Access to GitHub repositories and issues",
+  "server_url": "https://github-mcp-server.example.com/mcp",
+  "transport_type": "sse",
+  "auth_type": "oauth",
+  "config": {
+    "timeout": 30,
+    "retry_attempts": 3
+  }
+}
+
+# 2. Configurer l'authentification OAuth
+# POST /mcp-connections/{connection_id}/auth/oauth
+{
+  "client_id": "github-client-id",
+  "client_secret": "github-client-secret",
+  "authorization_url": "https://github.com/login/oauth/authorize",
+  "token_url": "https://github.com/login/oauth/access_token",
+  "scopes": ["repo", "issues"]
+}
+
+# 3. Synchroniser les outils disponibles
+# POST /mcp-connections/{connection_id}/sync
+
+# 4. Utiliser les outils dans un agent
+# POST /agents/
+{
+  "name": "github_assistant",
+  "mcp_connections": ["github-connection-id"],
+  "system_prompt": "You help manage GitHub repositories and issues"
+}
+
+# L'agent peut maintenant utiliser les outils GitHub
+# comme create_issue, get_repository_info, etc.
 ```
 
 ## WebSocket & SSE
@@ -1521,6 +2030,12 @@ eventSource.onmessage = (event) => {
 - **Services**: Pas de limite définie
 - **Agents**: Max 5 itérations par défaut
 - **Meta-Agent**: Max 5 outils créés par défaut
+- **Documents**: Taille max configurable par workspace (50MB par défaut)
+- **Workspaces**: Pas de limite sur le nombre
+- **Recherche Documents**: Max 100 résultats par requête
+- **Upload Files**: Support multipart jusqu'à la limite workspace
+- **MCP Connections**: Max 30 secondes timeout par défaut
+- **Vector Search**: Max 100 embeddings par recherche sémantique
 - **Timeout**: Variable selon l'endpoint
 
 ## Monitoring
@@ -1530,6 +2045,11 @@ Le système inclut des métriques via les logs MongoDB :
 - Taux d'erreur par niveau
 - Temps de réponse (via logs)
 - Utilisation des tokens (via usage stats)
+- Statistiques d'usage par workspace
+- Métrics de documents : uploads, téléchargements, recherches
+- Performance des connexions MCP externes
+- Taux de succès extraction de contenu
+- Utilisation de l'espace de stockage (GridFS + Vector DB)
 
 ## Évolutions Futures
 

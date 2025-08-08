@@ -14,13 +14,18 @@ const Settings = () => {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [llmProfiles, setLlmProfiles] = useState([]);
+  const [jsonLlmProfiles, setJsonLlmProfiles] = useState([]);
   const [settings, setSettings] = useState(null);
 
   // Fetch available LLM profiles
   const fetchLlmProfiles = async () => {
     try {
-      const response = await axios.get(`${API_URL}/settings/llm-profiles-text`);
-      setLlmProfiles(response.data);
+      const [textResponse, jsonResponse] = await Promise.all([
+        axios.get(`${API_URL}/settings/llm-profiles-text`),
+        axios.get(`${API_URL}/settings/llm-profiles-json`)
+      ]);
+      setLlmProfiles(textResponse.data);
+      setJsonLlmProfiles(jsonResponse.data);
     } catch (error) {
       console.error('Failed to fetch LLM profiles:', error);
       message.error('Failed to load LLM profiles');
@@ -37,6 +42,8 @@ const Settings = () => {
       // Set form values
       form.setFieldsValue({
         summary_llm_profile: response.data.summary_llm_profile || undefined,
+        service_generation_llm_profile: response.data.service_generation_llm_profile || undefined,
+        auto_use_generation_profile: response.data.auto_use_generation_profile ?? true,
         user_context: response.data.user_context || '',
         compaction_enabled: response.data.compaction_settings?.enabled ?? true,
         message_threshold: response.data.compaction_settings?.message_threshold ?? 5,
@@ -58,6 +65,8 @@ const Settings = () => {
       
       const payload = {
         summary_llm_profile: values.summary_llm_profile || null,
+        service_generation_llm_profile: values.service_generation_llm_profile || null,
+        auto_use_generation_profile: values.auto_use_generation_profile ?? true,
         user_context: values.user_context?.trim() || null,
         compaction_settings: {
           enabled: values.compaction_enabled,
@@ -140,6 +149,44 @@ const Settings = () => {
               maxLength={1000}
               showCount
             />
+          </Form.Item>
+        </Card>
+
+        {/* Service Generation Section */}
+        <Card title="Service Generation" style={{ marginBottom: 24 }}>
+          <Alert
+            message="Configure default LLM profile for automatic service generation"
+            description="When using AI-assisted service creation, the system can use a globally configured LLM profile by default, eliminating the need to select one each time."
+            type="info"
+            showIcon
+            style={{ marginBottom: 16 }}
+          />
+
+          <Form.Item
+            name="service_generation_llm_profile"
+            label="Service Generation LLM Profile"
+            tooltip="Default LLM profile to use for MCP service generation when none is specified"
+          >
+            <Select
+              placeholder="Select a JSON-mode LLM profile..."
+              allowClear
+              showSearch
+            >
+              {jsonLlmProfiles.map(profile => (
+                <Option key={profile} value={profile}>
+                  {profile}
+                </Option>
+              ))}
+            </Select>
+          </Form.Item>
+
+          <Form.Item
+            name="auto_use_generation_profile"
+            label="Auto-use Generation Profile"
+            tooltip="Automatically use the global generation profile when creating services with AI if no profile is specified"
+            valuePropName="checked"
+          >
+            <Switch />
           </Form.Item>
         </Card>
 

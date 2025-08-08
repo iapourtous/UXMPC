@@ -40,6 +40,7 @@ class DocumentBase(BaseModel):
     workspace_id: str = Field(..., description="Workspace ID this document belongs to")
     category: DocumentCategory = Field(DocumentCategory.OTHER, description="Document category")
     tags: List[str] = Field(default=[], description="Tags for classification")
+    keywords: List[str] = Field(default=[], description="Keywords for improved searchability")
     content: Optional[str] = Field(None, description="Extracted text content")
     content_embedding: Optional[List[float]] = Field(None, description="Vector embedding for semantic search")
     blob_id: Optional[str] = Field(None, description="GridFS blob ID for original file")
@@ -63,6 +64,7 @@ class DocumentCreate(BaseModel):
     workspace_id: str
     category: DocumentCategory = DocumentCategory.OTHER
     tags: List[str] = []
+    keywords: List[str] = []
     metadata: Dict[str, Any] = {}
     is_public: bool = False
 
@@ -73,6 +75,7 @@ class DocumentUpdate(BaseModel):
     description: Optional[str] = None
     category: Optional[DocumentCategory] = None
     tags: Optional[List[str]] = None
+    keywords: Optional[List[str]] = None
     metadata: Optional[Dict[str, Any]] = None
     is_public: Optional[bool] = None
 
@@ -102,6 +105,7 @@ class DocumentSearch(BaseModel):
     workspace_ids: Optional[List[str]] = Field(None, description="Filter by workspace IDs")
     categories: Optional[List[DocumentCategory]] = Field(None, description="Filter by categories")
     tags: Optional[List[str]] = Field(None, description="Filter by tags")
+    keywords: Optional[List[str]] = Field(None, description="Filter by keywords")
     types: Optional[List[DocumentType]] = Field(None, description="Filter by document types")
     date_from: Optional[datetime] = Field(None, description="Filter documents created after this date")
     date_to: Optional[datetime] = Field(None, description="Filter documents created before this date")

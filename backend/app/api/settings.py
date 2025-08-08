@@ -37,7 +37,16 @@ async def update_settings(settings_update: GlobalSettingsUpdate):
             if settings_update.summary_llm_profile and settings_update.summary_llm_profile not in available_profiles:
                 raise HTTPException(
                     status_code=400, 
-                    detail=f"Invalid LLM profile. Available text-only profiles: {', '.join(available_profiles)}"
+                    detail=f"Invalid summary LLM profile. Available text-only profiles: {', '.join(available_profiles)}"
+                )
+        
+        # Validate service generation LLM profile if provided
+        if settings_update.service_generation_llm_profile is not None:
+            available_profiles = await settings_crud.get_all_llm_profiles()
+            if settings_update.service_generation_llm_profile and settings_update.service_generation_llm_profile not in available_profiles:
+                raise HTTPException(
+                    status_code=400, 
+                    detail=f"Invalid service generation LLM profile. Available profiles: {', '.join(available_profiles)}"
                 )
         
         updated_settings = await settings_crud.update(settings_update)
@@ -61,6 +70,17 @@ async def get_text_only_llm_profiles():
     except Exception as e:
         logger.error(f"Failed to get LLM profiles: {str(e)}")
         raise HTTPException(status_code=500, detail="Failed to retrieve LLM profiles")
+
+
+@router.get("/llm-profiles-json", response_model=List[str])
+async def get_json_llm_profiles():
+    """Get list of LLM profiles that support JSON mode for service generation"""
+    try:
+        profiles = await settings_crud.get_all_llm_profiles()
+        return profiles
+    except Exception as e:
+        logger.error(f"Failed to get JSON LLM profiles: {str(e)}")
+        raise HTTPException(status_code=500, detail="Failed to retrieve JSON LLM profiles")
 
 
 @router.post("/reset")

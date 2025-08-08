@@ -104,12 +104,14 @@ async def list_documents(
     workspace_id: Optional[str] = None,
     category: Optional[DocumentCategory] = None,
     tags: Optional[str] = None,  # Comma-separated tags
+    keywords: Optional[str] = None,  # Comma-separated keywords
     type: Optional[DocumentType] = None
 ):
     """List documents with optional filters"""
     try:
-        # Parse tags
+        # Parse tags and keywords
         tag_list = [tag.strip() for tag in tags.split(",")] if tags else None
+        keyword_list = [kw.strip() for kw in keywords.split(",")] if keywords else None
         
         documents = await document_crud.list(
             skip=skip,
@@ -117,6 +119,7 @@ async def list_documents(
             workspace_id=workspace_id,
             category=category.value if category else None,
             tags=tag_list,
+            keywords=keyword_list,
             document_type=type.value if type else None
         )
         return documents

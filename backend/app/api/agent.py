@@ -25,7 +25,7 @@ class AgentCreateServiceRequest(BaseModel):
     name: str
     description: str
     service_type: str = "tool"
-    llm_profile: str
+    llm_profile: Optional[str] = None
     # External API fields (optional)
     api_documentation: Optional[str] = None
     api_base_url: Optional[str] = None
@@ -59,7 +59,20 @@ async def create_service_with_agent(
         
         # Create the agent
         try:
-            agent = await create_agent(request.llm_profile, app)
+            # If no LLM profile specified, try to use global settings
+            llm_profile_name = request.llm_profile
+            if not llm_profile_name:
+                from app.services.settings_crud import settings_crud
+                settings = await settings_crud.get_or_create()
+                if settings.auto_use_generation_profile and settings.service_generation_llm_profile:
+                    llm_profile_name = settings.service_generation_llm_profile
+                else:
+                    raise HTTPException(
+                        status_code=400,
+                        detail="No LLM profile specified and no global service generation profile configured"
+                    )
+            
+            agent = await create_agent(llm_profile_name, app)
         except ValueError as e:
             raise HTTPException(status_code=400, detail=str(e))
         
@@ -129,7 +142,7 @@ class AgentAnalyzeRequest(BaseModel):
     """Request model for analyzing a service description"""
     description: str
     service_type: str = "tool"
-    llm_profile: str
+    llm_profile: Optional[str] = None
 
 
 @router.post("/analyze")
@@ -144,8 +157,21 @@ async def analyze_service_description(
     Useful for previewing what the agent would create.
     """
     try:
+        # If no LLM profile specified, try to use global settings
+        llm_profile_name = request.llm_profile
+        if not llm_profile_name:
+            from app.services.settings_crud import settings_crud
+            settings = await settings_crud.get_or_create()
+            if settings.auto_use_generation_profile and settings.service_generation_llm_profile:
+                llm_profile_name = settings.service_generation_llm_profile
+            else:
+                raise HTTPException(
+                    status_code=400,
+                    detail="No LLM profile specified and no global service generation profile configured"
+                )
+        
         # Create the agent
-        agent = await create_agent(request.llm_profile, app)
+        agent = await create_agent(llm_profile_name, app)
         
         # Get context
         context = agent._build_context(request.service_type)
