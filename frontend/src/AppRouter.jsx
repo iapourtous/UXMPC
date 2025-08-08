@@ -21,6 +21,8 @@ import ChatWithAgents from './components/ChatWithAgents';
 import Settings from './components/Settings';
 import MCPConnectionList from './components/MCPConnectionList';
 import MCPConnectionForm from './components/MCPConnectionForm';
+import DocumentList from './components/DocumentList';
+import WorkspaceManager from './components/WorkspaceManager';
 
 const { Content } = Layout;
 
@@ -66,6 +68,10 @@ function AppRouter() {
             <Route path="/mcp-connections" element={<MCPConnectionList />} />
             <Route path="/mcp-connections/new" element={<MCPConnectionForm />} />
             <Route path="/mcp-connections/:id/edit" element={<MCPConnectionForm />} />
+            
+            {/* Documents Routes */}
+            <Route path="/documents" element={<DocumentList />} />
+            <Route path="/workspaces" element={<WorkspaceManager />} />
             
             {/* Settings Route */}
             <Route path="/settings" element={<Settings />} />

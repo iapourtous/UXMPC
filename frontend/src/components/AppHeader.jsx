@@ -10,7 +10,9 @@ import {
   ToolOutlined,
   AppstoreOutlined,
   SettingOutlined,
-  LinkOutlined
+  LinkOutlined,
+  FileTextOutlined,
+  FolderOutlined
 } from '@ant-design/icons';
 
 const { Header } = Layout;
@@ -39,6 +41,16 @@ const AppHeader = () => {
       key: '/agents',
       icon: <RobotOutlined />,
       label: 'Agents',
+    },
+    {
+      key: '/workspaces',
+      icon: <FolderOutlined />,
+      label: 'Workspaces',
+    },
+    {
+      key: '/documents',
+      icon: <FileTextOutlined />,
+      label: 'Documents',
     },
     {
       key: '/chat',
@@ -78,6 +90,8 @@ const AppHeader = () => {
     if (currentPath.startsWith('/llms')) return '/llms';
     if (currentPath.startsWith('/mcp-connections')) return '/mcp-connections';
     if (currentPath.startsWith('/agents')) return '/agents';
+    if (currentPath.startsWith('/workspaces')) return '/workspaces';
+    if (currentPath.startsWith('/documents')) return '/documents';
     if (currentPath === '/chat-agents') return '/chat-agents';
     if (currentPath.startsWith('/chat')) return '/chat';
     if (currentPath.startsWith('/demos')) return '/demos';

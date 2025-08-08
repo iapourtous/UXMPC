@@ -91,6 +91,34 @@ export const demosApi = {
   delete: (id) => api.delete(`/demos/${id}`),
 };
 
+// Documents API
+export const documentsApi = {
+  create: (formData) => api.post('/api/documents/', formData, {
+    headers: { 'Content-Type': 'multipart/form-data' }
+  }),
+  list: (params = {}) => api.get('/api/documents/', { params }),
+  get: (id) => api.get(`/api/documents/${id}`),
+  update: (id, data) => api.put(`/api/documents/${id}`, data),
+  delete: (id) => api.delete(`/api/documents/${id}`),
+  download: (id) => api.get(`/api/documents/${id}/download`, { responseType: 'blob' }),
+  search: (searchParams) => api.post('/api/documents/search', searchParams),
+  extractContent: (id) => api.post(`/api/documents/${id}/extract`),
+  getContent: (id) => api.get(`/api/documents/${id}/content`),
+};
+
+// Workspaces API
+export const workspacesApi = {
+  create: (data) => api.post('/api/workspaces/', data),
+  list: (params = {}) => api.get('/api/workspaces/', { params }),
+  get: (id) => api.get(`/api/workspaces/${id}`),
+  getByName: (name) => api.get(`/api/workspaces/by-name/${name}`),
+  update: (id, data) => api.put(`/api/workspaces/${id}`, data),
+  delete: (id) => api.delete(`/api/workspaces/${id}`),
+  addAgent: (workspaceId, agentId) => api.post(`/api/workspaces/${workspaceId}/agents/${agentId}`),
+  removeAgent: (workspaceId, agentId) => api.delete(`/api/workspaces/${workspaceId}/agents/${agentId}`),
+  getStats: (id) => api.get(`/api/workspaces/${id}/stats`),
+};
+
 // MCP Connections API
 export const mcpConnectionsApi = {
   listConnections: () => api.get('/mcp-connections/').then(response => response.data),

@@ -581,6 +581,10 @@ IMPORTANT: When you have gathered enough information to answer the user's questi
                     "max_tokens": agent.max_tokens or llm_profile.max_tokens
                 }
                 
+                # Add JSON mode if configured in LLM profile
+                if llm_profile.mode == "json":
+                    payload["response_format"] = {"type": "json_object"}
+                
                 # Add tools if available
                 if tools:  # Include tools on every call to allow continued tool use
                     payload["tools"] = tools

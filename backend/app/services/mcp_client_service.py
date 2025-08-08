@@ -25,6 +25,8 @@ class MCPClientSession:
         self.connection = connection
         self.client: Optional[httpx.AsyncClient] = None
         self.connected = False
+        self.initialized = False
+        self.request_id = 0
         self.last_activity = datetime.utcnow()
         self.tools_cache: List[Dict[str, Any]] = []
         self.resources_cache: List[Dict[str, Any]] = []
@@ -42,12 +44,11 @@ class MCPClientSession:
                 timeout=timeout
             )
             
-            # Test connection with server info request
-            server_info = await self._get_server_info()
-            if server_info:
+            # Initialize MCP session with proper handshake
+            if await self._initialize_session():
                 self.connected = True
                 self.last_activity = datetime.utcnow()
-                logger.info(f"Connected to MCP server: {self.connection.name}")
+                logger.info(f"Connected and initialized MCP server: {self.connection.name}")
                 return True
             
         except Exception as e:
@@ -63,6 +64,8 @@ class MCPClientSession:
             self.client = None
         
         self.connected = False
+        self.initialized = False
+        self.request_id = 0
         logger.info(f"Disconnected from MCP server: {self.connection.name}")
     
     async def _get_auth_headers(self) -> Dict[str, str]:
@@ -89,7 +92,12 @@ class MCPClientSession:
         
         return headers
     
-    async def _send_mcp_request(self, method: str, params: Optional[Dict[str, Any]] = None) -> Optional[Dict[str, Any]]:
+    def _get_next_request_id(self) -> int:
+        """Get next request ID"""
+        self.request_id += 1
+        return self.request_id
+    
+    async def _send_mcp_request(self, method: str, params: Optional[Dict[str, Any]] = None, is_notification: bool = False) -> Optional[Dict[str, Any]]:
         """Send MCP protocol request to server"""
         if not self.client:
             return None
@@ -98,9 +106,12 @@ class MCPClientSession:
             # MCP protocol message
             message = {
                 "jsonrpc": "2.0",
-                "id": 1,
                 "method": method
             }
+            
+            # Only add ID for requests, not notifications
+            if not is_notification:
+                message["id"] = self._get_next_request_id()
             
             if params:
                 message["params"] = params
@@ -131,6 +142,11 @@ class MCPClientSession:
                 if "error" in result:
                     logger.error(f"MCP error: {result['error']}")
                     return None
+                
+                # For notifications, there's no result to return
+                if is_notification:
+                    return {"success": True}
+                    
                 return result.get("result")
             else:
                 logger.warning(f"MCP request failed: {response.status_code} - {response.text}")
@@ -140,8 +156,51 @@ class MCPClientSession:
             logger.error(f"Failed to send MCP request: {e}")
             return None
     
+    async def _initialize_session(self) -> bool:
+        """Initialize MCP session with proper handshake"""
+        try:
+            # Step 1: Send initialize request
+            logger.info(f"Initializing MCP session with {self.connection.name}")
+            init_result = await self._send_mcp_request("initialize", {
+                "protocolVersion": "2024-11-05",
+                "capabilities": {"tools": {}},  # Declare we support tools
+                "clientInfo": {
+                    "name": "UXMCP",
+                    "version": "1.0.0"
+                }
+            })
+            
+            if not init_result:
+                logger.error(f"Failed to initialize session with {self.connection.name}")
+                return False
+            
+            logger.info(f"Initialize successful, server info: {init_result.get('serverInfo', {})}")
+            
+            # Step 2: Send initialized notification (no params needed)
+            logger.info(f"Sending initialized notification to {self.connection.name}")
+            notification_result = await self._send_mcp_request(
+                "notifications/initialized", 
+                None,  # No params for initialized notification
+                is_notification=True
+            )
+            
+            # For notifications, success means no error response
+            if notification_result:
+                self.initialized = True
+                logger.info(f"MCP session fully initialized with {self.connection.name}")
+                return True
+            else:
+                logger.warning(f"Initialized notification may have failed, but continuing anyway")
+                # Sometimes the notification fails but the session still works
+                self.initialized = True
+                return True
+                
+        except Exception as e:
+            logger.error(f"Failed to initialize MCP session: {e}")
+            return False
+    
     async def _get_server_info(self) -> Optional[Dict[str, Any]]:
-        """Get server information using MCP protocol"""
+        """Get server information using MCP protocol (legacy method)"""
         return await self._send_mcp_request("initialize", {
             "protocolVersion": "2024-11-05",
             "capabilities": {},
@@ -156,6 +215,13 @@ class MCPClientSession:
         if not self.connected or not self.client:
             return []
         
+        # Ensure session is properly initialized
+        if not self.initialized:
+            logger.info(f"Session not initialized, reinitializing for {self.connection.name}")
+            if not await self._initialize_session():
+                logger.error(f"Failed to initialize session for tools request")
+                return []
+        
         try:
             result = await self._send_mcp_request("tools/list")
             if result and "tools" in result:
@@ -165,6 +231,7 @@ class MCPClientSession:
                 return self.tools_cache
             else:
                 logger.warning(f"No tools found in response from {self.connection.name}")
+                logger.debug(f"Full response: {result}")
                     
         except Exception as e:
             logger.error(f"Failed to get tools from {self.connection.name}: {e}")

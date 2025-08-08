@@ -28,6 +28,20 @@ async def connect_to_mongo():
     await db.database.agents.create_index("name", unique=True)
     await db.database.agents.create_index("endpoint", unique=True)
     await db.database.agents.create_index("active")
+    
+    # Document indexes
+    await db.database.documents.create_index("workspace_id")
+    await db.database.documents.create_index("type")
+    await db.database.documents.create_index("category")
+    await db.database.documents.create_index("tags")
+    await db.database.documents.create_index("created_at")
+    await db.database.documents.create_index([("name", "text"), ("description", "text"), ("content", "text")])
+    
+    # Workspace indexes
+    await db.database.workspaces.create_index("name", unique=True)
+    await db.database.workspaces.create_index("owner_id")
+    await db.database.workspaces.create_index("agent_ids")
+    await db.database.workspaces.create_index("is_public")
 
 
 async def close_mongo_connection():

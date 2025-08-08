@@ -333,6 +333,7 @@ class LLMClient:
             "messages": messages,
             "temperature": temperature or llm_profile.temperature,
             "max_tokens": max_tokens or llm_profile.max_tokens,
+            "stream": False,
             **kwargs
         }
         
