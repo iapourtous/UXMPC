@@ -17,6 +17,7 @@ UXMCP est une plateforme complète de gestion de services MCP (Model Context Pro
 
 ### 🤖 Agents IA Intelligents
 - **Configuration 7D avancée** : Backstory, Objectifs, Contraintes, Mémoire, Raisonnement, Personnalité, Politiques de décision
+- **Chain of Thought Adaptatif** : Système de raisonnement multi-étapes inspiré d'Auto-CoT avec sélection automatique de stratégies
 - **Mémoire persistante avec ChromaDB** : Les agents se souviennent des interactions passées
 - **Accès à tous les outils MCP** : Utilisation dynamique de tous les services actifs
 - **Chat agentique avancé** : Interface de conversation avec prévisualisation HTML intégrée
@@ -288,6 +289,9 @@ UXMCP/
 │   │   ├── services/            # Logique métier
 │   │   │   ├── agent_service.py      # Agent créateur
 │   │   │   ├── agent_executor.py     # Exécution agents
+│   │   │   ├── cot_adaptive_engine.py # Moteur Chain of Thought adaptatif
+│   │   │   ├── cot_complexity_analyzer.py # Analyseur de complexité Auto-CoT
+│   │   │   ├── cot_demonstration_generator.py # Générateur de démonstrations
 │   │   │   ├── meta_agent_service.py # Service meta-agent
 │   │   │   ├── mcp_connection_service.py # CRUD connexions MCP
 │   │   │   ├── mcp_client_service.py # Client MCP externe
@@ -493,11 +497,21 @@ agent = {
 
 ## 📖 Guides Avancés
 
+### Chain of Thought Adaptatif
+Le système intègre un moteur de raisonnement Chain of Thought adaptatif inspiré d'Auto-CoT :
+- **Analyse de complexité** : Classification automatique des problèmes (simple, arithmétique, logique, multi-étapes, créatif, analytique)
+- **Stratégies diversifiées** : Sélection automatique parmi décomposition, raisonnement arrière, analogie, etc.
+- **Itérations adaptatives** : Nombre d'itérations ajusté selon la complexité (3-15 max)
+- **Convergence intelligente** : Détection automatique quand le raisonnement a atteint une solution satisfaisante
+- **Support d'outils** : Intégration transparente des outils MCP dans le processus de raisonnement
+- **Voir [adaptativeCOT.md](adaptativeCOT.md)** pour une documentation complète
+
 ### Optimisation des Agents
 1. **Mémoire** : Activez ChromaDB pour les contextes longs
 2. **Tools** : Limitez aux outils nécessaires pour la performance
 3. **Prompts** : Utilisez des instructions claires et structurées
 4. **Température** : Ajustez selon le besoin (0.3 pour précision, 0.8 pour créativité)
+5. **Chain of Thought** : Activez le raisonnement adaptatif pour les tâches complexes
 
 ### Sécurité
 1. **API Keys** : Stockez dans des variables d'environnement

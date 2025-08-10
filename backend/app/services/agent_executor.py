@@ -212,15 +212,165 @@ class AgentExecutor:
                 system_msg_count = sum(1 for msg in messages if msg["role"] == "system")
                 messages_for_agent = messages[:system_msg_count] + [user_context_msg] + messages[system_msg_count:]
             
-            # Execute with LLM
-            result = await self._call_llm_with_tools(
-                llm_profile=llm_profile,
-                agent=agent,
-                messages=messages_for_agent,
-                tools=tools,
-                agent_logger=agent_logger,
-                max_iterations=agent.max_iterations
-            )
+            # Check if agent uses chain-of-thought reasoning
+            if (hasattr(agent, 'reasoning_strategy') and 
+                agent.reasoning_strategy == "chain-of-thought"):
+                
+                await agent_logger.info("Using Adaptive Chain of Thought reasoning")
+                
+                # Import adaptive CoT engine
+                from app.services.cot_adaptive_engine import adaptive_cot_engine
+                
+                # Prepare context for CoT
+                cot_context = {
+                    "memory_context": memory_context,
+                    "available_tools": [tool["function"]["name"] for tool in tools] if tools else [],
+                    "conversation_history": execution_request.conversation_history or [],
+                    "user_context": global_settings.user_context if 'global_settings' in locals() else None
+                }
+                
+                # Extract agent configuration for 7D
+                agent_config = {
+                    "name": agent.name,
+                    "backstory": getattr(agent, 'backstory', ''),
+                    "objectives": getattr(agent, 'objectives', []),
+                    "constraints": getattr(agent, 'constraints', []),
+                    "personality": getattr(agent, 'personality_traits', {}),
+                    "reasoning": {
+                        "strategies": [agent.reasoning_strategy] if hasattr(agent, 'reasoning_strategy') else ['logical']
+                    },
+                    "decision_policies": getattr(agent, 'decision_policies', {})
+                }
+                
+                # Create tool executor function for CoT
+                async def cot_tool_executor(tool_name: str, arguments: Dict[str, Any]) -> Any:
+                    """Execute a tool and return its result"""
+                    try:
+                        # Check if it's a memory tool FIRST
+                        if tool_name in ["memory_search", "memory_store", "memory_analyze"]:
+                            from app.core.agent_memory_tools import memory_search, memory_store, memory_analyze
+                            
+                            # Inject agent_id
+                            arguments["agent_id"] = agent.id
+                            
+                            # Call the appropriate memory tool
+                            if tool_name == "memory_search":
+                                result = await memory_search(**arguments)
+                            elif tool_name == "memory_store":
+                                result = await memory_store(**arguments)
+                            elif tool_name == "memory_analyze":
+                                result = await memory_analyze(**arguments)
+                            else:
+                                result = f"Unknown memory tool: {tool_name}"
+                            
+                            return result
+                        
+                        # Check if it's an external MCP tool
+                        if tool_name.startswith("mcp_") and hasattr(agent, 'mcp_connections'):
+                            from app.services.mcp_client_service import mcp_client_service
+                            # Extract connection_id and actual tool name
+                            parts = tool_name.split("_", 2)
+                            if len(parts) >= 3:
+                                connection_id = parts[1]
+                                actual_tool = "_".join(parts[2:])
+                                result = await mcp_client_service.execute_tool(
+                                    connection_id, actual_tool, arguments
+                                )
+                                return result
+                        
+                        # Check if it's a registered MCP tool
+                        from app.core.mcp_manager import mcp_manager
+                        if tool_name in mcp_manager.tools:
+                            # Execute via the stored tool function
+                            result = await mcp_manager.tools[tool_name](**arguments)
+                            return result
+                        
+                        # Otherwise find and execute as service
+                        service = await service_crud.get_by_name(tool_name)
+                        if not service:
+                            logger.warning(f"Tool {tool_name} not found in any category")
+                            return f"Tool {tool_name} not found"
+                        
+                        # Execute the service directly
+                        result = await mcp_manager._execute_service(service, arguments)
+                        return result
+                    except Exception as e:
+                        logger.error(f"Tool execution error for {tool_name}: {str(e)}", exc_info=True)
+                        return f"Error executing {tool_name}: {str(e)}"
+                
+                # Execute adaptive CoT with tools
+                cot_result = await adaptive_cot_engine.execute(
+                    problem=execution_request.input if isinstance(execution_request.input, str) else json.dumps(execution_request.input),
+                    context=cot_context,
+                    llm_profile=llm_profile,
+                    conversation_history=messages_for_agent,
+                    agent_config=agent_config,
+                    tools=tools,  # Pass the tools
+                    tool_executor=cot_tool_executor  # Pass the executor
+                )
+                
+                if cot_result.success:
+                    # Log CoT iterations
+                    await agent_logger.info(
+                        f"CoT completed with {cot_result.total_iterations} iterations",
+                        complexity=cot_result.complexity_profile.cluster.value if cot_result.complexity_profile else "unknown",
+                        convergence_reason=cot_result.convergence_reason
+                    )
+                    
+                    # Format result to match expected structure
+                    # Extract all tool calls from iterations
+                    all_tool_calls = []
+                    for iteration in cot_result.iterations:
+                        for i, tool_call in enumerate(iteration.tool_calls):
+                            # Find corresponding result
+                            result = None
+                            if i < len(iteration.tool_results):
+                                tool_result = iteration.tool_results[i]
+                                result = tool_result.result if tool_result.success else tool_result.error
+                            
+                            all_tool_calls.append({
+                                "tool": tool_call.tool_name,
+                                "arguments": json.dumps(tool_call.arguments) if tool_call.arguments else "{}",
+                                "result": result,
+                                "iteration": iteration.iteration_number
+                            })
+                    
+                    result = {
+                        "output": cot_result.final_answer,
+                        "tool_calls": all_tool_calls,  # Include all tool calls made
+                        "iterations": cot_result.total_iterations,
+                        "usage": {},  # Could be enhanced to track token usage
+                        "reasoning_chain": [
+                            {
+                                "iteration": it.iteration_number,
+                                "thought": it.thought,
+                                "tools_used": [tc.tool_name for tc in it.tool_calls],
+                                "confidence": it.confidence
+                            }
+                            for it in cot_result.iterations
+                        ]
+                    }
+                else:
+                    # Fallback to standard execution if CoT fails
+                    await agent_logger.warning("CoT failed, falling back to standard execution")
+                    result = await self._call_llm_with_tools(
+                        llm_profile=llm_profile,
+                        agent=agent,
+                        messages=messages_for_agent,
+                        tools=tools,
+                        agent_logger=agent_logger,
+                        max_iterations=agent.max_iterations
+                    )
+            else:
+                # Standard execution without CoT
+                result = await self._call_llm_with_tools(
+                    llm_profile=llm_profile,
+                    agent=agent,
+                    messages=messages_for_agent,
+                    tools=tools,
+                    agent_logger=agent_logger,
+                    max_iterations=agent.max_iterations
+                )
             
             # Validate output against schema
             if not self._validate_output(result["output"], agent.output_schema):

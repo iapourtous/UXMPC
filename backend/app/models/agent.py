@@ -84,6 +84,10 @@ class AgentBase(BaseModel):
         default={},
         description="Additional configuration for reasoning strategy"
     )
+    use_adaptive_cot: bool = Field(
+        default=False,
+        description="Use adaptive Chain of Thought with complexity analysis (for chain-of-thought strategy)"
+    )
     
     # 🗣️ 6. Personality & Communication Style
     personality_traits: Dict[str, str] = Field(
@@ -159,6 +163,7 @@ class AgentUpdate(BaseModel):
     memory_config: Optional[Dict[str, Any]] = None
     reasoning_strategy: Optional[str] = None
     reasoning_config: Optional[Dict[str, Any]] = None
+    use_adaptive_cot: Optional[bool] = None
     personality_traits: Optional[Dict[str, str]] = None
     decision_policies: Optional[Dict[str, Any]] = None
     usage_history: Optional[List[Dict[str, str]]] = None
