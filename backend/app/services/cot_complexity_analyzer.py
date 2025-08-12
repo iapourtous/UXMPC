@@ -1,11 +1,16 @@
 """
 Complexity Analyzer for Adaptive Chain of Thought
-Inspired by Auto-CoT approach for automatic complexity detection
+Pure LLM-based analysis for intelligent complexity detection
 """
-import re
-from typing import Dict, List, Optional
-from dataclasses import dataclass
+import json
+import logging
+import os
+from typing import Dict, Optional, Any
+from dataclasses import dataclass, field
 from enum import Enum
+from datetime import datetime, timedelta
+
+logger = logging.getLogger(__name__)
 
 
 class ProblemCluster(str, Enum):
@@ -21,256 +26,293 @@ class ProblemCluster(str, Enum):
 @dataclass
 class ComplexityProfile:
     """Profile describing problem complexity"""
+    # Core fields (backward compatible)
     cluster: ProblemCluster
     estimated_steps: int
     max_iterations: int
     reasoning_strategy: str
-    diversity_factor: float  # How many different approaches to try
-    features: Dict[str, any]
+    diversity_factor: float
+    
+    # Enhanced fields for LLM-based analysis
+    confidence_threshold: float = 0.85
+    needs_tools: bool = False
+    tool_intensive: bool = False
+    key_challenges: list = field(default_factory=list)
+    ambiguities: list = field(default_factory=list)
+    
+    # Legacy field for compatibility (always empty dict now)
+    features: Dict[str, Any] = field(default_factory=dict)
 
 
 class ComplexityAnalyzer:
     """
-    Analyzes problem complexity to determine optimal reasoning approach
-    Based on Auto-CoT's clustering approach
+    LLM-based complexity analyzer for intelligent problem assessment
+    Simple, efficient, and accurate
     """
     
     def __init__(self):
-        # Keywords for different problem types
-        self.logical_keywords = [
-            'if', 'then', 'all', 'some', 'none', 'every', 'any',
-            'implies', 'therefore', 'thus', 'hence', 'because',
-            'consequences', 'implications', 'would', 'could', 'should',
-            'assuming', 'given that', 'suppose', 'hypothetically'
-        ]
-        
-        self.math_keywords = [
-            'calculate', 'compute', 'solve', 'equation', 'sum', 'product',
-            'divide', 'multiply', 'add', 'subtract', 'percent', 'ratio'
-        ]
-        
-        self.creative_keywords = [
-            'create', 'design', 'imagine', 'invent', 'suggest', 'brainstorm',
-            'generate', 'write', 'compose', 'develop'
-        ]
-        
-        self.analytical_keywords = [
-            'analyze', 'compare', 'evaluate', 'assess', 'examine',
-            'investigate', 'study', 'review', 'critique', 'explain',
-            'why', 'how', 'relationship', 'interaction', 'affect',
-            'impact', 'influence', 'cause', 'effect'
-        ]
+        self.analysis_cache = {}  # Simple cache for recent analyses
+        self.cache_ttl = 300  # 5 minutes TTL
+        self.prompt_template = self._load_prompt_template()
     
-    async def analyze_problem(self, problem: str, context: Optional[Dict] = None) -> ComplexityProfile:
+    def _load_prompt_template(self) -> str:
+        """Load the analysis prompt template"""
+        try:
+            prompt_path = os.path.join(
+                os.path.dirname(__file__),
+                "..", "prompts", "cot", "analyze_complexity.txt"
+            )
+            with open(prompt_path, 'r', encoding='utf-8') as f:
+                return f.read()
+        except Exception as e:
+            logger.warning(f"Could not load prompt template: {e}")
+            # Fallback prompt if file not found
+            return """Analyze this problem's complexity. Problem: {problem}
+Context: {available_tools}, {has_memory}, {conversation_length}
+Return JSON with: cluster, estimated_steps, max_iterations, reasoning_strategy, 
+diversity_factor, confidence_threshold, needs_tools, tool_intensive, key_challenges, ambiguities"""
+    
+    async def analyze_problem(
+        self, 
+        problem: str, 
+        context: Optional[Dict] = None,
+        llm_profile: Optional[Any] = None
+    ) -> ComplexityProfile:
         """
-        Main method to analyze problem complexity
-        """
-        features = self.extract_features(problem)
-        cluster = self.cluster_problem(features)
+        Main method to analyze problem complexity using LLM
         
+        Args:
+            problem: The problem/question to analyze
+            context: Additional context (tools, memory, etc.)
+            llm_profile: LLM profile for making the analysis call
+            
+        Returns:
+            ComplexityProfile with detailed analysis
+        """
+        # Check cache first
+        cache_key = self._get_cache_key(problem)
+        cached_result = self._get_from_cache(cache_key)
+        if cached_result:
+            logger.info("Using cached complexity analysis")
+            return cached_result
+        
+        # If no LLM profile, return intelligent default
+        if not llm_profile:
+            logger.warning("No LLM profile provided, using default complexity profile")
+            return self._get_default_profile()
+        
+        try:
+            # Perform LLM analysis
+            analysis = await self._llm_analyze(problem, context or {}, llm_profile)
+            
+            # Cache the result
+            self._add_to_cache(cache_key, analysis)
+            
+            return analysis
+            
+        except Exception as e:
+            logger.error(f"LLM complexity analysis failed: {str(e)}", exc_info=True)
+            return self._get_default_profile()
+    
+    async def _llm_analyze(
+        self, 
+        problem: str, 
+        context: Dict,
+        llm_profile: Any
+    ) -> ComplexityProfile:
+        """Perform LLM-based complexity analysis"""
+        
+        # Build the analysis prompt
+        prompt = self._build_analysis_prompt(problem, context)
+        
+        # Make LLM call with optimized parameters
+        response = await self._call_llm(
+            prompt,
+            llm_profile,
+            temperature=0.3,  # Low temperature for consistent analysis
+            max_tokens=500    # Enough for JSON response
+        )
+        
+        # Parse the response
+        try:
+            # Direct JSON parsing since LLM is in JSON mode
+            analysis = json.loads(response.strip())
+            
+            # Convert cluster string to enum
+            cluster_str = analysis.get("cluster", "multi_step")
+            cluster = ProblemCluster(cluster_str.lower())
+            
+            # Create ComplexityProfile with parsed data
+            return ComplexityProfile(
+                cluster=cluster,
+                estimated_steps=analysis.get("estimated_steps", 5),
+                max_iterations=analysis.get("max_iterations", 7),
+                reasoning_strategy=analysis.get("reasoning_strategy", "decomposition"),
+                diversity_factor=analysis.get("diversity_factor", 1.5),
+                confidence_threshold=analysis.get("confidence_threshold", 0.85),
+                needs_tools=analysis.get("needs_tools", False),
+                tool_intensive=analysis.get("tool_intensive", False),
+                key_challenges=analysis.get("key_challenges", []),
+                ambiguities=analysis.get("ambiguities", [])
+            )
+            
+        except (json.JSONDecodeError, KeyError, ValueError) as e:
+            logger.error(f"Failed to parse LLM response: {str(e)}")
+            logger.error(f"Response was: {response[:500] if response else 'None'}")
+            # Try to extract any valid JSON from partial response
+            try:
+                # Sometimes the response starts with explanatory text
+                if "{" in response:
+                    json_start = response.index("{")
+                    json_end = response.rindex("}") + 1
+                    json_str = response[json_start:json_end]
+                    analysis = json.loads(json_str)
+                    
+                    # Retry with extracted JSON
+                    cluster_str = analysis.get("cluster", "multi_step")
+                    cluster = ProblemCluster(cluster_str.lower())
+                    
+                    return ComplexityProfile(
+                        cluster=cluster,
+                        estimated_steps=analysis.get("estimated_steps", 5),
+                        max_iterations=analysis.get("max_iterations", 7),
+                        reasoning_strategy=analysis.get("reasoning_strategy", "decomposition"),
+                        diversity_factor=analysis.get("diversity_factor", 1.5),
+                        confidence_threshold=analysis.get("confidence_threshold", 0.85),
+                        needs_tools=analysis.get("needs_tools", False),
+                        tool_intensive=analysis.get("tool_intensive", False),
+                        key_challenges=analysis.get("key_challenges", []),
+                        ambiguities=analysis.get("ambiguities", [])
+                    )
+            except:
+                pass
+            
+            return self._get_default_profile()
+    
+    def _build_analysis_prompt(self, problem: str, context: Dict) -> str:
+        """Build the analysis prompt with context"""
+        
+        # Extract context information
+        available_tools = context.get("available_tools", [])
+        has_memory = bool(context.get("memory_context"))
+        conversation_length = len(context.get("conversation_history", []))
+        
+        # Format tools list
+        tools_str = ", ".join(available_tools[:10]) if available_tools else "none"
+        
+        # Fill in the prompt template
+        prompt = self.prompt_template.format(
+            problem=problem,
+            available_tools=tools_str,
+            has_memory="yes" if has_memory else "no",
+            conversation_length=conversation_length
+        )
+        
+        return prompt
+    
+    async def _call_llm(
+        self, 
+        prompt: str, 
+        llm_profile: Any,
+        temperature: float = 0.3,
+        max_tokens: int = 500
+    ) -> str:
+        """Make a call to the LLM for analysis"""
+        import httpx
+        
+        try:
+            endpoint = llm_profile.endpoint or "https://api.openai.com/v1/chat/completions"
+            
+            headers = {
+                "Authorization": f"Bearer {llm_profile.api_key}",
+                "Content-Type": "application/json"
+            }
+            
+            messages = [
+                {
+                    "role": "system", 
+                    "content": "You are an expert at analyzing problem complexity. Always respond with valid JSON only."
+                },
+                {"role": "user", "content": prompt}
+            ]
+            
+            body = {
+                "model": llm_profile.model,
+                "messages": messages,
+                "temperature": temperature,
+                "max_tokens": max_tokens
+            }
+            
+            # Add JSON mode if the profile supports it
+            if hasattr(llm_profile, 'mode') and llm_profile.mode == 'json':
+                # For OpenAI/GPT models
+                if "gpt" in llm_profile.model.lower():
+                    body["response_format"] = {"type": "json_object"}
+                # For Anthropic/Claude models, the prompt already requests JSON
+            
+            async with httpx.AsyncClient(timeout=10.0) as client:
+                response = await client.post(
+                    endpoint,
+                    headers=headers,
+                    json=body
+                )
+                response.raise_for_status()
+                
+                result = response.json()
+                return result.get("choices", [{}])[0].get("message", {}).get("content", "")
+                
+        except Exception as e:
+            logger.error(f"LLM call failed: {str(e)}")
+            raise
+    
+    def _get_default_profile(self) -> ComplexityProfile:
+        """Get a reasonable default complexity profile"""
         return ComplexityProfile(
-            cluster=cluster,
-            estimated_steps=self.estimate_steps(cluster, features),
-            max_iterations=self.compute_max_iterations(features, cluster),
-            reasoning_strategy=self.select_strategy(cluster),
-            diversity_factor=self.compute_diversity_factor(features),
-            features=features
+            cluster=ProblemCluster.MULTI_STEP,
+            estimated_steps=5,
+            max_iterations=7,
+            reasoning_strategy="decomposition",
+            diversity_factor=1.5,
+            confidence_threshold=0.85,
+            needs_tools=True,
+            tool_intensive=False,
+            key_challenges=["Unknown problem complexity - using defaults"],
+            ambiguities=[]
         )
     
-    def extract_features(self, problem: str) -> Dict[str, any]:
-        """
-        Extract features from the problem text
-        """
-        problem_lower = problem.lower()
-        
-        features = {
-            'length': len(problem),
-            'sentence_count': len(problem.split('.')),
-            'question_marks': problem.count('?'),
-            'has_math': any(keyword in problem_lower for keyword in self.math_keywords),
-            'has_logical_operators': any(keyword in problem_lower for keyword in self.logical_keywords),
-            'has_creative_task': any(keyword in problem_lower for keyword in self.creative_keywords),
-            'has_analytical_task': any(keyword in problem_lower for keyword in self.analytical_keywords),
-            'entity_count': self.count_entities(problem),
-            'has_nested_conditions': self.detect_nested_conditions(problem_lower),
-            'requires_calculation': self.detect_calculation_need(problem_lower),
-            'has_constraints': 'must' in problem_lower or 'should' in problem_lower or 'cannot' in problem_lower,
-            'is_comparison': 'compare' in problem_lower or 'difference' in problem_lower,
-            'requires_memory': 'remember' in problem_lower or 'recall' in problem_lower or 'last time' in problem_lower,
-            'has_numbers': bool(re.findall(r'\d+', problem)),
-            'equation_count': len(re.findall(r'[+\-*/=]', problem))
+    def _get_cache_key(self, problem: str) -> str:
+        """Generate cache key for a problem"""
+        # Use first 100 chars of problem for key
+        return str(hash(problem[:100]))
+    
+    def _get_from_cache(self, cache_key: str) -> Optional[ComplexityProfile]:
+        """Get analysis from cache if still valid"""
+        if cache_key in self.analysis_cache:
+            cached = self.analysis_cache[cache_key]
+            if cached['expires'] > datetime.now():
+                return cached['profile']
+            else:
+                # Expired, remove from cache
+                del self.analysis_cache[cache_key]
+        return None
+    
+    def _add_to_cache(self, cache_key: str, profile: ComplexityProfile):
+        """Add analysis to cache with TTL"""
+        self.analysis_cache[cache_key] = {
+            'profile': profile,
+            'expires': datetime.now() + timedelta(seconds=self.cache_ttl)
         }
         
-        return features
+        # Clean old entries if cache is getting large
+        if len(self.analysis_cache) > 100:
+            self._clean_cache()
     
-    def count_entities(self, text: str) -> int:
-        """
-        Count named entities in the text (simplified)
-        """
-        # Count capitalized words that aren't at sentence start
-        sentences = text.split('.')
-        entity_count = 0
-        
-        for sentence in sentences:
-            words = sentence.strip().split()
-            if len(words) > 1:
-                # Count capitalized words after the first word
-                entity_count += sum(1 for word in words[1:] if word and word[0].isupper())
-        
-        # Also count quoted items
-        entity_count += len(re.findall(r'"[^"]*"', text))
-        
-        return entity_count
-    
-    def detect_nested_conditions(self, text: str) -> bool:
-        """
-        Detect if problem has nested conditional logic
-        """
-        # Look for multiple conditional keywords
-        conditionals = ['if', 'when', 'unless', 'provided', 'given that']
-        count = sum(1 for cond in conditionals if cond in text)
-        return count > 1
-    
-    def detect_calculation_need(self, text: str) -> bool:
-        """
-        Detect if problem requires mathematical calculation
-        """
-        calc_patterns = [
-            r'\d+\s*[+\-*/]\s*\d+',  # Basic arithmetic
-            r'how many', r'how much',
-            r'total', r'sum', r'difference',
-            r'percentage', r'ratio'
+    def _clean_cache(self):
+        """Remove expired entries from cache"""
+        now = datetime.now()
+        expired_keys = [
+            key for key, value in self.analysis_cache.items()
+            if value['expires'] <= now
         ]
-        
-        return any(re.search(pattern, text) for pattern in calc_patterns)
-    
-    def cluster_problem(self, features: Dict) -> ProblemCluster:
-        """
-        Classify problem into a cluster based on features
-        Inspired by Auto-CoT's clustering approach
-        """
-        # Priority-based classification
-        
-        # Check for mathematical problems first
-        if features['has_math'] and (features['equation_count'] > 0 or features['requires_calculation']):
-            return ProblemCluster.ARITHMETIC
-        
-        # Check for logical reasoning (relaxed conditions)
-        if features['has_logical_operators'] or features['has_nested_conditions']:
-            return ProblemCluster.LOGICAL
-        
-        # Check for creative tasks
-        if features['has_creative_task']:
-            return ProblemCluster.CREATIVE
-        
-        # Check for analytical tasks
-        if features['has_analytical_task'] or features['is_comparison']:
-            return ProblemCluster.ANALYTICAL
-        
-        # Check for multi-step based on complexity (more sensitive)
-        if (features['entity_count'] > 1 or 
-            features['sentence_count'] > 1 or
-            features['has_nested_conditions'] or
-            features['length'] > 150):  # Longer questions are often complex
-            return ProblemCluster.MULTI_STEP
-        
-        # Default to simple
-        return ProblemCluster.SIMPLE
-    
-    def estimate_steps(self, cluster: ProblemCluster, features: Dict) -> int:
-        """
-        Estimate the number of reasoning steps needed
-        """
-        base_steps = {
-            ProblemCluster.SIMPLE: 2,
-            ProblemCluster.ARITHMETIC: 4,
-            ProblemCluster.LOGICAL: 5,
-            ProblemCluster.MULTI_STEP: 6,
-            ProblemCluster.CREATIVE: 4,
-            ProblemCluster.ANALYTICAL: 5
-        }
-        
-        steps = base_steps.get(cluster, 3)
-        
-        # Adjust based on specific features
-        if features['entity_count'] > 3:
-            steps += 1
-        
-        if features['has_nested_conditions']:
-            steps += 2
-        
-        if features['has_constraints']:
-            steps += 1
-        
-        return steps
-    
-    def compute_max_iterations(self, features: Dict, cluster: ProblemCluster) -> int:
-        """
-        Compute maximum iterations allowed
-        Adaptive based on problem complexity
-        """
-        # Base iterations by cluster
-        base_iterations = {
-            ProblemCluster.SIMPLE: 3,
-            ProblemCluster.ARITHMETIC: 5,
-            ProblemCluster.LOGICAL: 7,
-            ProblemCluster.MULTI_STEP: 10,
-            ProblemCluster.CREATIVE: 6,
-            ProblemCluster.ANALYTICAL: 8
-        }
-        
-        iterations = base_iterations.get(cluster, 5)
-        
-        # Add iterations for complexity indicators
-        if features['entity_count'] > 2:
-            iterations += features['entity_count'] - 2
-        
-        if features['has_nested_conditions']:
-            iterations += 2
-        
-        if features['requires_calculation'] and features['has_numbers']:
-            iterations += 1
-        
-        if features['length'] > 200:  # Long problems
-            iterations += 2
-        
-        # Cap at reasonable maximum
-        return min(iterations, 15)
-    
-    def select_strategy(self, cluster: ProblemCluster) -> str:
-        """
-        Select reasoning strategy based on problem cluster
-        """
-        strategies = {
-            ProblemCluster.SIMPLE: "direct",
-            ProblemCluster.ARITHMETIC: "step_by_step_calculation",
-            ProblemCluster.LOGICAL: "logical_decomposition",
-            ProblemCluster.MULTI_STEP: "hierarchical_decomposition",
-            ProblemCluster.CREATIVE: "divergent_exploration",
-            ProblemCluster.ANALYTICAL: "systematic_analysis"
-        }
-        
-        return strategies.get(cluster, "standard")
-    
-    def compute_diversity_factor(self, features: Dict) -> float:
-        """
-        Compute how many different reasoning approaches to try
-        Higher diversity for more complex/ambiguous problems
-        """
-        diversity = 1.0
-        
-        # Increase diversity for complex problems
-        if features['has_nested_conditions']:
-            diversity += 0.5
-        
-        if features['entity_count'] > 3:
-            diversity += 0.3
-        
-        if features['has_creative_task']:
-            diversity += 0.7  # Creative tasks benefit from diverse approaches
-        
-        if features['is_comparison']:
-            diversity += 0.4  # Comparisons benefit from multiple perspectives
-        
-        # Cap diversity factor
-        return min(diversity, 3.0)
+        for key in expired_keys:
+            del self.analysis_cache[key]

@@ -150,15 +150,17 @@ class AdaptiveChainOfThought:
             Complete CoT result with reasoning chain and tool results
         """
         try:
-            # Analyze problem complexity
+            # Analyze problem complexity (now with LLM support)
             complexity = await self.complexity_analyzer.analyze_problem(
                 problem, 
-                context
+                context,
+                llm_profile  # Pass LLM profile for intelligent analysis
             )
             
             logger.info(
                 f"Problem complexity: {complexity.cluster.value}, "
-                f"max iterations: {complexity.max_iterations}"
+                f"max iterations: {complexity.max_iterations}, "
+                f"confidence threshold: {complexity.confidence_threshold}"
             )
             
             # Generate diverse reasoning demonstrations
@@ -184,8 +186,17 @@ class AdaptiveChainOfThought:
             # conversation_history contains all the system messages with agent config, memory, etc.
             current_context['full_context_messages'] = conversation_history[:-1] if conversation_history else []
             
+            # Update convergence detector with dynamic confidence threshold from complexity analysis
+            self.convergence_detector.confidence_threshold = complexity.confidence_threshold
+            
+            # Adjust max iterations if tool intensive
+            adjusted_max_iterations = complexity.max_iterations
+            if complexity.tool_intensive and tools:
+                adjusted_max_iterations = min(complexity.max_iterations + 2, 15)
+                logger.info(f"Tool-intensive problem detected, adjusting max iterations to {adjusted_max_iterations}")
+            
             # Main reasoning loop
-            for iteration_num in range(1, complexity.max_iterations + 1):
+            for iteration_num in range(1, adjusted_max_iterations + 1):
                 # Execute one reasoning iteration
                 iteration = await self._execute_iteration(
                     iteration_num,
@@ -202,10 +213,10 @@ class AdaptiveChainOfThought:
                 iterations.append(iteration)
                 all_tool_results.extend(iteration.tool_results)
                 
-                # Check convergence
+                # Check convergence (use adjusted max iterations)
                 converged, reason = self.convergence_detector.check_convergence(
                     iterations,
-                    complexity.max_iterations,
+                    adjusted_max_iterations,
                     has_tools=bool(tools)
                 )
                 

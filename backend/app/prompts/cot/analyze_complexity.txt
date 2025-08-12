@@ -1,0 +1,56 @@
+You are an expert in problem complexity analysis. Analyze this problem and provide a COMPLETE and DIRECT assessment.
+
+PROBLEM:
+{problem}
+
+AVAILABLE CONTEXT:
+- Available tools: {available_tools}
+- Active memory: {has_memory}
+- Conversation history: {conversation_length} messages
+
+REQUIRED ANALYSIS:
+
+1. CLASSIFICATION (choose ONE only):
+   - simple: Direct factual question, simple search, immediate answer
+   - arithmetic: Mathematical calculations, numeric operations, formulas
+   - logical: Logical reasoning, if/then conditions, implications, deductions
+   - multi_step: Multiple interdependent sub-problems, sequential tasks
+   - creative: Content generation, creation, imagination, brainstorming
+   - analytical: Data analysis, detailed comparisons, critical evaluations
+
+2. ESTIMATED COMPLEXITY:
+   - estimated_steps: Number of distinct reasoning steps required (1-20)
+   - max_iterations: Maximum recommended CoT iterations (2-12)
+   - confidence_threshold: Confidence threshold to consider the problem solved (0.7-0.95)
+
+3. OPTIMAL STRATEGY:
+   - reasoning_strategy: Choose from (direct|decomposition|backward|systematic|hypothesis|hierarchical)
+     * direct: For simple problems with immediate answer
+     * decomposition: Divide into independent sub-parts
+     * backward: Reason from desired result
+     * systematic: Methodical step-by-step approach
+     * hypothesis: Form and test hypotheses
+     * hierarchical: Organization in abstraction levels
+   - diversity_factor: Number of different approaches to try (1.0-3.0)
+
+4. TOOL USAGE:
+   - needs_tools: Does the problem require external tools? (true/false)
+   - tool_intensive: Will many tool calls be necessary? (true/false)
+
+5. CHALLENGES AND AMBIGUITIES:
+   - key_challenges: List of main challenges or difficulties
+   - ambiguities: Ambiguous points requiring clarification or interpretation
+
+IMPORTANT: Respond ONLY with this valid JSON, without any explanation before or after:
+{{
+  "cluster": "...",
+  "estimated_steps": ...,
+  "max_iterations": ...,
+  "reasoning_strategy": "...",
+  "diversity_factor": ...,
+  "confidence_threshold": ...,
+  "needs_tools": ...,
+  "tool_intensive": ...,
+  "key_challenges": [...],
+  "ambiguities": []
+}}
