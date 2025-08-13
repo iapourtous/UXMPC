@@ -44,6 +44,13 @@ class ReasoningIteration:
     confidence: float
     should_continue: bool
     knowledge_gathered: str  # Summary of what was learned
+    # Validation fields
+    is_valid: bool = True  # Whether this iteration passed validation
+    validation_feedback: Optional[str] = None  # Feedback from validation
+    correction_attempts: int = 0  # Number of correction attempts
+    relevance_score: float = 1.0  # How relevant the step was (0-1)
+    progress_score: float = 1.0  # How much progress was made (0-1)
+    correctness_score: float = 1.0  # How correct the reasoning is (0-1)
 
 
 @dataclass
@@ -274,58 +281,119 @@ class AdaptiveChainOfThought:
         tools: List[Dict[str, Any]],
         tool_executor
     ) -> ReasoningIteration:
-        """Execute a single reasoning iteration with tool support"""
+        """Execute a single reasoning iteration with tool support and validation"""
         
-        # Build prompt for this iteration
-        prompt = self._build_iteration_prompt(
-            iteration_num,
-            problem,
-            context,
-            previous_iterations,
-            complexity,
-            agent_config,
-            tools
-        )
+        max_correction_attempts = 2  # Maximum number of correction attempts per iteration
+        correction_attempt = 0
+        validation_result = None
         
-        # Call LLM with full context messages if available
-        base_messages = context.get('full_context_messages')
-        response = await self._call_llm(prompt, llm_profile, base_messages)
+        while correction_attempt <= max_correction_attempts:
+            # Build prompt for this iteration (or correction)
+            if correction_attempt == 0:
+                prompt = self._build_iteration_prompt(
+                    iteration_num,
+                    problem,
+                    context,
+                    previous_iterations,
+                    complexity,
+                    agent_config,
+                    tools
+                )
+            else:
+                # Use correction prompt with validation feedback
+                prompt = await self._correct_iteration(
+                    iteration_num,
+                    problem,
+                    context,
+                    previous_iterations,
+                    complexity,
+                    validation_result,
+                    llm_profile,
+                    agent_config,
+                    tools
+                )
+            
+            # Call LLM with full context messages if available
+            base_messages = context.get('full_context_messages')
+            response = await self._call_llm(prompt, llm_profile, base_messages)
+            
+            # Parse response
+            thought, tool_calls, evaluation, confidence, should_continue, knowledge = \
+                self._parse_iteration_response(response, iteration_num, complexity.reasoning_strategy)
+            
+            # Execute tools if requested
+            tool_results = []
+            if tool_calls and tool_executor:
+                for tool_call in tool_calls:
+                    try:
+                        result = await tool_executor(tool_call.tool_name, tool_call.arguments)
+                        tool_results.append(ToolResult(
+                            tool_name=tool_call.tool_name,
+                            result=result,
+                            success=True
+                        ))
+                    except Exception as e:
+                        logger.error(f"Tool execution failed: {tool_call.tool_name} - {str(e)}")
+                        tool_results.append(ToolResult(
+                            tool_name=tool_call.tool_name,
+                            result=None,
+                            success=False,
+                            error=str(e)
+                        ))
+            
+            # Create iteration object
+            iteration = ReasoningIteration(
+                iteration_number=iteration_num,
+                reasoning_type=complexity.reasoning_strategy,
+                thought=thought,
+                tool_calls=tool_calls,
+                tool_results=tool_results,
+                evaluation=evaluation,
+                confidence=confidence,
+                should_continue=should_continue,
+                knowledge_gathered=knowledge,
+                correction_attempts=correction_attempt
+            )
+            
+            # Validate the iteration (skip validation on very first iteration or if we're at max corrections)
+            if iteration_num > 1 and correction_attempt < max_correction_attempts:
+                validation_result = await self._validate_iteration(
+                    iteration,
+                    problem,
+                    llm_profile
+                )
+                
+                # Update iteration with validation results
+                iteration.is_valid = validation_result.get("is_valid", True)
+                iteration.validation_feedback = validation_result.get("feedback", "")
+                iteration.relevance_score = validation_result.get("relevance_score", 1.0)
+                iteration.progress_score = validation_result.get("progress_score", 1.0)
+                iteration.correctness_score = validation_result.get("correctness_score", 1.0)
+                
+                # If invalid and we haven't exceeded corrections, try again
+                if not iteration.is_valid:
+                    correction_attempt += 1
+                    logger.info(
+                        f"Iteration {iteration_num} validation failed. "
+                        f"Attempting correction {correction_attempt}/{max_correction_attempts}"
+                    )
+                    continue
+                else:
+                    # Valid iteration, we're done
+                    logger.info(f"Iteration {iteration_num} validated successfully")
+                    break
+            else:
+                # No validation needed (first iteration or max corrections reached)
+                break
         
-        # Parse response
-        thought, tool_calls, evaluation, confidence, should_continue, knowledge = \
-            self._parse_iteration_response(response, iteration_num, complexity.reasoning_strategy)
+        # Log if we exhausted correction attempts
+        if correction_attempt >= max_correction_attempts and not iteration.is_valid:
+            logger.warning(
+                f"Iteration {iteration_num} still invalid after {max_correction_attempts} corrections. "
+                f"Proceeding anyway."
+            )
         
-        # Execute tools if requested
-        tool_results = []
-        if tool_calls and tool_executor:
-            for tool_call in tool_calls:
-                try:
-                    result = await tool_executor(tool_call.tool_name, tool_call.arguments)
-                    tool_results.append(ToolResult(
-                        tool_name=tool_call.tool_name,
-                        result=result,
-                        success=True
-                    ))
-                except Exception as e:
-                    logger.error(f"Tool execution failed: {tool_call.tool_name} - {str(e)}")
-                    tool_results.append(ToolResult(
-                        tool_name=tool_call.tool_name,
-                        result=None,
-                        success=False,
-                        error=str(e)
-                    ))
-        
-        return ReasoningIteration(
-            iteration_number=iteration_num,
-            reasoning_type=complexity.reasoning_strategy,
-            thought=thought,
-            tool_calls=tool_calls,
-            tool_results=tool_results,
-            evaluation=evaluation,
-            confidence=confidence,
-            should_continue=should_continue,
-            knowledge_gathered=knowledge
-        )
+        return iteration
     
     def _build_iteration_prompt(
         self,
@@ -359,6 +427,11 @@ Remember all the context about the user (their name, preferences, etc.) from the
                     prompt += f"  Tools used: {', '.join([tr.tool_name for tr in prev.tool_results])}\n"
                 if prev.knowledge_gathered:
                     prompt += f"  Learned: {prev.knowledge_gathered[:200]}...\n"
+                # Add validation feedback if available
+                if hasattr(prev, 'validation_feedback') and prev.validation_feedback:
+                    prompt += f"  Validation: {prev.validation_feedback[:150]}...\n"
+                if hasattr(prev, 'is_valid') and not prev.is_valid:
+                    prompt += f"  ⚠️ This iteration was marked as ineffective (relevance: {prev.relevance_score:.1f}, progress: {prev.progress_score:.1f})\n"
             prompt += "\n"
         
         # Add available tools
@@ -393,7 +466,10 @@ Important:
 - Use tools when you need to search for information, verify facts, or perform calculations
 - Be thorough but concise
 - Focus on gathering information before making conclusions
-- Only set SHOULD_CONTINUE to false when you have all necessary information"""
+- Only set SHOULD_CONTINUE to false when you have all necessary information
+- QUALITY MATTERS: Each step should directly contribute to solving the problem
+- Avoid tangents, circular reasoning, or exploring unrelated topics
+- Your reasoning will be validated for relevance, progress, and correctness"""
         
         return prompt
     
@@ -576,6 +652,199 @@ Important:
                 tool_calls.append(ToolCall(tool_name=tool_name, arguments=arguments))
         
         return tool_calls
+    
+    async def _validate_iteration(
+        self,
+        iteration: ReasoningIteration,
+        problem: str,
+        llm_profile: Any
+    ) -> Dict[str, Any]:
+        """Validate a reasoning iteration using self-evaluation"""
+        
+        # Load validation prompt template
+        import os
+        prompt_path = os.path.join(
+            os.path.dirname(os.path.dirname(__file__)),
+            "prompts", "cot", "validate_iteration.txt"
+        )
+        
+        try:
+            with open(prompt_path, 'r') as f:
+                prompt_template = f.read()
+        except Exception as e:
+            logger.error(f"Failed to load validation prompt: {str(e)}")
+            # Default to valid if we can't load the prompt
+            return {
+                "is_valid": True,
+                "feedback": "Validation skipped - prompt not found"
+            }
+        
+        # Format tool calls for display
+        tool_calls_str = ""
+        if iteration.tool_calls:
+            formatted_calls = []
+            for tc in iteration.tool_calls:
+                args_str = ', '.join([f'{k}="{v}"' for k, v in tc.arguments.items()])
+                formatted_calls.append(f"{tc.tool_name}({args_str})")
+            tool_calls_str = "\n".join(formatted_calls)
+        else:
+            tool_calls_str = "None"
+        
+        # Build validation prompt
+        validation_prompt = prompt_template.format(
+            problem=problem,
+            thought=iteration.thought,
+            tool_calls=tool_calls_str,
+            knowledge_gathered=iteration.knowledge_gathered or "None",
+            confidence=iteration.confidence
+        )
+        
+        try:
+            # Call LLM for validation
+            response = await self._call_llm(validation_prompt, llm_profile)
+            
+            # Parse validation response
+            validation_result = self._parse_validation_response(response)
+            
+            return validation_result
+            
+        except Exception as e:
+            logger.error(f"Validation failed: {str(e)}")
+            # Default to valid if validation fails
+            return {
+                "is_valid": True,
+                "feedback": f"Validation error: {str(e)}"
+            }
+    
+    def _parse_validation_response(self, response: str) -> Dict[str, Any]:
+        """Parse the validation response from LLM"""
+        
+        result = {
+            "is_valid": True,  # Default to valid
+            "relevance_score": 1.0,
+            "progress_score": 1.0,
+            "correctness_score": 1.0,
+            "issues": [],
+            "correction_needed": "",
+            "suggested_approach": "",
+            "feedback": ""
+        }
+        
+        lines = response.split('\n')
+        current_section = None
+        current_content = []
+        
+        for line in lines:
+            line = line.strip()
+            
+            if line.startswith('VALIDATION_RESULT:'):
+                val_str = line[18:].strip().upper()
+                result["is_valid"] = "VALID" in val_str
+            elif line.startswith('RELEVANCE_SCORE:'):
+                try:
+                    result["relevance_score"] = float(re.search(r'(\d*\.?\d+)', line[16:]).group(1))
+                except:
+                    pass
+            elif line.startswith('PROGRESS_SCORE:'):
+                try:
+                    result["progress_score"] = float(re.search(r'(\d*\.?\d+)', line[15:]).group(1))
+                except:
+                    pass
+            elif line.startswith('CORRECTNESS_SCORE:'):
+                try:
+                    result["correctness_score"] = float(re.search(r'(\d*\.?\d+)', line[18:]).group(1))
+                except:
+                    pass
+            elif line.startswith('ISSUES:'):
+                current_section = 'ISSUES'
+                current_content = []
+            elif line.startswith('CORRECTION_NEEDED:'):
+                if current_section == 'ISSUES':
+                    result["issues"] = [l.strip('- ') for l in current_content if l.strip().startswith('-')]
+                current_section = 'CORRECTION'
+                result["correction_needed"] = line[18:].strip()
+            elif line.startswith('SUGGESTED_APPROACH:'):
+                current_section = 'APPROACH'
+                result["suggested_approach"] = line[19:].strip()
+            elif line.startswith('VALIDATION_FEEDBACK:'):
+                current_section = 'FEEDBACK'
+                result["feedback"] = line[20:].strip()
+            elif current_section and line:
+                if current_section == 'ISSUES' and line.startswith('-'):
+                    current_content.append(line)
+                elif current_section == 'CORRECTION':
+                    result["correction_needed"] += " " + line
+                elif current_section == 'APPROACH':
+                    result["suggested_approach"] += " " + line
+                elif current_section == 'FEEDBACK':
+                    result["feedback"] += " " + line
+        
+        # Process any remaining issues
+        if current_section == 'ISSUES':
+            result["issues"] = [l.strip('- ') for l in current_content if l.strip().startswith('-')]
+        
+        return result
+    
+    async def _correct_iteration(
+        self,
+        iteration_num: int,
+        problem: str,
+        context: Dict[str, Any],
+        previous_iterations: List[ReasoningIteration],
+        complexity: ComplexityProfile,
+        validation_result: Dict[str, Any],
+        llm_profile: Any,
+        agent_config: Dict[str, Any],
+        tools: List[Dict[str, Any]]
+    ) -> str:
+        """Generate a corrected prompt based on validation feedback"""
+        
+        # Build corrected prompt with validation feedback
+        prompt = f"""## Chain of Thought Iteration {iteration_num}/{complexity.max_iterations} - CORRECTION REQUIRED
+
+Your previous reasoning step was not effective. Here's the feedback:
+
+**Issues identified:**
+{chr(10).join(['- ' + issue for issue in validation_result.get('issues', [])])}
+
+**What needs correction:**
+{validation_result.get('correction_needed', 'Improve relevance and focus on the problem')}
+
+**Suggested approach:**
+{validation_result.get('suggested_approach', 'Focus more directly on answering the question')}
+
+**Scores from validation:**
+- Relevance: {validation_result.get('relevance_score', 0):.1f}/1.0
+- Progress: {validation_result.get('progress_score', 0):.1f}/1.0
+- Correctness: {validation_result.get('correctness_score', 0):.1f}/1.0
+
+Now, try again with a better approach. Focus on:
+1. Directly addressing the problem
+2. Making tangible progress toward the solution
+3. Using tools effectively when needed
+4. Avoiding circular reasoning or off-topic exploration
+
+"""
+        
+        # Add the rest of the standard prompt structure
+        base_prompt = self._build_iteration_prompt(
+            iteration_num,
+            problem,
+            context,
+            previous_iterations,
+            complexity,
+            agent_config,
+            tools
+        )
+        
+        # Replace the header section with our correction prompt
+        lines = base_prompt.split('\n')
+        for i, line in enumerate(lines):
+            if 'Previous reasoning and findings:' in line:
+                # Insert correction prompt before previous iterations
+                return prompt + '\n'.join(lines[i:])
+        
+        return prompt + base_prompt
     
     async def _synthesize_final_answer(
         self,

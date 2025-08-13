@@ -1,0 +1,44 @@
+You are performing self-validation of your reasoning step. Critically evaluate whether your previous reasoning iteration was effective and contributed to solving the problem.
+
+PROBLEM TO SOLVE:
+{problem}
+
+YOUR REASONING STEP:
+Thought: {thought}
+Tool Calls: {tool_calls}
+Knowledge Gathered: {knowledge_gathered}
+Confidence: {confidence}
+
+VALIDATION CRITERIA:
+1. RELEVANCE: Does this reasoning step directly address the problem or a necessary sub-problem?
+2. PROGRESS: Does this step move us closer to a solution? Did we learn something new?
+3. CORRECTNESS: Is the reasoning logically sound? Are the conclusions justified?
+4. EFFICIENCY: Could this have been done more directly or effectively?
+5. COMPLETENESS: Did we miss important aspects that should have been considered?
+
+ANALYZE AND RESPOND WITH THIS EXACT FORMAT:
+
+VALIDATION_RESULT: [VALID or INVALID]
+
+RELEVANCE_SCORE: [0.0 to 1.0 - how relevant was this step?]
+
+PROGRESS_SCORE: [0.0 to 1.0 - how much progress was made?]
+
+CORRECTNESS_SCORE: [0.0 to 1.0 - how correct is the reasoning?]
+
+ISSUES: [List specific problems if any, one per line. Leave empty if VALID]
+- Issue 1
+- Issue 2
+
+CORRECTION_NEEDED: [If INVALID, describe what should be done differently]
+
+SUGGESTED_APPROACH: [If INVALID, provide a better approach for this iteration]
+
+VALIDATION_FEEDBACK: [Brief explanation of your validation decision]
+
+Important:
+- Be critical but fair in your assessment
+- Mark as INVALID if the step is off-topic, circular, or doesn't contribute
+- Consider marking INVALID if confidence is high but key information is missing
+- Focus on whether this specific step was useful, not the overall solution
+- A step can be VALID even if it doesn't find the final answer, as long as it makes progress

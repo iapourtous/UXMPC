@@ -4,6 +4,10 @@
 
 Le système de **Chain of Thought (CoT) Adaptatif** d'UXMCP est un moteur de raisonnement avancé inspiré par les recherches sur Auto-CoT (Automatic Chain of Thought) qui permet aux agents IA de résoudre des problèmes complexes de manière structurée et itérative.
 
+### ✨ Nouveauté : Auto-Validation et Correction
+
+Le système intègre maintenant une **boucle de validation automatique** à chaque étape de raisonnement. Chaque itération est évaluée sur sa pertinence, son progrès et son exactitude. Si une étape n'est pas satisfaisante, le système la corrige automatiquement avant de continuer.
+
 ## 📊 Architecture du Système
 
 ```mermaid
@@ -21,9 +25,14 @@ graph TB
     
     Tools -->|Yes| ToolExec[Tool Executor]
     ToolExec --> ToolResult[Tool Results]
-    ToolResult --> Evaluation
+    ToolResult --> Validation
     
-    Tools -->|No| Evaluation[Self-Evaluation]
+    Tools -->|No| Validation[Validation Check]
+    
+    Validation --> Valid{Is Valid?}
+    Valid -->|No| Correction[Generate Correction]
+    Correction --> Iteration
+    Valid -->|Yes| Evaluation[Self-Evaluation]
     
     Evaluation --> Convergence{Converged?}
     Convergence -->|No| Iteration
@@ -167,9 +176,52 @@ class ReasoningIteration:
     confidence: float            # Niveau de confiance (0-1)
     should_continue: bool        # Continuer ou arrêter
     knowledge_gathered: str      # Connaissances acquises
+    # Nouveaux champs de validation
+    is_valid: bool               # L'itération est-elle valide?
+    validation_feedback: str     # Feedback de validation
+    correction_attempts: int     # Nombre de tentatives de correction
+    relevance_score: float       # Score de pertinence (0-1)
+    progress_score: float        # Score de progrès (0-1)
+    correctness_score: float     # Score d'exactitude (0-1)
 ```
 
-### 4. Détecteur de Convergence (`ConvergenceDetector`)
+### 4. Système de Validation Automatique (`IterationValidator`)
+
+Le système de validation évalue chaque étape de raisonnement selon 5 critères :
+
+#### Critères de Validation
+
+| Critère | Description | Score |
+|---------|-------------|-------|
+| **Pertinence** | L'étape adresse-t-elle directement le problème? | 0.0 - 1.0 |
+| **Progrès** | Avons-nous appris quelque chose de nouveau? | 0.0 - 1.0 |
+| **Exactitude** | Le raisonnement est-il logiquement correct? | 0.0 - 1.0 |
+| **Efficacité** | L'approche est-elle optimale? | Évalué qualitativement |
+| **Complétude** | Tous les aspects importants sont-ils couverts? | Évalué qualitativement |
+
+#### Processus de Validation et Correction
+
+```mermaid
+graph LR
+    A[Exécuter Itération] --> B[Valider Itération]
+    B --> C{Score > Seuil?}
+    C -->|Oui| D[Continuer]
+    C -->|Non| E[Générer Feedback]
+    E --> F[Créer Prompt Corrigé]
+    F --> G{Tentatives < Max?}
+    G -->|Oui| A
+    G -->|Non| H[Continuer avec Avertissement]
+```
+
+#### Mécanisme de Correction
+
+Quand une itération échoue la validation :
+1. **Feedback détaillé** : Identification précise des problèmes
+2. **Instructions de correction** : Approche suggérée pour améliorer
+3. **Nouvelle tentative** : Maximum 2 corrections par itération
+4. **Traçabilité** : Tous les scores et feedbacks sont conservés
+
+### 5. Détecteur de Convergence (`ConvergenceDetector`)
 
 Détermine quand le raisonnement a atteint une solution satisfaisante :
 
@@ -265,6 +317,9 @@ web_search(query="dernières nouvelles IA 2024")
 | **Tool Efficiency** | Ratio outils utiles / outils appelés | > 0.8 |
 | **Confidence Growth** | Augmentation moyenne par itération | > 0.15 |
 | **Answer Quality** | Évaluation de la réponse finale | > 0.9 |
+| **Validation Success** | % d'itérations valides au premier essai | > 70% |
+| **Correction Efficiency** | % de corrections réussies | > 90% |
+| **Average Relevance** | Score moyen de pertinence | > 0.75 |
 
 ### Optimisations
 
@@ -274,6 +329,33 @@ web_search(query="dernières nouvelles IA 2024")
 4. **Context Pruning** : Suppression des informations non pertinentes
 
 ## 💡 Exemples d'Utilisation
+
+### Exemple avec Validation et Correction
+
+```python
+Input: "Analyse les ventes Q1 et trouve des améliorations"
+
+Iteration 1:
+  Thought: "Je vais d'abord parler de l'histoire de l'entreprise..."
+  Validation: INVALID ❌
+  - Relevance: 0.2 (Hors sujet)
+  - Progress: 0.1 (Pas de progrès vers la solution)
+  Feedback: "Focus sur les données de ventes Q1, pas l'historique"
+  
+Iteration 1 (Correction 1):
+  Thought: "Je dois récupérer les données de ventes Q1"
+  Tool Calls: get_sales_data(quarter="Q1")
+  Validation: VALID ✅
+  - Relevance: 0.9
+  - Progress: 0.8
+  Knowledge: "Ventes Q1: 150k€, 3 produits principaux..."
+
+Iteration 2:
+  Thought: "Analysons les tendances et points faibles"
+  Tool Calls: analyze_trends(data=q1_data)
+  Validation: VALID ✅
+  Final Answer: "Analyse complète avec 5 recommandations..."
+```
 
 ### Exemple 1 : Question Simple
 
@@ -409,16 +491,24 @@ Le système génère des logs à chaque étape :
 ## 🚀 Évolutions Futures
 
 1. **Apprentissage Adaptatif**
-   - Ajustement automatique des seuils
+   - Ajustement automatique des seuils de validation
    - Mémorisation des stratégies efficaces
+   - Personnalisation des critères par type de problème
 
 2. **Parallélisation Avancée**
    - Exploration simultanée de chemins
+   - Validation parallèle de multiples approches
    - Fusion des résultats parallèles
 
 3. **Meta-Raisonnement**
    - Réflexion sur le processus de raisonnement
    - Auto-amélioration continue
+   - Apprentissage des patterns de correction
+
+4. **Validation Contextuelle**
+   - Critères adaptatifs selon le domaine
+   - Validation par pairs (multi-agents)
+   - Métriques personnalisées par utilisateur
 
 ## 📚 Références
 
