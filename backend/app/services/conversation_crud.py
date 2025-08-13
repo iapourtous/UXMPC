@@ -58,8 +58,13 @@ class ConversationCRUD:
             raise
 
     async def get(self, conversation_id: str) -> Optional[Conversation]:
-        """Get a conversation by ID"""
+        """Get a conversation by ID or 'latest' for the most recent"""
         try:
+            # Handle special case for 'latest'
+            if conversation_id.lower() == 'latest':
+                return await self.get_latest_conversation()
+            
+            # Normal case: get by ObjectId
             conversation = await self.collection.find_one({"_id": ObjectId(conversation_id)})
             if conversation:
                 # Convert ObjectId to string

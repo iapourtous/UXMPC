@@ -9,6 +9,7 @@ from typing import Dict, Optional, Any
 from dataclasses import dataclass, field
 from enum import Enum
 from datetime import datetime, timedelta
+from app.core.llm_client import llm_client
 
 logger = logging.getLogger(__name__)
 
@@ -218,48 +219,22 @@ diversity_factor, confidence_threshold, needs_tools, tool_intensive, key_challen
         max_tokens: int = 500
     ) -> str:
         """Make a call to the LLM for analysis"""
-        import httpx
-        
         try:
-            endpoint = llm_profile.endpoint or "https://api.openai.com/v1/chat/completions"
+            content = await llm_client.call_advanced(
+                llm_profile=llm_profile,
+                prompt=prompt,
+                system_message="You are an expert at analyzing problem complexity. Always respond with valid JSON only.",
+                temperature=temperature,
+                max_tokens=max_tokens,
+                json_mode=True,
+                timeout=10.0,
+                raise_on_error=True
+            )
             
-            headers = {
-                "Authorization": f"Bearer {llm_profile.api_key}",
-                "Content-Type": "application/json"
-            }
-            
-            messages = [
-                {
-                    "role": "system", 
-                    "content": "You are an expert at analyzing problem complexity. Always respond with valid JSON only."
-                },
-                {"role": "user", "content": prompt}
-            ]
-            
-            body = {
-                "model": llm_profile.model,
-                "messages": messages,
-                "temperature": temperature,
-                "max_tokens": max_tokens
-            }
-            
-            # Add JSON mode if the profile supports it
-            if hasattr(llm_profile, 'mode') and llm_profile.mode == 'json':
-                # For OpenAI/GPT models
-                if "gpt" in llm_profile.model.lower():
-                    body["response_format"] = {"type": "json_object"}
-                # For Anthropic/Claude models, the prompt already requests JSON
-            
-            async with httpx.AsyncClient(timeout=10.0) as client:
-                response = await client.post(
-                    endpoint,
-                    headers=headers,
-                    json=body
-                )
-                response.raise_for_status()
+            if not content:
+                raise Exception("No content received from LLM")
                 
-                result = response.json()
-                return result.get("choices", [{}])[0].get("message", {}).get("content", "")
+            return content
                 
         except Exception as e:
             logger.error(f"LLM call failed: {str(e)}")

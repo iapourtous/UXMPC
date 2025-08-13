@@ -8,6 +8,7 @@ import logging
 import json
 import re
 from datetime import datetime
+from app.core.llm_client import llm_client
 
 from app.services.cot_complexity_analyzer import ComplexityAnalyzer, ComplexityProfile
 from app.services.cot_demonstration_generator import DemonstrationGenerator, ReasoningPath
@@ -475,45 +476,23 @@ Important:
     
     async def _call_llm(self, prompt: str, llm_profile: Any, base_messages: List[Dict[str, Any]] = None) -> str:
         """Make a call to the LLM"""
-        import httpx
-        
         try:
-            endpoint = llm_profile.endpoint or "https://api.openai.com/v1/chat/completions"
+            content = await llm_client.call_advanced(
+                llm_profile=llm_profile,
+                prompt=prompt,
+                base_messages=base_messages,
+                system_message="You are performing systematic chain of thought reasoning. Use tools when needed to gather information." if not base_messages else None,
+                temperature=getattr(llm_profile, 'temperature', 0.7),
+                max_tokens=getattr(llm_profile, 'max_tokens', 2000),
+                timeout=60.0,
+                json_mode=False,  # Force text mode for COT iterations (not JSON)
+                raise_on_error=True
+            )
             
-            headers = {
-                "Authorization": f"Bearer {llm_profile.api_key}",
-                "Content-Type": "application/json"
-            }
-            
-            # Use base messages if provided (contains full context), otherwise create new
-            if base_messages:
-                # Use the full context messages and add our iteration prompt
-                messages = base_messages.copy()
-                messages.append({"role": "user", "content": prompt})
-            else:
-                messages = [
-                    {"role": "system", "content": "You are performing systematic chain of thought reasoning. Use tools when needed to gather information."},
-                    {"role": "user", "content": prompt}
-                ]
-            
-            body = {
-                "model": llm_profile.model,
-                "messages": messages,
-                "temperature": getattr(llm_profile, 'temperature', 0.7),
-                "max_tokens": getattr(llm_profile, 'max_tokens', 2000)  # Use profile's max_tokens
-            }
-            
-            async with httpx.AsyncClient(timeout=60.0) as client:
-                response = await client.post(
-                    endpoint,
-                    headers=headers,
-                    json=body,
-                    timeout=60.0
-                )
-                response.raise_for_status()
+            if not content:
+                raise Exception("No content received from LLM")
                 
-                result = response.json()
-                return result.get("choices", [{}])[0].get("message", {}).get("content", "")
+            return content
                 
         except Exception as e:
             logger.error(f"LLM call failed: {str(e)}")

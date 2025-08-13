@@ -112,6 +112,87 @@ class LLMClient:
         
         return None
     
+    async def call_advanced(
+        self,
+        llm_profile: LLMProfile,
+        prompt: Optional[str] = None,
+        messages: Optional[List[Dict[str, str]]] = None,
+        base_messages: Optional[List[Dict[str, str]]] = None,
+        system_message: Optional[str] = None,
+        temperature: Optional[float] = None,
+        max_tokens: Optional[int] = None,
+        timeout: Optional[float] = None,
+        json_mode: Optional[bool] = None,
+        raise_on_error: bool = True
+    ) -> Optional[str]:
+        """
+        Advanced unified LLM call supporting all use cases
+        
+        Args:
+            llm_profile: LLM profile configuration
+            prompt: Simple prompt string (will be added as user message)
+            messages: Complete message list (overrides prompt)
+            base_messages: Base context messages (prompt will be appended)
+            system_message: Override system message
+            temperature: Override temperature
+            max_tokens: Override max tokens
+            timeout: Override timeout
+            json_mode: Force JSON response mode
+            raise_on_error: Raise exception on error (True) or return None (False)
+            
+        Returns:
+            String content of the response, or None if failed and raise_on_error=False
+        """
+        try:
+            # Build messages list
+            final_messages = []
+            
+            if messages:
+                # Use provided messages directly
+                final_messages = messages
+            elif base_messages and prompt:
+                # Use base messages and append prompt
+                final_messages = base_messages.copy()
+                final_messages.append({"role": "user", "content": prompt})
+            elif prompt:
+                # Build simple message list
+                if system_message:
+                    final_messages.append({"role": "system", "content": system_message})
+                final_messages.append({"role": "user", "content": prompt})
+            else:
+                raise ValueError("Must provide either messages, prompt, or base_messages+prompt")
+            
+            # Handle JSON mode override safely
+            profile_to_use = llm_profile
+            if json_mode is not None:
+                # Create a shallow copy to avoid modifying the original profile
+                import copy
+                profile_to_use = copy.copy(llm_profile)
+                profile_to_use.mode = "json" if json_mode else "text"
+            
+            # Make the call
+            response = await self.call(
+                llm_profile=profile_to_use,
+                messages=final_messages,
+                temperature=temperature,
+                max_tokens=max_tokens,
+                timeout=timeout
+            )
+            
+            # Extract content
+            if response and "choices" in response and response["choices"]:
+                return response["choices"][0]["message"]["content"]
+            
+            if raise_on_error:
+                raise Exception("No valid response from LLM")
+            return None
+                    
+        except Exception as e:
+            logger.error(f"Advanced LLM call failed: {str(e)}")
+            if raise_on_error:
+                raise
+            return None
+    
     async def call_with_history(
         self,
         llm_profile: LLMProfile,
