@@ -31,6 +31,7 @@ class LLMClient:
         max_tokens: Optional[int] = None,
         max_retries: Optional[int] = None,
         timeout: Optional[float] = None,
+        tool_choice: Optional[str] = None,
         **kwargs
     ) -> Dict[str, Any]:
         """
@@ -61,18 +62,18 @@ class LLMClient:
         if "groq.com" in endpoint:
             return await self._call_groq(
                 llm_profile, messages, tools, temperature, max_tokens, 
-                max_retries, timeout, **kwargs
+                max_retries, timeout, tool_choice, **kwargs
             )
         elif "moonshot.cn" in endpoint:
             return await self._call_moonshot(
                 llm_profile, messages, tools, temperature, max_tokens,
-                max_retries, timeout, **kwargs
+                max_retries, timeout, tool_choice, **kwargs
             )
         else:
             # Default to OpenAI-compatible API
             return await self._call_openai_compatible(
                 llm_profile, messages, tools, temperature, max_tokens,
-                max_retries, timeout, **kwargs
+                max_retries, timeout, tool_choice, **kwargs
             )
     
     async def call_simple(
@@ -111,6 +112,62 @@ class LLMClient:
             logger.error(f"Simple LLM call failed: {str(e)}")
         
         return None
+    
+    async def call_with_tools_iteration(
+        self,
+        llm_profile: LLMProfile,
+        messages: List[Dict[str, str]],
+        tools: Optional[List[Dict[str, Any]]] = None,
+        temperature: Optional[float] = None,
+        max_tokens: Optional[int] = None,
+        require_tool_use: bool = False,
+        timeout: float = 120.0
+    ) -> Dict[str, Any]:
+        """
+        Single iteration LLM call with tools support for agent executor
+        
+        Args:
+            llm_profile: LLM profile configuration
+            messages: Conversation messages
+            tools: Available tools in OpenAI format
+            temperature: Override temperature
+            max_tokens: Override max tokens
+            require_tool_use: Force tool usage
+            timeout: Request timeout
+            
+        Returns:
+            Raw response dict with standard format including tool_calls if present
+        """
+        try:
+            # Prepare tool choice parameter
+            tool_choice = None
+            if tools:
+                tool_choice = "required" if require_tool_use else "auto"
+            
+            # CRITICAL: Force text mode when using tools (JSON mode is incompatible with function calling)
+            profile_to_use = llm_profile
+            if tools and llm_profile.mode == "json":
+                import copy
+                profile_to_use = copy.copy(llm_profile)
+                profile_to_use.mode = "text"
+                logger.debug("Forcing text mode for tool call (JSON mode incompatible with function calling)")
+            
+            # Make the call using existing infrastructure
+            response = await self.call(
+                llm_profile=profile_to_use,
+                messages=messages,
+                tools=tools,
+                temperature=temperature,
+                max_tokens=max_tokens,
+                timeout=timeout,
+                tool_choice=tool_choice
+            )
+            
+            return response
+            
+        except Exception as e:
+            logger.error(f"Tool iteration call failed: {str(e)}")
+            raise
     
     async def call_advanced(
         self,
@@ -272,6 +329,7 @@ class LLMClient:
         max_tokens: Optional[int],
         max_retries: Optional[int],
         timeout: Optional[float],
+        tool_choice: Optional[str],
         **kwargs
     ) -> Dict[str, Any]:
         """Call Groq using native client for better compatibility"""
@@ -297,7 +355,7 @@ class LLMClient:
             # Add tools if provided
             if tools:
                 completion_params["tools"] = tools
-                completion_params["tool_choice"] = "auto"
+                completion_params["tool_choice"] = tool_choice or "auto"
                 
             # Add JSON mode if configured
             if llm_profile.mode == "json":
@@ -368,7 +426,7 @@ class LLMClient:
             logger.warning("Groq client not available, falling back to HTTP")
             return await self._call_openai_compatible(
                 llm_profile, messages, tools, temperature, max_tokens,
-                max_retries, timeout, **kwargs
+                max_retries, timeout, tool_choice, **kwargs
             )
     
     async def _call_moonshot(
@@ -380,6 +438,7 @@ class LLMClient:
         max_tokens: Optional[int],
         max_retries: Optional[int],
         timeout: Optional[float],
+        tool_choice: Optional[str],
         **kwargs
     ) -> Dict[str, Any]:
         """Call Moonshot API with specific handling"""
@@ -387,7 +446,7 @@ class LLMClient:
         # Can be specialized later if needed
         return await self._call_openai_compatible(
             llm_profile, messages, tools, temperature, max_tokens,
-            max_retries, timeout, **kwargs
+            max_retries, timeout, tool_choice, **kwargs
         )
     
     async def _call_openai_compatible(
@@ -399,6 +458,7 @@ class LLMClient:
         max_tokens: Optional[int],
         max_retries: Optional[int],
         timeout: Optional[float],
+        tool_choice: Optional[str],
         **kwargs
     ) -> Dict[str, Any]:
         """Call OpenAI-compatible API using HTTP"""
@@ -421,7 +481,7 @@ class LLMClient:
         # Add tools if provided
         if tools:
             payload["tools"] = tools
-            payload["tool_choice"] = "auto"
+            payload["tool_choice"] = tool_choice or "auto"
             
         # Add JSON mode if configured
         if llm_profile.mode == "json":

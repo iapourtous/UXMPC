@@ -85,6 +85,17 @@ class ServiceCreatorAgent:
                 }
                 return
             
+            # Step 2.5: CRITICAL - Install all dependencies BEFORE creating the service
+            yield {
+                "step": "installing_dependencies",
+                "message": "Installing all required dependencies...",
+                "progress": 15
+            }
+            
+            # Ensure all dependencies are installed
+            async for dep_update in self._ensure_all_dependencies(initial_code):
+                yield dep_update
+            
             # Step 3: Create the service
             yield {
                 "step": "creating",
@@ -161,62 +172,12 @@ class ServiceCreatorAgent:
                         # Update initial_code for future reference
                         initial_code["code"] = fixed_code
             
-            # Step 3.6: Analyze code and install dependencies BEFORE activation
+            # Dependencies have already been installed in Step 2.5, just log success
             yield {
-                "step": "analyzing_dependencies",
-                "message": "Analyzing code dependencies...",
+                "step": "dependencies_verified",
+                "message": "All dependencies have been pre-installed",
                 "progress": 25
             }
-            
-            # Analyze the code for imports
-            import_analysis = await self.tools.analyze_code_imports(initial_code["code"])
-            if import_analysis["success"] and import_analysis.get("packages_needed"):
-                yield {
-                    "step": "installing_dependencies",
-                    "message": f"Found {len(import_analysis['packages_needed'])} packages to install",
-                    "progress": 30
-                }
-                
-                # Install each needed package
-                for pkg_info in import_analysis["packages_needed"]:
-                    package_name = pkg_info["package_name"]
-                    import_name = pkg_info["import_name"]
-                    
-                    yield {
-                        "step": "checking_package",
-                        "message": f"Checking package '{package_name}' (imported as '{import_name}')...",
-                        "progress": 35
-                    }
-                    
-                    # Check if package is available
-                    check_result = await self.tools.check_package_available(package_name)
-                    if check_result["success"] and check_result.get("available"):
-                        # Install the package
-                        yield {
-                            "step": "installing",
-                            "message": f"Installing {package_name}...",
-                            "progress": 40
-                        }
-                        
-                        install_result = await self.tools.install_package(package_name)
-                        if install_result["success"]:
-                            yield {
-                                "step": "installed",
-                                "message": f"Successfully installed {package_name}",
-                                "progress": 45
-                            }
-                        else:
-                            yield {
-                                "step": "install_warning",
-                                "message": f"Could not install {package_name}: {install_result.get('error')}",
-                                "progress": 45
-                            }
-                    else:
-                        yield {
-                            "step": "package_not_found",
-                            "message": f"Package '{package_name}' not found on PyPI",
-                            "progress": 40
-                        }
             
             # Step 4: Iterative improvement loop
             error_history = []  # Track errors to detect loops
@@ -819,6 +780,264 @@ class ServiceCreatorAgent:
                         
         except Exception as e:
             logger.error(f"Failed to fix service error: {str(e)}")
+    
+    async def _ensure_all_dependencies(
+        self,
+        initial_code: Dict[str, Any]
+    ) -> AsyncGenerator[Dict[str, Any], None]:
+        """
+        Ensure all dependencies are installed BEFORE creating/activating the service.
+        Combines declared dependencies and detected imports.
+        """
+        try:
+            # Get declared dependencies from LLM
+            declared_deps = initial_code.get("dependencies", [])
+            
+            # Analyze code for additional imports
+            import_analysis = await self.tools.analyze_code_imports(initial_code["code"])
+            detected_packages = []
+            if import_analysis.get("success") and import_analysis.get("packages_needed"):
+                detected_packages = import_analysis["packages_needed"]
+            
+            # Combine all dependencies (remove duplicates)
+            all_packages = {}
+            
+            # Add declared dependencies
+            for dep in declared_deps:
+                # Handle cases where dep might be "package==version" or just "package"
+                package_name = dep.split("==")[0].split(">=")[0].split("<=")[0].strip()
+                if package_name and package_name not in ['os', 'sys', 'json', 'datetime', 'time', 're', 
+                                                          'math', 'random', 'urllib', 'http', 'collections']:
+                    all_packages[package_name] = dep
+            
+            # Add detected packages
+            for pkg_info in detected_packages:
+                package_name = pkg_info["package_name"]
+                if package_name not in all_packages:
+                    all_packages[package_name] = package_name
+            
+            # Special cases based on common patterns in code
+            code_lower = initial_code["code"].lower()
+            
+            # Check for BeautifulSoup
+            if "beautifulsoup" in code_lower or "bs4" in code_lower:
+                all_packages["beautifulsoup4"] = "beautifulsoup4"
+            
+            # Check for requests
+            if "requests." in initial_code["code"] or "import requests" in initial_code["code"]:
+                all_packages["requests"] = "requests"
+            
+            # Check for numpy/pandas/matplotlib
+            if "numpy" in code_lower or "np." in initial_code["code"]:
+                all_packages["numpy"] = "numpy"
+            if "pandas" in code_lower or "pd." in initial_code["code"]:
+                all_packages["pandas"] = "pandas"
+            if "matplotlib" in code_lower or "plt." in initial_code["code"]:
+                all_packages["matplotlib"] = "matplotlib"
+            
+            # Check for PIL/Pillow
+            if "pil.image" in code_lower or "from pil" in code_lower or "import pil" in code_lower:
+                all_packages["pillow"] = "pillow"
+            
+            # Check for lxml
+            if "lxml" in code_lower:
+                all_packages["lxml"] = "lxml"
+            
+            # Check for httpx
+            if "httpx" in code_lower:
+                all_packages["httpx"] = "httpx"
+            
+            # Check for aiohttp
+            if "aiohttp" in code_lower:
+                all_packages["aiohttp"] = "aiohttp"
+            
+            if not all_packages:
+                yield {
+                    "step": "dependencies_check",
+                    "message": "No external dependencies required",
+                    "progress": 18
+                }
+                return
+            
+            yield {
+                "step": "dependencies_found",
+                "message": f"Found {len(all_packages)} packages to check",
+                "packages": list(all_packages.keys()),
+                "progress": 16
+            }
+            
+            # Install each package
+            installed_count = 0
+            failed_packages = []
+            
+            for package_spec, package_name in all_packages.items():
+                # Check if already installed
+                check_result = await self.tools.list_installed_packages()
+                already_installed = False
+                if check_result.get("success"):
+                    installed_names = [p["name"].lower() for p in check_result.get("packages", [])]
+                    if package_name.lower() in installed_names or package_spec.lower() in installed_names:
+                        already_installed = True
+                        yield {
+                            "step": "package_exists",
+                            "message": f"Package '{package_name}' already installed",
+                            "progress": 17
+                        }
+                        continue
+                
+                # Check if available on PyPI
+                yield {
+                    "step": "checking_package",
+                    "message": f"Checking package '{package_name}'...",
+                    "progress": 17
+                }
+                
+                check_result = await self.tools.check_package_available(package_name)
+                if not check_result.get("success") or not check_result.get("available"):
+                    # Try alternative names
+                    alt_names = {
+                        "bs4": "beautifulsoup4",
+                        "cv2": "opencv-python",
+                        "sklearn": "scikit-learn",
+                        "yaml": "pyyaml",
+                        "PIL": "pillow",
+                        "dotenv": "python-dotenv"
+                    }
+                    
+                    alt_name = alt_names.get(package_name)
+                    if alt_name:
+                        package_name = alt_name
+                        check_result = await self.tools.check_package_available(package_name)
+                
+                if check_result.get("success") and check_result.get("available"):
+                    # Install the package
+                    yield {
+                        "step": "installing_package",
+                        "message": f"Installing '{package_name}'...",
+                        "progress": 18
+                    }
+                    
+                    install_result = await self.tools.install_package(package_name)
+                    if install_result.get("success"):
+                        installed_count += 1
+                        yield {
+                            "step": "package_installed",
+                            "message": f"Successfully installed '{package_name}'",
+                            "progress": 19
+                        }
+                    else:
+                        failed_packages.append(package_name)
+                        yield {
+                            "step": "install_failed",
+                            "message": f"Failed to install '{package_name}': {install_result.get('error')}",
+                            "warning": True,
+                            "progress": 19
+                        }
+                else:
+                    yield {
+                        "step": "package_not_found",
+                        "message": f"Package '{package_name}' not found on PyPI",
+                        "warning": True,
+                        "progress": 18
+                    }
+            
+            # Summary
+            if installed_count > 0 or len(failed_packages) == 0:
+                yield {
+                    "step": "dependencies_ready",
+                    "message": f"Dependency installation complete: {installed_count} installed, {len(failed_packages)} failed",
+                    "installed": installed_count,
+                    "failed": failed_packages,
+                    "progress": 19
+                }
+            else:
+                yield {
+                    "step": "dependencies_warning",
+                    "message": f"Some dependencies could not be installed: {', '.join(failed_packages)}",
+                    "failed": failed_packages,
+                    "warning": True,
+                    "progress": 19
+                }
+            
+            # Update the initial_code dependencies to include all we tried to install
+            initial_code["dependencies"] = list(all_packages.keys())
+            
+            # Step: Validate that all imports work
+            yield {
+                "step": "validating_imports",
+                "message": "Testing that all imports work correctly...",
+                "progress": 19.5
+            }
+            
+            import_test = await self.tools.test_imports(initial_code["code"])
+            if import_test.get("success"):
+                if import_test.get("all_working"):
+                    yield {
+                        "step": "imports_validated",
+                        "message": "All imports validated successfully",
+                        "progress": 20
+                    }
+                else:
+                    # Some imports failed - try to fix them
+                    failed_imports = import_test.get("failed_imports", [])
+                    yield {
+                        "step": "imports_failed",
+                        "message": f"{len(failed_imports)} imports still failing",
+                        "failed": failed_imports,
+                        "warning": True,
+                        "progress": 19.5
+                    }
+                    
+                    # Try to install missing packages based on failed imports
+                    for failed in failed_imports:
+                        import_line = failed.get("import", "")
+                        error_msg = failed.get("error", "")
+                        
+                        # Extract module name from error
+                        if "No module named" in error_msg:
+                            import re
+                            match = re.search(r"No module named '([^']+)'", error_msg)
+                            if match:
+                                missing_module = match.group(1)
+                                # Try to install it
+                                yield {
+                                    "step": "fixing_import",
+                                    "message": f"Attempting to fix missing module '{missing_module}'",
+                                    "progress": 19.7
+                                }
+                                
+                                # Map to package name
+                                package_to_install = {
+                                    'bs4': 'beautifulsoup4',
+                                    'PIL': 'pillow',
+                                    'cv2': 'opencv-python',
+                                    'sklearn': 'scikit-learn',
+                                    'yaml': 'pyyaml'
+                                }.get(missing_module, missing_module)
+                                
+                                install_result = await self.tools.install_package(package_to_install)
+                                if install_result.get("success"):
+                                    yield {
+                                        "step": "import_fixed",
+                                        "message": f"Installed missing package '{package_to_install}'",
+                                        "progress": 19.8
+                                    }
+            else:
+                yield {
+                    "step": "import_validation_skipped",
+                    "message": "Could not validate imports, proceeding anyway",
+                    "warning": True,
+                    "progress": 20
+                }
+            
+        except Exception as e:
+            logger.error(f"Failed to ensure dependencies: {str(e)}")
+            yield {
+                "step": "dependencies_error",
+                "message": f"Error checking dependencies: {str(e)}",
+                "error": True,
+                "progress": 20
+            }
     
     async def _call_llm(
         self,

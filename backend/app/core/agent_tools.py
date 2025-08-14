@@ -880,34 +880,130 @@ class AgentTools:
             # Remove stdlib modules
             external_modules = modules_to_check - stdlib_modules
             
-            # Map import names to package names
+            # Map import names to package names - Comprehensive mapping
             package_map = {
+                # Web scraping & parsing
                 'bs4': 'beautifulsoup4',
-                'PIL': 'pillow',
-                'cv2': 'opencv-python',
-                'sklearn': 'scikit-learn',
-                'yaml': 'pyyaml',
-                'dateutil': 'python-dateutil',
-                'MySQLdb': 'mysqlclient',
-                'psycopg2': 'psycopg2-binary',
-                'dotenv': 'python-dotenv',
-                'google': 'protobuf',  # or other google packages
-                'OpenSSL': 'pyopenssl',
+                'BeautifulSoup': 'beautifulsoup4',
                 'lxml': 'lxml',
-                'numpy': 'numpy',
-                'pandas': 'pandas',
-                'matplotlib': 'matplotlib',
-                'seaborn': 'seaborn',
-                'scipy': 'scipy',
-                'nltk': 'nltk',
-                'torch': 'torch',
-                'tensorflow': 'tensorflow',
+                'html5lib': 'html5lib',
+                'scrapy': 'scrapy',
+                'selenium': 'selenium',
+                'pyquery': 'pyquery',
+                
+                # HTTP clients
                 'requests': 'requests',
                 'httpx': 'httpx',
                 'aiohttp': 'aiohttp',
+                'urllib3': 'urllib3',
+                'mechanize': 'mechanize',
+                
+                # Image processing
+                'PIL': 'pillow',
+                'Image': 'pillow',
+                'cv2': 'opencv-python',
+                'skimage': 'scikit-image',
+                'imageio': 'imageio',
+                'wand': 'Wand',
+                
+                # Data science & ML
+                'numpy': 'numpy',
+                'np': 'numpy',
+                'pandas': 'pandas',
+                'pd': 'pandas',
+                'sklearn': 'scikit-learn',
+                'scipy': 'scipy',
+                'statsmodels': 'statsmodels',
+                'matplotlib': 'matplotlib',
+                'plt': 'matplotlib',
+                'seaborn': 'seaborn',
+                'plotly': 'plotly',
+                'bokeh': 'bokeh',
+                
+                # Deep learning
+                'torch': 'torch',
+                'tensorflow': 'tensorflow',
+                'tf': 'tensorflow',
+                'keras': 'keras',
+                'transformers': 'transformers',
+                
+                # NLP
+                'nltk': 'nltk',
+                'spacy': 'spacy',
+                'textblob': 'textblob',
+                'gensim': 'gensim',
+                
+                # Database
+                'pymongo': 'pymongo',
+                'psycopg2': 'psycopg2-binary',
+                'MySQLdb': 'mysqlclient',
+                'mysql': 'mysql-connector-python',
+                'sqlalchemy': 'sqlalchemy',
+                'redis': 'redis',
+                'cassandra': 'cassandra-driver',
+                
+                # File formats
+                'yaml': 'pyyaml',
+                'toml': 'toml',
+                'openpyxl': 'openpyxl',
+                'xlrd': 'xlrd',
+                'xlwt': 'xlwt',
+                'docx': 'python-docx',
+                'PyPDF2': 'PyPDF2',
+                'pdfplumber': 'pdfplumber',
+                'markdown': 'markdown',
+                
+                # Web frameworks
                 'flask': 'flask',
+                'django': 'django',
                 'fastapi': 'fastapi',
-                'pydantic': 'pydantic'
+                'tornado': 'tornado',
+                'bottle': 'bottle',
+                
+                # Utilities
+                'dateutil': 'python-dateutil',
+                'pytz': 'pytz',
+                'tzlocal': 'tzlocal',
+                'dotenv': 'python-dotenv',
+                'click': 'click',
+                'tqdm': 'tqdm',
+                'colorama': 'colorama',
+                'rich': 'rich',
+                
+                # API & Cloud
+                'boto3': 'boto3',
+                'google': 'google-cloud',
+                'azure': 'azure',
+                'stripe': 'stripe',
+                'twilio': 'twilio',
+                'slack_sdk': 'slack-sdk',
+                'telegram': 'python-telegram-bot',
+                'discord': 'discord.py',
+                
+                # Crypto & Security
+                'cryptography': 'cryptography',
+                'OpenSSL': 'pyopenssl',
+                'jwt': 'pyjwt',
+                'passlib': 'passlib',
+                'bcrypt': 'bcrypt',
+                
+                # Testing
+                'pytest': 'pytest',
+                'unittest': 'unittest',
+                'mock': 'mock',
+                'faker': 'faker',
+                
+                # Other common packages
+                'pydantic': 'pydantic',
+                'validators': 'validators',
+                'phonenumbers': 'phonenumbers',
+                'pycountry': 'pycountry',
+                'geopy': 'geopy',
+                'folium': 'folium',
+                'qrcode': 'qrcode',
+                'barcode': 'python-barcode',
+                'emoji': 'emoji',
+                'pyperclip': 'pyperclip'
             }
             
             # Convert to package names
@@ -1088,6 +1184,106 @@ class AgentTools:
             }
         except Exception as e:
             logger.error(f"Failed to install package: {str(e)}")
+            return {
+                "success": False,
+                "error": str(e)
+            }
+    
+    async def test_imports(self, code: str) -> Dict[str, Any]:
+        """
+        Test if all imports in the code work correctly.
+        Runs imports in an isolated subprocess to check availability.
+        
+        Returns:
+            Dict with 'success', 'working_imports', 'failed_imports', and 'error' (if any)
+        """
+        try:
+            import tempfile
+            import os
+            
+            # Extract import statements from code
+            import_lines = []
+            for line in code.split('\n'):
+                line = line.strip()
+                if line.startswith('import ') or line.startswith('from '):
+                    import_lines.append(line)
+            
+            if not import_lines:
+                return {
+                    "success": True,
+                    "message": "No imports to test",
+                    "working_imports": [],
+                    "failed_imports": []
+                }
+            
+            # Create a test script
+            test_script = "\n".join([
+                "#!/usr/bin/env python3",
+                "import sys",
+                "import json",
+                "",
+                "results = {'working': [], 'failed': []}",
+                ""
+            ])
+            
+            # Add each import wrapped in try/except
+            for imp in import_lines:
+                test_script += f"""
+try:
+    {imp}
+    results['working'].append('{imp}')
+except Exception as e:
+    results['failed'].append({{
+        'import': '{imp}',
+        'error': str(e)
+    }})
+"""
+            
+            # Output results as JSON
+            test_script += "\nprint(json.dumps(results))"
+            
+            # Write to temp file and execute
+            with tempfile.NamedTemporaryFile(mode='w', suffix='.py', delete=False) as f:
+                f.write(test_script)
+                temp_path = f.name
+            
+            try:
+                # Run the test script
+                result = subprocess.run(
+                    ["python3", temp_path],
+                    capture_output=True,
+                    text=True,
+                    timeout=30
+                )
+                
+                if result.returncode == 0 and result.stdout:
+                    # Parse the JSON results
+                    test_results = json.loads(result.stdout)
+                    
+                    success = len(test_results.get('failed', [])) == 0
+                    
+                    return {
+                        "success": success,
+                        "working_imports": test_results.get('working', []),
+                        "failed_imports": test_results.get('failed', []),
+                        "all_working": success,
+                        "message": "All imports working" if success else f"{len(test_results['failed'])} imports failed"
+                    }
+                else:
+                    return {
+                        "success": False,
+                        "error": "Failed to test imports",
+                        "stderr": result.stderr,
+                        "stdout": result.stdout
+                    }
+                    
+            finally:
+                # Clean up temp file
+                if os.path.exists(temp_path):
+                    os.unlink(temp_path)
+                    
+        except Exception as e:
+            logger.error(f"Failed to test imports: {str(e)}")
             return {
                 "success": False,
                 "error": str(e)

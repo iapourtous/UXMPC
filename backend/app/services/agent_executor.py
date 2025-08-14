@@ -17,6 +17,7 @@ from app.services.conversation_crud import conversation_crud
 from app.models.conversation import MessageCreate, ConversationCreate
 from app.services.conversation_compactor import conversation_compactor
 from app.services.settings_crud import settings_crud
+from app.core.llm_client import llm_client
 
 logger = logging.getLogger(__name__)
 
@@ -701,70 +702,41 @@ IMPORTANT: When you have gathered enough information to answer the user's questi
         agent_logger: ServiceLogger,
         max_iterations: int
     ) -> Dict[str, Any]:
-        """Call LLM with tools and handle tool execution"""
-        endpoint = llm_profile.endpoint or "https://api.openai.com/v1/chat/completions"
-        
-        # Check if this is a Groq provider
-        if "groq.com" in endpoint:
-            return await self._call_groq_with_tools(
-                llm_profile, agent, messages, tools, agent_logger, max_iterations
-            )
-        
-        # Standard OpenAI-compatible API
-        headers = {
-            "Authorization": f"Bearer {llm_profile.api_key}",
-            "Content-Type": "application/json"
-        }
-        
+        """Call LLM with tools using centralized client"""
         tool_calls_history = []
         iterations = 0
         total_usage = {"prompt_tokens": 0, "completion_tokens": 0, "total_tokens": 0}
         
-        async with httpx.AsyncClient(timeout=120.0) as client:
-            while iterations < max_iterations:
-                iterations += 1
-                await agent_logger.debug(f"LLM iteration {iterations}")
-                
-                # Prepare payload
-                payload = {
-                    "model": llm_profile.model,
-                    "messages": messages,
-                    "temperature": agent.temperature or llm_profile.temperature,
-                    "max_tokens": agent.max_tokens or llm_profile.max_tokens
-                }
-                
-                # Add JSON mode if configured in LLM profile
-                if llm_profile.mode == "json":
-                    payload["response_format"] = {"type": "json_object"}
-                
-                # Add tools if available
-                if tools:  # Include tools on every call to allow continued tool use
-                    payload["tools"] = tools
-                    if agent.require_tool_use:
-                        payload["tool_choice"] = "required"
-                    else:
-                        payload["tool_choice"] = "auto"
-                
-                # Call LLM
-                response = await client.post(endpoint, headers=headers, json=payload)
-                response.raise_for_status()
-                
-                result = response.json()
+        while iterations < max_iterations:
+            iterations += 1
+            await agent_logger.debug(f"LLM iteration {iterations}")
+            
+            try:
+                # Use centralized client for LLM call
+                response = await llm_client.call_with_tools_iteration(
+                    llm_profile=llm_profile,
+                    messages=messages,
+                    tools=tools,
+                    temperature=agent.temperature or llm_profile.temperature,
+                    max_tokens=agent.max_tokens or llm_profile.max_tokens,
+                    require_tool_use=agent.require_tool_use if tools else False,
+                    timeout=120.0
+                )
                 
                 # Log the response for debugging
-                await agent_logger.debug("LLM response structure", response_keys=list(result.keys()) if isinstance(result, dict) else type(result).__name__)
+                await agent_logger.debug("LLM response structure", response_keys=list(response.keys()) if isinstance(response, dict) else type(response).__name__)
                 
                 # Check if response has expected structure
-                if "choices" not in result:
-                    await agent_logger.error("Unexpected LLM response format", response=result)
-                    raise ValueError(f"LLM response missing 'choices' field. Keys: {list(result.keys()) if isinstance(result, dict) else 'Not a dict'}")
+                if "choices" not in response:
+                    await agent_logger.error("Unexpected LLM response format", response=response)
+                    raise ValueError(f"LLM response missing 'choices' field. Keys: {list(response.keys()) if isinstance(response, dict) else 'Not a dict'}")
                 
-                choice = result["choices"][0]
+                choice = response["choices"][0]
                 message = choice["message"]
                 
                 # Update usage
-                if "usage" in result:
-                    usage = result["usage"]
+                if "usage" in response:
+                    usage = response["usage"]
                     total_usage["prompt_tokens"] += usage.get("prompt_tokens", 0)
                     total_usage["completion_tokens"] += usage.get("completion_tokens", 0)
                     total_usage["total_tokens"] += usage.get("total_tokens", 0)
@@ -818,6 +790,18 @@ IMPORTANT: When you have gathered enough information to answer the user's questi
                     "iterations": iterations,
                     "usage": total_usage
                 }
+                
+            except Exception as e:
+                await agent_logger.error(f"Error in LLM iteration {iterations}: {str(e)}")
+                # If we have partial results, return them
+                if iterations > 1 and tool_calls_history:
+                    return {
+                        "output": f"Partial results after {iterations-1} iterations. Error: {str(e)}",
+                        "tool_calls": tool_calls_history,
+                        "iterations": iterations,
+                        "usage": total_usage
+                    }
+                raise
         
         # Max iterations reached
         await agent_logger.warning(f"Max iterations ({max_iterations}) reached")
@@ -1103,141 +1087,6 @@ IMPORTANT: When you have gathered enough information to answer the user's questi
         except Exception as e:
             await agent_logger.error(f"Failed to update usage history: {str(e)}")
             # Don't fail the execution if usage history update fails
-    
-    async def _call_groq_with_tools(
-        self,
-        llm_profile: Any,
-        agent: Agent,
-        messages: List[Dict[str, str]],
-        tools: List[Dict[str, Any]],
-        agent_logger: ServiceLogger,
-        max_iterations: int
-    ) -> Dict[str, Any]:
-        """Call Groq with tools using native client"""
-        try:
-            from groq import AsyncGroq
-            
-            client = AsyncGroq(api_key=llm_profile.api_key)
-            
-            tool_calls_history = []
-            iterations = 0
-            total_usage = {"prompt_tokens": 0, "completion_tokens": 0, "total_tokens": 0}
-            
-            while iterations < max_iterations:
-                iterations += 1
-                await agent_logger.debug(f"Groq LLM iteration {iterations}")
-                
-                # Prepare parameters
-                completion_params = {
-                    "model": llm_profile.model,
-                    "messages": messages,
-                    "temperature": agent.temperature or llm_profile.temperature,
-                    "max_tokens": agent.max_tokens or llm_profile.max_tokens,
-                    "top_p": 1,
-                    "stream": False,
-                    "stop": None
-                }
-                
-                # Add tools if available
-                if tools:
-                    completion_params["tools"] = tools
-                    if agent.require_tool_use:
-                        completion_params["tool_choice"] = "required"
-                    else:
-                        completion_params["tool_choice"] = "auto"
-                
-                # Call Groq
-                completion = await client.chat.completions.create(**completion_params)
-                
-                # Get the message
-                message = completion.choices[0].message
-                message_dict = {
-                    "role": "assistant",
-                    "content": message.content
-                }
-                
-                # Handle tool calls if present
-                if hasattr(message, 'tool_calls') and message.tool_calls:
-                    message_dict["tool_calls"] = [
-                        {
-                            "id": tc.id,
-                            "type": "function",
-                            "function": {
-                                "name": tc.function.name,
-                                "arguments": tc.function.arguments
-                            }
-                        }
-                        for tc in message.tool_calls
-                    ]
-                
-                # Update usage if available
-                if hasattr(completion, 'usage'):
-                    usage = completion.usage
-                    total_usage["prompt_tokens"] += getattr(usage, 'prompt_tokens', 0)
-                    total_usage["completion_tokens"] += getattr(usage, 'completion_tokens', 0)
-                    total_usage["total_tokens"] += getattr(usage, 'total_tokens', 0)
-                
-                # Add assistant message to history
-                messages.append(message_dict)
-                
-                # Check for tool calls
-                if "tool_calls" in message_dict and message_dict["tool_calls"]:
-                    # Execute tools
-                    tool_results = await self._execute_tool_calls(
-                        message_dict["tool_calls"],
-                        agent_logger,
-                        agent
-                    )
-                    
-                    # Add tool results to history
-                    for tool_call, result in zip(message_dict["tool_calls"], tool_results):
-                        tool_calls_history.append({
-                            "tool": tool_call["function"]["name"],
-                            "arguments": tool_call["function"]["arguments"],
-                            "result": result
-                        })
-                        
-                        messages.append({
-                            "role": "tool",
-                            "content": json.dumps(result),
-                            "tool_call_id": tool_call["id"]
-                        })
-                    
-                    # Continue conversation if not at max iterations
-                    if iterations < max_iterations:
-                        continue
-                    else:
-                        await agent_logger.warning(f"Max iterations ({max_iterations}) reached while still making tool calls")
-                
-                # No tool calls means the agent has its final answer
-                output = message.content
-                
-                # Try to parse as JSON if output schema is not text
-                if agent.output_schema != "text":
-                    try:
-                        output = json.loads(output)
-                    except:
-                        pass
-                
-                return {
-                    "output": output,
-                    "tool_calls": tool_calls_history,
-                    "iterations": iterations,
-                    "usage": total_usage
-                }
-        
-        except Exception as e:
-            await agent_logger.error(f"Groq call with tools failed: {e}")
-            raise
-        
-        # Max iterations reached
-        await agent_logger.warning(f"Max iterations ({max_iterations}) reached")
-        return {
-            "output": "Max iterations reached without completion",
-            "tool_calls": tool_calls_history,
-            "iterations": iterations,
-            "usage": total_usage
-        }
     
     async def execute_with_progress(
         self, 
