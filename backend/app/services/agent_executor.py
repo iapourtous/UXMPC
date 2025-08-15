@@ -108,10 +108,7 @@ class AgentExecutor:
                     conversation_id=conversation_id
                 )
             
-            # Prepare tools from MCP services
-            tools = await self._prepare_tools(agent.mcp_services, agent_logger, agent)
-            
-            # Load relevant context from memory if enabled
+            # Load relevant context from memory if enabled (do this first)
             memory_context = None
             if hasattr(agent, 'memory_enabled') and agent.memory_enabled:
                 memory_context = await self._load_memory_context(
@@ -137,8 +134,11 @@ class AgentExecutor:
             if loaded_history and not execution_request.conversation_history:
                 execution_request.conversation_history = loaded_history
             
-            # Build messages
-            messages = self._build_messages(agent, execution_request, memory_context)
+            # Prepare tools from MCP services (BEFORE building messages)
+            tools = await self._prepare_tools(agent.mcp_services, agent_logger, agent)
+            
+            # Build messages with tools context
+            messages = self._build_messages(agent, execution_request, memory_context, tools)
             
             # Apply conversation compaction if enabled
             messages_for_agent = messages
@@ -566,7 +566,54 @@ class AgentExecutor:
         
         return tools
     
-    def _build_messages(self, agent: Agent, execution_request: AgentExecution, memory_context: Optional[str] = None) -> List[Dict[str, str]]:
+    def _format_tools_for_context(self, tools: List[Dict[str, Any]]) -> str:
+        """Format tool definitions for inclusion in system context"""
+        if not tools:
+            return ""
+        
+        formatted = "## Available Tools and Their Capabilities\n\n"
+        formatted += "You have access to the following tools. Use them when needed to gather information or perform actions:\n\n"
+        
+        for i, tool in enumerate(tools, 1):
+            if tool.get("type") != "function":
+                continue
+                
+            func = tool.get("function", {})
+            name = func.get("name", "unknown")
+            description = func.get("description", "No description available")
+            params = func.get("parameters", {})
+            
+            # Tool header
+            formatted += f"### {i}. {name}\n"
+            formatted += f"{description}\n"
+            
+            # Parameters
+            properties = params.get("properties", {})
+            required = params.get("required", [])
+            
+            if properties:
+                formatted += "**Parameters:**\n"
+                for param_name, param_info in properties.items():
+                    param_type = param_info.get("type", "any")
+                    param_desc = param_info.get("description", "No description")
+                    is_required = param_name in required
+                    req_text = "required" if is_required else "optional"
+                    
+                    formatted += f"  - `{param_name}` ({param_type}, {req_text}): {param_desc}\n"
+            else:
+                formatted += "**Parameters:** None\n"
+            
+            formatted += "\n"
+        
+        formatted += "💡 **How to use tools:**\n"
+        formatted += "- Call tools when you need specific information or to perform actions\n"
+        formatted += "- Provide all required parameters\n"
+        formatted += "- You can call multiple tools in sequence if needed\n"
+        formatted += "- Once you have gathered all necessary information, provide your final answer\n\n"
+        
+        return formatted
+    
+    def _build_messages(self, agent: Agent, execution_request: AgentExecution, memory_context: Optional[str] = None, tools: Optional[List[Dict[str, Any]]] = None) -> List[Dict[str, str]]:
         """Build message list for LLM"""
         messages = []
         
@@ -625,6 +672,12 @@ class AgentExecutor:
         # Add memory context if available
         if memory_context:
             system_content += f"# Relevant Context from Memory\n{memory_context}\n\n"
+        
+        # Add available tools to context
+        if tools:
+            tools_description = self._format_tools_for_context(tools)
+            if tools_description:
+                system_content += tools_description
         
         # Add memory tools instructions if enabled
         if hasattr(agent, 'memory_enabled') and agent.memory_enabled:
@@ -1166,8 +1219,8 @@ IMPORTANT: When you have gathered enough information to answer the user's questi
                     agent_logger=agent_logger
                 )
             
-            # Build messages
-            messages = self._build_messages(agent, execution_request, memory_context)
+            # Build messages with tools context
+            messages = self._build_messages(agent, execution_request, memory_context, tools)
             
             # Execute with LLM iterations
             total_usage = {"prompt_tokens": 0, "completion_tokens": 0, "total_tokens": 0}

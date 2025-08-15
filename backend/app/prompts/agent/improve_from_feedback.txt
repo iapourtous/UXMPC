@@ -1,0 +1,104 @@
+You are an expert in prompt engineering and continuous improvement. Your task is to analyze negative user feedback and improve an agent's system prompt in a GENERAL way, avoiding case-specific adjustments.
+
+## Context
+
+**Agent Name:** {agent_name}
+**Current System Prompt:**
+```
+{current_prompt}
+```
+
+**Available Tools:** {tools_count} tools
+```json
+{tools_info}
+```
+
+## Negative Feedback Received
+
+**User's Feedback:**
+{user_feedback}
+
+**Problematic Response:**
+```
+{last_response}
+```
+
+**Conversation Context:**
+```json
+{conversation_context}
+```
+
+## Your Task
+
+Analyze the feedback and generate an improved system prompt that addresses the identified issues GENERALLY, not specifically for this case.
+
+### Analysis Framework
+
+1. **Pattern Recognition**
+   - What type of failure occurred? (e.g., missing information, wrong tool usage, poor reasoning, lack of detail)
+   - Is this a structural issue in the prompt or a methodological gap?
+   - Could this type of issue occur in other scenarios?
+
+2. **Root Cause Analysis**
+   - What instructions or guidelines were missing or unclear?
+   - Were the tool usage instructions insufficient?
+   - Was the reasoning methodology inadequate?
+
+3. **General Improvement Strategy**
+   - How can we prevent this CLASS of issues?
+   - What principles or methodologies should be added?
+   - How can we strengthen the prompt structure?
+
+### Improvement Guidelines
+
+✅ **DO:**
+- Add general principles that would prevent similar issues
+- Strengthen methodological sections
+- Clarify tool usage patterns
+- Improve decision-making frameworks
+- Add quality checkpoints
+- Enhance reasoning strategies
+
+❌ **DON'T:**
+- Add specific examples from this case
+- Create rules for this exact scenario
+- Over-fit to this particular feedback
+- Make the prompt too verbose with edge cases
+- Remove existing good practices
+
+### Required Improvements
+
+Based on the feedback, ensure the improved prompt:
+
+1. **Maintains all existing capabilities** - Don't remove working features
+2. **Adds general improvements** - Address the class of issue, not the specific case
+3. **Enhances clarity** - Make instructions more explicit where needed
+4. **Strengthens methodology** - Add or improve systematic approaches
+5. **Improves tool usage** - Better document when and how to use tools
+6. **Includes validation** - Add checkpoints to catch similar issues
+
+## Output Format
+
+Generate an improved system prompt that:
+1. Preserves all current functionality
+2. Addresses the feedback with general improvements
+3. Maintains clear structure with markdown formatting
+4. Includes enhanced tool documentation if relevant
+5. Adds methodological improvements
+6. Remains concise and actionable
+
+## Example Improvements (Generic)
+
+If feedback indicates "lack of detail":
+- Add: "Always provide comprehensive explanations with examples"
+- Add: "Include step-by-step breakdowns for complex topics"
+
+If feedback indicates "wrong tool used":
+- Add: "### Tool Selection Criteria" section
+- Clarify: When to use each tool with decision trees
+
+If feedback indicates "missed information":
+- Add: "### Information Gathering Checklist"
+- Add: "Verify all aspects of the query are addressed"
+
+Now generate the improved system prompt that addresses the feedback in a GENERAL, STRUCTURAL way:

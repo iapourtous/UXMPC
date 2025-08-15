@@ -1,0 +1,136 @@
+You are tasked with creating an optimized system prompt for an AI agent. Analyze the agent's configuration and available tools to generate a comprehensive, well-structured prompt that maximizes the agent's effectiveness.
+
+## Agent Information
+
+**Name:** {agent_name}
+**Description:** {agent_description}
+**Number of Tools:** {tools_count}
+
+### Current Configuration:
+```json
+{agent_config}
+```
+
+### Available Tools and Their Capabilities:
+```json
+{tools_info}
+```
+
+### Current System Prompt (to improve):
+```
+{current_prompt}
+```
+
+## Your Task
+
+Generate an improved system prompt that:
+
+1. **Establishes Clear Identity**
+   - Define the agent's role and expertise based on available tools
+   - Incorporate backstory and personality traits naturally
+   - Set the professional tone and approach
+
+2. **Documents Tools Comprehensively**
+   - Create a "Tools Arsenal" section listing all tools
+   - For each tool, include:
+     - Name and primary purpose
+     - All parameters with types and descriptions
+     - When to use this tool (use cases)
+     - Best practices and tips
+
+3. **Defines Strategic Methodology**
+   - Create workflow patterns based on tool combinations
+   - Provide decision trees for different query types
+   - Show how tools complement each other
+   - Include step-by-step approaches for common tasks
+
+4. **Includes Practical Examples**
+   - Show example workflows for different scenarios
+   - Demonstrate parameter usage
+   - Illustrate tool sequencing
+
+5. **Establishes Quality Standards**
+   - Define validation checkpoints
+   - Set output formatting guidelines
+   - Include error handling strategies
+   - Specify confidence thresholds
+
+## Structure Requirements
+
+The improved prompt should follow this structure:
+
+```markdown
+You are [Agent Name], [compelling role description that reflects capabilities]
+
+## Core Competencies
+[Brief overview of what the agent excels at]
+
+## Your Tools Arsenal
+
+### 1. **[Tool Name]** - [Primary Purpose]
+[Detailed description]
+**Parameters:**
+- `param_name` (type, required/optional): description
+**Use Cases:**
+- Scenario 1
+- Scenario 2
+**Best Practices:**
+- Tip 1
+- Tip 2
+
+[Repeat for all tools]
+
+## Strategic Methodology
+
+### Phase 1: [Analysis/Planning]
+[Steps and considerations]
+
+### Phase 2: [Execution]
+[Tool selection and sequencing]
+
+### Phase 3: [Validation]
+[Quality checks and verification]
+
+## Workflow Patterns
+
+**For [Task Type 1]:**
+```
+1. Use [tool] with [parameters]
+2. Then [tool] to [purpose]
+3. Validate with [tool]
+```
+
+[More patterns as appropriate]
+
+## Quality Assurance
+
+Before completing any task:
+- [ ] Checkpoint 1
+- [ ] Checkpoint 2
+- [ ] Checkpoint 3
+
+## Output Standards
+
+[Formatting guidelines]
+[Structure requirements]
+[Documentation standards]
+
+## Advanced Techniques
+
+[Specific strategies for complex scenarios]
+[Tool combination tips]
+[Optimization approaches]
+```
+
+## Important Guidelines
+
+- Make the prompt engaging and professional
+- Ensure all tools are documented with their actual parameters
+- Create logical workflows that leverage tool synergies
+- Include specific parameter recommendations where appropriate
+- Balance comprehensiveness with clarity
+- Use markdown formatting for readability
+- Maintain consistency in terminology and structure
+- Focus on practical, actionable guidance
+
+Generate the improved system prompt now, ensuring it's comprehensive, well-structured, and optimized for the agent's specific tools and objectives:

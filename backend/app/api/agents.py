@@ -12,6 +12,7 @@ from app.services.agent_crud import agent_crud
 from app.services.agent_executor import agent_executor
 from app.core.agent_router import mount_agent, unmount_agent
 from app.services.agent_to_tool_converter import agent_to_tool_converter
+from app.services.agent_prompt_improver import agent_prompt_improver
 import logging
 
 router = APIRouter()
@@ -257,6 +258,104 @@ async def convert_agent_to_tool(agent_id: str):
             status_code=400,
             detail=result["error"]
         )
+
+
+@router.get("/{agent_id}/improve-prompt")
+async def improve_agent_prompt(agent_id: str):
+    """
+    Generate an improved system prompt for the agent based on its tools and configuration.
+    Streams progress updates via SSE.
+    """
+    async def generate_stream():
+        try:
+            async for update in agent_prompt_improver.improve_system_prompt(agent_id, stream=True):
+                yield f"data: {json.dumps(update)}\n\n"
+                
+                # Send heartbeat for long-running operations
+                if update.get("step") == "generating":
+                    yield ": heartbeat\n\n"
+                    
+        except Exception as e:
+            logger.error(f"Error improving prompt: {str(e)}")
+            error_update = {
+                "step": "error",
+                "message": f"Failed to improve prompt: {str(e)}",
+                "error": True
+            }
+            yield f"data: {json.dumps(error_update)}\n\n"
+        
+        finally:
+            # Send stream close event
+            yield "data: [DONE]\n\n"
+    
+    return StreamingResponse(
+        generate_stream(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no"  # Disable Nginx buffering
+        }
+    )
+
+
+@router.get("/{agent_id}/improve-from-feedback")
+async def improve_agent_prompt_from_feedback(
+    agent_id: str,
+    feedback: str = "",
+    last_response: str = "",
+    context: Optional[str] = None
+):
+    """
+    Improve agent's system prompt based on negative user feedback.
+    Focuses on general improvements, not case-specific adjustments.
+    Streams progress updates via SSE.
+    """
+    # Parse context if provided
+    conversation_context = None
+    if context:
+        try:
+            conversation_context = json.loads(context)
+        except:
+            conversation_context = None
+    
+    async def generate_stream():
+        try:
+            async for update in agent_prompt_improver.improve_prompt_from_feedback(
+                agent_id=agent_id,
+                user_feedback=feedback,
+                last_response=last_response,
+                conversation_context=conversation_context,
+                stream=True
+            ):
+                yield f"data: {json.dumps(update)}\n\n"
+                
+                # Send heartbeat for long-running operations
+                if update.get("step") in ["generating", "analyzing_patterns"]:
+                    yield ": heartbeat\n\n"
+                    
+        except Exception as e:
+            logger.error(f"Error improving prompt from feedback: {str(e)}")
+            error_update = {
+                "step": "error",
+                "message": f"Failed to improve prompt: {str(e)}",
+                "error": True
+            }
+            yield f"data: {json.dumps(error_update)}\n\n"
+        
+        finally:
+            # Send stream close event
+            yield "data: [DONE]\n\n"
+    
+    return StreamingResponse(
+        generate_stream(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no"  # Disable Nginx buffering
+        }
+    )
 
 
 @router.post("/{agent_id}/debug-prompt")

@@ -17,7 +17,12 @@ UXMCP est une plateforme complète de gestion de services MCP (Model Context Pro
 
 ### 🤖 Agents IA Intelligents
 - **Configuration 7D avancée** : Backstory, Objectifs, Contraintes, Mémoire, Raisonnement, Personnalité, Politiques de décision
-- **Chain of Thought Adaptatif** : Système de raisonnement multi-étapes inspiré d'Auto-CoT avec sélection automatique de stratégies
+- **Chain of Thought Adaptatif** : Système de raisonnement multi-étapes inspiré d'Auto-CoT avec sélection automatique de stratégies et validation automatique
+- **Amélioration continue des prompts** : 
+  - Bouton de feedback négatif (👎) sur chaque réponse d'agent
+  - Analyse intelligente des problèmes signalés par les utilisateurs
+  - Génération d'améliorations générales évitant le sur-ajustement
+  - Prévisualisation et application directe des prompts améliorés
 - **Mémoire persistante avec ChromaDB** : Les agents se souviennent des interactions passées
 - **Accès à tous les outils MCP** : Utilisation dynamique de tous les services actifs
 - **Chat agentique avancé** : Interface de conversation avec prévisualisation HTML intégrée

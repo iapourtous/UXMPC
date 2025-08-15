@@ -18,7 +18,9 @@ import {
   Tooltip,
   Tag,
   Slider,
-  Radio
+  Radio,
+  Modal,
+  Progress
 } from 'antd';
 import {
   SaveOutlined,
@@ -34,7 +36,8 @@ import {
   DatabaseOutlined,
   ThunderboltOutlined,
   SmileOutlined,
-  SettingOutlined
+  SettingOutlined,
+  ExperimentOutlined
 } from '@ant-design/icons';
 import CodeMirror from '@uiw/react-codemirror';
 import { json } from '@codemirror/lang-json';
@@ -43,6 +46,8 @@ import { agentsApi, llmApi, servicesApi, mcpConnectionsApi } from '../services/a
 const { Option } = Select;
 const { TextArea } = Input;
 const { Title, Text } = Typography;
+
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
 
 const AgentForm = () => {
   const navigate = useNavigate();
@@ -59,6 +64,11 @@ const AgentForm = () => {
   const [showMemory, setShowMemory] = useState(false);
   const [objectives, setObjectives] = useState(['']);
   const [constraints, setConstraints] = useState(['']);
+  const [improvingPrompt, setImprovingPrompt] = useState(false);
+  const [improveModalVisible, setImproveModalVisible] = useState(false);
+  const [improvedPrompt, setImprovedPrompt] = useState('');
+  const [improveProgress, setImproveProgress] = useState(0);
+  const [improveMessage, setImproveMessage] = useState('');
 
   useEffect(() => {
     fetchDependencies();
@@ -152,6 +162,78 @@ const AgentForm = () => {
     const newConstraints = [...constraints];
     newConstraints[index] = value;
     setConstraints(newConstraints);
+  };
+
+  const handleImprovePrompt = async () => {
+    if (!id) {
+      message.warning('Please save the agent first before improving the prompt');
+      return;
+    }
+
+    setImprovingPrompt(true);
+    setImproveProgress(0);
+    setImproveMessage('Starting prompt improvement...');
+    setImproveModalVisible(true);
+
+    try {
+      const eventSource = new EventSource(`${API_URL}/agents/${id}/improve-prompt`);
+      
+      eventSource.onmessage = (event) => {
+        if (event.data === '[DONE]') {
+          eventSource.close();
+          setImprovingPrompt(false);
+          return;
+        }
+
+        try {
+          const update = JSON.parse(event.data);
+          
+          if (update.step === 'error') {
+            message.error(update.message || 'Failed to improve prompt');
+            eventSource.close();
+            setImprovingPrompt(false);
+            setImproveModalVisible(false);
+            return;
+          }
+
+          // Update progress and message
+          if (update.progress) {
+            setImproveProgress(update.progress);
+          }
+          if (update.message) {
+            setImproveMessage(update.message);
+          }
+
+          // Handle completion
+          if (update.step === 'complete' && update.improved_prompt) {
+            setImprovedPrompt(update.improved_prompt);
+            setImprovingPrompt(false);
+            message.success('Prompt improved successfully!');
+          }
+        } catch (e) {
+          console.error('Failed to parse SSE data:', e);
+        }
+      };
+
+      eventSource.onerror = (error) => {
+        console.error('SSE Error:', error);
+        eventSource.close();
+        setImprovingPrompt(false);
+        message.error('Connection lost while improving prompt');
+      };
+    } catch (error) {
+      console.error('Failed to improve prompt:', error);
+      message.error('Failed to improve prompt');
+      setImprovingPrompt(false);
+      setImproveModalVisible(false);
+    }
+  };
+
+  const handleAcceptImprovedPrompt = () => {
+    form.setFieldsValue({ system_prompt: improvedPrompt });
+    setImproveModalVisible(false);
+    setImprovedPrompt('');
+    message.success('Improved prompt applied! Remember to save the agent.');
   };
 
   const handleSubmit = async (values) => {
@@ -423,9 +505,20 @@ const AgentForm = () => {
                 </Tooltip>
               </Space>
             }
+            extra={
+              <Button
+                type="primary"
+                icon={<ExperimentOutlined />}
+                onClick={handleImprovePrompt}
+                disabled={!id}
+                style={{ marginTop: 8 }}
+              >
+                ✨ Improve System Prompt with AI
+              </Button>
+            }
           >
             <TextArea
-              rows={4}
+              rows={8}
               placeholder="You are a helpful assistant that..."
             />
           </Form.Item>
@@ -980,6 +1073,76 @@ const AgentForm = () => {
           </Form.Item>
         </Form>
       </Card>
+
+      {/* Improve Prompt Modal */}
+      <Modal
+        title={
+          <Space>
+            <ExperimentOutlined />
+            AI-Powered Prompt Improvement
+          </Space>
+        }
+        open={improveModalVisible}
+        onCancel={() => !improvingPrompt && setImproveModalVisible(false)}
+        width={900}
+        footer={
+          improvingPrompt ? null : [
+            <Button key="cancel" onClick={() => setImproveModalVisible(false)}>
+              Cancel
+            </Button>,
+            <Button
+              key="apply"
+              type="primary"
+              onClick={handleAcceptImprovedPrompt}
+              disabled={!improvedPrompt}
+            >
+              Apply Improved Prompt
+            </Button>
+          ]
+        }
+      >
+        {improvingPrompt ? (
+          <div style={{ textAlign: 'center', padding: '40px 0' }}>
+            <Progress
+              type="circle"
+              percent={improveProgress}
+              status="active"
+            />
+            <div style={{ marginTop: 20 }}>
+              <Text>{improveMessage}</Text>
+            </div>
+          </div>
+        ) : improvedPrompt ? (
+          <div>
+            <Alert
+              message="Improved System Prompt Generated"
+              description="Review the improved prompt below. You can apply it to your agent or modify it further."
+              type="success"
+              showIcon
+              style={{ marginBottom: 16 }}
+            />
+            <div style={{ 
+              maxHeight: '500px', 
+              overflow: 'auto',
+              border: '1px solid #d9d9d9',
+              borderRadius: '4px',
+              padding: '12px'
+            }}>
+              <CodeMirror
+                value={improvedPrompt}
+                height="400px"
+                editable={false}
+                theme="light"
+              />
+            </div>
+            <div style={{ marginTop: 16 }}>
+              <Text type="secondary">
+                This prompt has been optimized based on your agent's tools and configuration.
+              </Text>
+            </div>
+          </div>
+        ) : null}
+      </Modal>
     </div>
   );
 };

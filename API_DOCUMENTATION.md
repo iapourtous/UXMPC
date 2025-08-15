@@ -347,6 +347,67 @@ eventSource.onerror = (error) => {
 - Résultats partiels disponibles
 - Maintien de connexion automatique
 
+#### GET /agents/{agent_id}/improve-prompt
+Génère un prompt système amélioré basé sur les outils et la configuration de l'agent.
+
+**Méthode:** GET (SSE streaming)
+
+**Response:** Server-Sent Events avec progression
+```
+data: {"step": "loading", "message": "Loading agent configuration...", "progress": 10}
+data: {"step": "analyzing_tools", "message": "Analyzing 5 available tools...", "progress": 20}
+data: {"step": "generating", "message": "Generating optimized system prompt...", "progress": 50}
+data: {"step": "complete", "message": "System prompt optimization complete!", "progress": 100, 
+       "improved_prompt": "...", 
+       "metadata": {"tools_analyzed": 5, "agent_name": "my-agent", "optimization_model": "gpt-4"}}
+data: [DONE]
+```
+
+#### GET /agents/{agent_id}/improve-from-feedback
+Améliore le prompt système basé sur un feedback négatif de l'utilisateur. Focus sur les améliorations générales, pas cas par cas.
+
+**Méthode:** GET (SSE streaming)
+
+**Query Parameters:**
+- `feedback` (string, required): Description du problème par l'utilisateur
+- `last_response` (string, required): La réponse problématique de l'agent
+- `context` (string, optional): Contexte de conversation (JSON stringifié des derniers messages)
+
+**Exemple de requête:**
+```
+GET /agents/123/improve-from-feedback?feedback=L'agent%20manque%20de%20détails&last_response=Réponse%20courte&context=[{"role":"user","content":"Question"}]
+```
+
+**Response:** Server-Sent Events avec progression et prompt amélioré
+```
+data: {"step": "loading", "message": "Loading agent configuration...", "progress": 10}
+data: {"step": "analyzing_feedback", "message": "Analyzing feedback and context...", "progress": 20}
+data: {"step": "analyzing_patterns", "message": "Identifying improvement patterns...", "progress": 30}
+data: {"step": "generating", "message": "Generating improved system prompt based on feedback...", "progress": 60}
+data: {"step": "analyzing_improvements", "message": "Analyzing improvements made...", "progress": 80}
+data: {"step": "complete", "message": "System prompt improved based on feedback!", "progress": 100, 
+       "improved_prompt": "...", 
+       "improvement_summary": {
+         "length_change": 250,
+         "sections_added": 2,
+         "lists_added": 5,
+         "has_new_methodology": true,
+         "has_new_validation": true
+       },
+       "metadata": {
+         "agent_name": "my-agent", 
+         "feedback_addressed": "L'agent manque de détails...",
+         "optimization_model": "gpt-4"
+       }}
+data: [DONE]
+```
+
+**Caractéristiques:**
+- **Améliorations générales**: Évite le sur-ajustement à des cas spécifiques
+- **Analyse de patterns**: Identifie les types de défaillances (manque de détail, mauvaise interprétation, etc.)
+- **Améliorations structurelles**: Ajoute des sections, clarifie les instructions, renforce les méthodologies
+- **Validation**: Vérifie que le nouveau prompt reste cohérent avec les outils disponibles
+
 ### 🧠 Profils LLM (/llms)
 
 #### POST /llms/

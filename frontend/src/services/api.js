@@ -47,6 +47,15 @@ export const agentsApi = {
   execute: (id, data) => api.post(`/agents/${id}/execute`, data),
   validate: (id) => api.get(`/agents/${id}/validate`),
   convertToTool: (id) => api.post(`/agents/${id}/convert-to-tool`),
+  improvePrompt: (id) => `/api/agents/${id}/improve-prompt`, // Returns SSE endpoint URL
+  improveFromFeedback: (id, feedback, lastResponse, context) => {
+    const params = new URLSearchParams({
+      feedback,
+      last_response: lastResponse,
+      context: JSON.stringify(context)
+    });
+    return `${API_URL}/agents/${id}/improve-from-feedback?${params}`;
+  }
 };
 
 // Conversations API

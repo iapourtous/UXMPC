@@ -4,7 +4,7 @@ import { agentsApi, conversationsApi, demosApi } from '../services/api';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { Select, Button, Input, Drawer, List, Typography, Popconfirm, message, Modal, Tooltip, Tag } from 'antd';
-import { SendOutlined, ClearOutlined, HistoryOutlined, DeleteOutlined, PlusOutlined, SaveOutlined, EyeOutlined, ExperimentOutlined, CompressOutlined, BugOutlined } from '@ant-design/icons';
+import { SendOutlined, ClearOutlined, HistoryOutlined, DeleteOutlined, PlusOutlined, SaveOutlined, EyeOutlined, ExperimentOutlined, CompressOutlined, BugOutlined, DislikeOutlined, LikeOutlined } from '@ant-design/icons';
 import axios from 'axios';
 
 const { TextArea } = Input;
@@ -30,6 +30,12 @@ function ChatWithAgents() {
   const [debugModalOpen, setDebugModalOpen] = useState(false);
   const [debugPromptData, setDebugPromptData] = useState(null);
   const [debugUserMessage, setDebugUserMessage] = useState('');
+  const [feedbackModalOpen, setFeedbackModalOpen] = useState(false);
+  const [feedbackMessage, setFeedbackMessage] = useState(null);
+  const [feedbackText, setFeedbackText] = useState('');
+  const [improvingPrompt, setImprovingPrompt] = useState(false);
+  const [improvedPromptModalOpen, setImprovedPromptModalOpen] = useState(false);
+  const [improvedPromptData, setImprovedPromptData] = useState(null);
   const messagesEndRef = useRef(null);
   const queryClient = useQueryClient();
   
@@ -445,6 +451,111 @@ function ChatWithAgents() {
       message.error('Failed to debug prompt: ' + (error.response?.data?.detail || error.message));
     }
   };
+
+  // Handle feedback improvement
+  const handleImproveFromFeedback = async () => {
+    if (!selectedAgent || !feedbackMessage) {
+      message.warning('Missing agent or feedback message');
+      return;
+    }
+
+    setImprovingPrompt(true);
+    
+    try {
+      // Get recent conversation context
+      const contextMessages = messages.slice(-10).map(msg => ({
+        role: msg.role === 'error' ? 'assistant' : msg.role,
+        content: msg.content
+      }));
+
+      // Build URL with query parameters
+      const params = new URLSearchParams({
+        feedback: feedbackText,
+        last_response: feedbackMessage.content,
+        context: JSON.stringify(contextMessages)
+      });
+
+      const eventSource = new EventSource(`${API_URL}/agents/${selectedAgent}/improve-from-feedback?${params}`);
+      
+      eventSource.onmessage = (event) => {
+        if (event.data === '[DONE]') {
+          eventSource.close();
+          setImprovingPrompt(false);
+          setFeedbackModalOpen(false);
+          setFeedbackText('');
+          setFeedbackMessage(null);
+          return;
+        }
+
+        try {
+          const update = JSON.parse(event.data);
+          
+          if (update.step === 'error') {
+            message.error(update.message || 'Failed to improve prompt');
+            eventSource.close();
+            setImprovingPrompt(false);
+            return;
+          }
+
+          // Show progress messages
+          if (update.message) {
+            message.info(update.message, 2);
+          }
+
+          // Handle completion
+          if (update.step === 'complete' && update.improved_prompt) {
+            setImprovedPromptData(update);
+            setImprovedPromptModalOpen(true);
+            message.success('System prompt improved successfully!');
+          }
+        } catch (e) {
+          console.error('Failed to parse SSE data:', e);
+        }
+      };
+
+      eventSource.onerror = (error) => {
+        console.error('SSE Error:', error);
+        eventSource.close();
+        setImprovingPrompt(false);
+        message.error('Connection lost while improving prompt');
+      };
+    } catch (error) {
+      console.error('Failed to improve prompt from feedback:', error);
+      message.error('Failed to improve prompt from feedback');
+      setImprovingPrompt(false);
+    }
+  };
+
+  // Apply improved prompt to agent
+  const handleApplyImprovedPrompt = async () => {
+    if (!selectedAgent || !improvedPromptData) {
+      return;
+    }
+
+    try {
+      // Update agent with new system prompt
+      const agent = agents.find(a => a.id === selectedAgent);
+      if (!agent) {
+        message.error('Agent not found');
+        return;
+      }
+
+      await agentsApi.update(selectedAgent, {
+        ...agent,
+        system_prompt: improvedPromptData.improved_prompt
+      });
+
+      message.success('System prompt updated successfully!');
+      setImprovedPromptModalOpen(false);
+      setImprovedPromptData(null);
+      
+      // Refresh agents list
+      queryClient.invalidateQueries(['agents']);
+    } catch (error) {
+      console.error('Failed to apply improved prompt:', error);
+      message.error('Failed to apply improved prompt');
+    }
+  };
   
   // Filter agents that have text input/output schemas
   const textAgents = agents.filter(agent => {
@@ -604,6 +715,19 @@ function ChatWithAgents() {
                     </div>
                   )}
                 </div>
+                {/* Feedback button for assistant messages */}
+                {message.role === 'assistant' && (
+                  <button
+                    onClick={() => {
+                      setFeedbackMessage(message);
+                      setFeedbackModalOpen(true);
+                    }}
+                    className="ml-auto opacity-0 group-hover:opacity-100 transition-opacity duration-200 p-1 hover:bg-gray-100 rounded-lg"
+                    title="Report issue with this response"
+                  >
+                    <DislikeOutlined className="text-gray-500 hover:text-red-500" />
+                  </button>
+                )}
               </div>
               <div className="message-content">
                 {message.role === 'assistant' ? (
@@ -1025,6 +1149,146 @@ function ChatWithAgents() {
                   </div>
                 ))}
               </div>
+            </div>
+          </div>
+        )}
+      </Modal>
+
+      {/* Feedback Modal */}
+      <Modal
+        title={
+          <div className="flex items-center gap-2">
+            <DislikeOutlined className="text-red-500" />
+            <span>Report Issue with Response</span>
+          </div>
+        }
+        open={feedbackModalOpen}
+        onCancel={() => {
+          setFeedbackModalOpen(false);
+          setFeedbackText('');
+          setFeedbackMessage(null);
+        }}
+        footer={[
+          <Button
+            key="cancel"
+            onClick={() => {
+              setFeedbackModalOpen(false);
+              setFeedbackText('');
+              setFeedbackMessage(null);
+            }}
+          >
+            Cancel
+          </Button>,
+          <Button
+            key="improve"
+            type="primary"
+            loading={improvingPrompt}
+            disabled={!feedbackText.trim()}
+            onClick={handleImproveFromFeedback}
+          >
+            Improve System Prompt
+          </Button>
+        ]}
+        width={700}
+      >
+        {feedbackMessage && (
+          <div className="space-y-4">
+            <div>
+              <h4 className="font-medium mb-2">Problematic Response:</h4>
+              <div className="bg-gray-50 p-3 rounded-lg max-h-48 overflow-y-auto">
+                <ReactMarkdown className="prose prose-sm max-w-none">
+                  {feedbackMessage.content}
+                </ReactMarkdown>
+              </div>
+            </div>
+            
+            <div>
+              <h4 className="font-medium mb-2">What was wrong with this response?</h4>
+              <TextArea
+                value={feedbackText}
+                onChange={(e) => setFeedbackText(e.target.value)}
+                placeholder="Describe what was missing, incorrect, or could be improved..."
+                rows={4}
+                className="w-full"
+              />
+              <p className="text-xs text-gray-500 mt-2">
+                Your feedback will be used to improve the agent's system prompt in a general way, 
+                not just for this specific case.
+              </p>
+            </div>
+          </div>
+        )}
+      </Modal>
+
+      {/* Improved Prompt Preview Modal */}
+      <Modal
+        title={
+          <div className="flex items-center gap-2">
+            <ExperimentOutlined className="text-green-500" />
+            <span>Improved System Prompt</span>
+          </div>
+        }
+        open={improvedPromptModalOpen}
+        onCancel={() => {
+          setImprovedPromptModalOpen(false);
+          setImprovedPromptData(null);
+        }}
+        footer={[
+          <Button
+            key="cancel"
+            onClick={() => {
+              setImprovedPromptModalOpen(false);
+              setImprovedPromptData(null);
+            }}
+          >
+            Cancel
+          </Button>,
+          <Button
+            key="apply"
+            type="primary"
+            onClick={handleApplyImprovedPrompt}
+          >
+            Apply Improved Prompt
+          </Button>
+        ]}
+        width={900}
+      >
+        {improvedPromptData && (
+          <div className="space-y-4">
+            {improvedPromptData.improvement_summary && (
+              <div className="bg-blue-50 p-3 rounded-lg">
+                <h4 className="font-medium mb-2">Improvements Made:</h4>
+                <ul className="text-sm space-y-1">
+                  {improvedPromptData.improvement_summary.length_change !== 0 && (
+                    <li>• Length change: {improvedPromptData.improvement_summary.length_change > 0 ? '+' : ''}{improvedPromptData.improvement_summary.length_change} characters</li>
+                  )}
+                  {improvedPromptData.improvement_summary.sections_added > 0 && (
+                    <li>• Added {improvedPromptData.improvement_summary.sections_added} new sections</li>
+                  )}
+                  {improvedPromptData.improvement_summary.lists_added > 0 && (
+                    <li>• Added {improvedPromptData.improvement_summary.lists_added} new list items</li>
+                  )}
+                  {improvedPromptData.improvement_summary.has_new_methodology && (
+                    <li>• Added methodology guidelines</li>
+                  )}
+                  {improvedPromptData.improvement_summary.has_new_validation && (
+                    <li>• Added validation checkpoints</li>
+                  )}
+                </ul>
+              </div>
+            )}
+            
+            <div>
+              <h4 className="font-medium mb-2">New System Prompt:</h4>
+              <div className="bg-gray-50 p-4 rounded-lg max-h-96 overflow-y-auto">
+                <ReactMarkdown className="prose prose-sm max-w-none">
+                  {improvedPromptData.improved_prompt}
+                </ReactMarkdown>
+              </div>
+            </div>
+            
+            <div className="text-sm text-gray-600">
+              <p>This improved prompt addresses the reported issue while maintaining general applicability.</p>
             </div>
           </div>
         )}
