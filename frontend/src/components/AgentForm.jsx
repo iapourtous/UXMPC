@@ -315,7 +315,7 @@ const AgentForm = () => {
             explain_decisions: false,
             max_retries: 3,
             max_memories: 1000,
-            embedding_model: 'all-MiniLM-L6-v2',
+            embedding_model: 'intfloat/multilingual-e5-large',
             search_k: 5
           }}
         >
@@ -849,9 +849,10 @@ const AgentForm = () => {
                     label="Embedding Model"
                   >
                     <Select>
-                      <Option value="all-MiniLM-L6-v2">all-MiniLM-L6-v2</Option>
-                      <Option value="all-mpnet-base-v2">all-mpnet-base-v2</Option>
-                      <Option value="paraphrase-MiniLM-L6-v2">paraphrase-MiniLM-L6-v2</Option>
+                      <Option value="intfloat/multilingual-e5-large">intfloat/multilingual-e5-large (Recommended - Multilingual)</Option>
+                      <Option value="all-MiniLM-L6-v2">all-MiniLM-L6-v2 (English only)</Option>
+                      <Option value="all-mpnet-base-v2">all-mpnet-base-v2 (English only)</Option>
+                      <Option value="paraphrase-MiniLM-L6-v2">paraphrase-MiniLM-L6-v2 (English only)</Option>
                     </Select>
                   </Form.Item>
                 </Col>

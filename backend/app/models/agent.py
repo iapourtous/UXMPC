@@ -69,7 +69,7 @@ class AgentBase(BaseModel):
     memory_config: Dict[str, Any] = Field(
         default={
             "max_memories": 1000,
-            "embedding_model": "all-MiniLM-L6-v2",
+            "embedding_model": "intfloat/multilingual-e5-large",
             "search_k": 5
         },
         description="Memory configuration (max items, embedding model, search parameters)"

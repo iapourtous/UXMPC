@@ -33,7 +33,7 @@ def _ensure_sentence_transformer():
 class AgentEmbeddingService:
     """Service for calculating embeddings for agents based on their usage history"""
     
-    def __init__(self, model_name: str = "all-MiniLM-L6-v2"):
+    def __init__(self, model_name: str = "intfloat/multilingual-e5-large"):
         """
         Initialize the embedding service
         
