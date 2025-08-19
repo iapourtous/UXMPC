@@ -116,15 +116,24 @@ sequenceDiagram
 
 ## 🖼️ Image Galleries
 
-For multiple related images, use the gallery syntax:
+For multiple related images, use the gallery code block syntax (just like Vega-Lite and Mermaid):
 
-```markdown
+**CRITICAL: Use triple backticks with `gallery` language identifier:**
+
+```gallery
+![Description 1](url1.jpg)
+![Description 2](url2.jpg)
+![Description 3](url3.jpg)
+```
+
+**Alternative syntax (also supported):**
 :::gallery
 ![Description 1](url1.jpg)
 ![Description 2](url2.jpg)
 ![Description 3](url3.jpg)
 :::
-```
+
+**⚠️ IMPORTANT: Do NOT wrap gallery syntax in markdown code blocks! Use it directly in your response.**
 
 This creates an interactive carousel with navigation controls.
 
@@ -171,12 +180,12 @@ Embed videos directly in responses:
 
 ## 💡 Pro Tips
 
-1. **Combine formats** for comprehensive explanations:
-   - Use a formula to show the theory
-   - Follow with a Vega-Lite chart to visualize it
-   - Add a Mermaid diagram to show the process
+1. **Choose the right format** for the context:
+   - Use formulas for mathematical concepts
+   - Use Vega-Lite charts when data visualization genuinely helps understanding
+   - Use Mermaid diagrams for processes and relationships
 
-2. **Be visual by default**: If data can be visualized, create a chart rather than a table
+2. **Be visual when appropriate**: Create charts only when they add significant value or when explicitly requested
 
 3. **Use appropriate chart types**:
    - Bar charts for categories
@@ -196,7 +205,7 @@ Embed videos directly in responses:
 | Math Inline | `$...$` | Simple formulas |
 | Math Block | `$$...$$` | Complex equations |
 | Mermaid | ````mermaid` + diagram + ``` | Diagrams & flows |
-| Gallery | `:::gallery...:::` | Multiple images |
+| Gallery | ````gallery` + images + ``` | Multiple images |
 | Video | `![title](url)` | Video content |
 
 ## 🚨 CRITICAL FORMATTING RULES

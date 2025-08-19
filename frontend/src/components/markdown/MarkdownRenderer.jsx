@@ -32,22 +32,20 @@ mermaid.initialize({
 });
 
 const MarkdownRenderer = ({ content, className = '', onMediaClick, theme = 'light' }) => {
-  // Extract media blocks from content
+  // Preprocess content to normalize gallery syntax
   const processedContent = useMemo(() => {
     if (!content) return { text: '', mediaBlocks: [] };
     
     let processedText = content;
     const mediaBlocks = [];
     
-    // Extract gallery blocks
+    // Convert :::gallery syntax to ```gallery for consistent handling
     const galleryRegex = /:::gallery\n([\s\S]*?):::/g;
     processedText = processedText.replace(galleryRegex, (match, galleryContent) => {
-      const id = `gallery-${Date.now()}-${Math.random()}`;
-      mediaBlocks.push({ type: 'gallery', id, content: galleryContent });
-      return `<div data-media-id="${id}"></div>`;
+      return '```gallery\n' + galleryContent + '\n```';
     });
     
-    // Extract standalone videos
+    // Extract standalone videos (keeping this as-is for now)
     const videoRegex = /!\[([^\]]*)\]\((.*?\.(mp4|webm|ogg|youtube\.com|youtu\.be|vimeo\.com)[^\)]*)\)/g;
     processedText = processedText.replace(videoRegex, (match, alt, url) => {
       const id = `video-${Date.now()}-${Math.random()}`;
@@ -148,6 +146,22 @@ const MarkdownRenderer = ({ content, className = '', onMediaClick, theme = 'ligh
       const codeClassName = codeChild?.props?.className || '';
       const languageMatch = /language-(\w+(-\w+)?)/.exec(codeClassName);
       const language = languageMatch ? languageMatch[1] : '';
+      
+      // Handle Gallery blocks
+      if (language === 'gallery') {
+        let galleryContent = '';
+        
+        // Extract text from the code element
+        if (codeChild?.props?.children) {
+          if (typeof codeChild.props.children === 'string') {
+            galleryContent = codeChild.props.children;
+          } else if (Array.isArray(codeChild.props.children)) {
+            galleryContent = codeChild.props.children.join('');
+          }
+        }
+        
+        return <MediaGallery content={galleryContent} />;
+      }
       
       // Handle Vega-Lite blocks
       if (language === 'vega-lite' || language === 'vega') {
@@ -308,17 +322,9 @@ const MarkdownRenderer = ({ content, className = '', onMediaClick, theme = 'ligh
       );
     },
     
-    // Handle custom div elements for media
+    // Handle custom div elements for media (mainly for videos now)
     div: ({ node, ...props }) => {
-      const mediaId = node?.properties?.['data-media-id'];
       const videoId = node?.properties?.['data-video-id'];
-      
-      if (mediaId) {
-        const mediaBlock = processedContent.mediaBlocks.find(block => block.id === mediaId);
-        if (mediaBlock && mediaBlock.type === 'gallery') {
-          return <MediaGallery content={mediaBlock.content} />;
-        }
-      }
       
       if (videoId) {
         const videoBlock = processedContent.mediaBlocks.find(block => block.id === videoId);

@@ -416,6 +416,14 @@ class AdaptiveChainOfThought:
 You are now performing systematic reasoning to answer the user's question.
 Remember all the context about the user (their name, preferences, etc.) from the system messages above.
 
+💡 **Tool Usage Strategy**:
+- You can and SHOULD use MULTIPLE tools per iteration when needed
+- Start with memory_search() if relevant, then use other tools as needed
+- Example of multiple tools in one iteration:
+  memory_search(query="user preferences")
+  exa_property_finder(city="Paris", rent_or_buy="rent", price_max=1500)
+  web_search(query="Paris 11e neighborhood information")
+
 """
         
         # Add previous iterations summary
@@ -423,36 +431,64 @@ Remember all the context about the user (their name, preferences, etc.) from the
             prompt += "Previous reasoning and findings:\n"
             for prev in previous_iterations[-3:]:  # Show last 3 iterations
                 prompt += f"\n- Iteration {prev.iteration_number}:\n"
-                prompt += f"  Thought: {prev.thought[:200]}...\n"
+                prompt += f"  Thought: {prev.thought}\n"
                 if prev.tool_results:
                     prompt += f"  Tools used: {', '.join([tr.tool_name for tr in prev.tool_results])}\n"
                 if prev.knowledge_gathered:
-                    prompt += f"  Learned: {prev.knowledge_gathered[:200]}...\n"
+                    prompt += f"  Learned: {prev.knowledge_gathered}\n"
                 # Add validation feedback if available
                 if hasattr(prev, 'validation_feedback') and prev.validation_feedback:
-                    prompt += f"  Validation: {prev.validation_feedback[:150]}...\n"
+                    prompt += f"  Validation: {prev.validation_feedback}\n"
                 if hasattr(prev, 'is_valid') and not prev.is_valid:
                     prompt += f"  ⚠️ This iteration was marked as ineffective (relevance: {prev.relevance_score:.1f}, progress: {prev.progress_score:.1f})\n"
             prompt += "\n"
         
-        # Add available tools
+        # Add available tools - NO LIMIT, show ALL tools
         if tools:
             prompt += "Available tools:\n"
-            for tool in tools[:10]:  # Limit to avoid prompt overflow
+            
+            # Prioritize memory tools - show them FIRST
+            memory_tools = []
+            other_tools = []
+            
+            for tool in tools:
                 func = tool.get('function', {})
-                prompt += f"- {func.get('name')}: {func.get('description', '')[:100]}\n"
+                tool_name = func.get('name', '')
+                if tool_name in ['memory_search', 'memory_store', 'memory_analyze']:
+                    memory_tools.append(tool)
+                else:
+                    other_tools.append(tool)
+            
+            # Show memory tools first but not too aggressively
+            if memory_tools:
+                prompt += "🧠 **Memory Tools (check existing knowledge):**\n"
+                for tool in memory_tools:
+                    func = tool.get('function', {})
+                    prompt += f"- {func.get('name')}: {func.get('description', '')}\n"
+                prompt += "\n"
+            
+            # Then show other tools with equal importance
+            if other_tools:
+                prompt += "🔧 **Action Tools (gather new information):**\n"
+                for tool in other_tools:
+                    func = tool.get('function', {})
+                    prompt += f"- {func.get('name')}: {func.get('description', '')}\n"
+            
             prompt += "\n"
         
-        # Add context if available
+        # Add context if available - NO TRUNCATION
         if context.get('memory_context'):
-            prompt += f"Relevant memory: {context['memory_context'][:500]}\n\n"
+            prompt += f"Relevant memory: {context['memory_context']}\n\n"
         
         # Request structured response
         prompt += """Perform the next reasoning step. You MUST provide your response in this EXACT format:
 
 THOUGHT: [Your detailed reasoning for this step - what do you need to figure out?]
 
-TOOL_CALLS: [List any tools you need to call, one per line in format: tool_name(arg1="value1", arg2="value2")]
+TOOL_CALLS: [List ALL tools you need, ONE PER LINE. You can use MULTIPLE tools!]
+memory_search(query="what do I know about this topic")
+exa_property_finder(city="Paris", rent_or_buy="rent", price_max=1500)
+web_search(query="additional information needed")
 [Leave empty if no tools needed this iteration]
 
 EVALUATION: [Self-evaluation of your progress - what have you learned so far?]
@@ -464,12 +500,16 @@ SHOULD_CONTINUE: [true if you need more information/iterations, false if you hav
 KNOWLEDGE_GATHERED: [Brief summary of key facts/data gathered so far]
 
 Important:
-- Use tools when you need to search for information, verify facts, or perform calculations
-- Be thorough but concise
-- Focus on gathering information before making conclusions
+- 📋 **Tool Usage Best Practices**:
+  1. Check memory first with memory_search() if the topic might be known
+  2. Then use other tools to gather NEW information
+  3. Use MULTIPLE tools in parallel when you need different types of information
+  4. Store important findings with memory_store() at the end
+- 🎯 **Be efficient**: Use multiple tools in one iteration to gather information faster
+- 💾 **Memory is a tool, not the only tool**: Use it to complement, not replace other tools
+- Focus on gathering ALL necessary information to answer the question
 - Only set SHOULD_CONTINUE to false when you have all necessary information
 - QUALITY MATTERS: Each step should directly contribute to solving the problem
-- Avoid tangents, circular reasoning, or exploring unrelated topics
 - Your reasoning will be validated for relevance, progress, and correctness"""
         
         return prompt
@@ -837,35 +877,54 @@ Now, try again with a better approach. Focus on:
         """Synthesize final answer from all iterations and tool results"""
         
         # Build synthesis prompt
-        synthesis_prompt = f"""Based on the following research and reasoning, provide a comprehensive answer to the question.
+        synthesis_prompt = f"""⚠️ CRITICAL INSTRUCTIONS FOR FINAL ANSWER ⚠️
+
+You MUST create your response using ONLY the information provided below. 
+DO NOT add ANY information that is not explicitly present in the tool results or reasoning insights.
 
 Original question: {problem}
 
-Information gathered from tools:
+AVAILABLE DATA FROM TOOLS (USE ONLY THIS):
 """
         
-        # Add tool results
+        # Add tool results - NO TRUNCATION, use complete data
+        tool_data_sections = []
         for tool_result in all_tool_results:
             if tool_result.success and tool_result.result:
-                synthesis_prompt += f"\n{tool_result.tool_name} result:\n{str(tool_result.result)[:1000]}\n"
+                # Convert result to string and use COMPLETE data
+                result_str = str(tool_result.result)
+                tool_data_sections.append(f"{tool_result.tool_name} result:\n{result_str}")
+                synthesis_prompt += f"\n{tool_result.tool_name} result:\n{result_str}\n"
         
         # Add key insights from iterations
-        synthesis_prompt += "\nKey insights from reasoning:\n"
+        synthesis_prompt += "\nKEY INSIGHTS FROM YOUR REASONING:\n"
+        insights = []
         for iteration in iterations:
             if iteration.knowledge_gathered:
+                insights.append(iteration.knowledge_gathered)
                 synthesis_prompt += f"- {iteration.knowledge_gathered}\n"
         
         synthesis_prompt += f"""
+
+STRICT RULES FOR YOUR RESPONSE:
+1. ✅ USE ONLY the data from tool results shown above
+2. ✅ QUOTE exactly from tool results when providing information
+3. ✅ If tools returned URLs, use those EXACT URLs
+4. ✅ If tools returned summaries, use those EXACT summaries
+5. ❌ DO NOT invent any data not present above
+6. ❌ DO NOT create fake URLs, prices, or details
+7. ❌ DO NOT add information you think "should be there"
+8. ❌ DO NOT extrapolate beyond the tool results
+
 Agent personality: {agent_config.get('name', 'Assistant')}
 Communication style: {json.dumps(agent_config.get('personality', {}).get('communication_style', 'clear and helpful'))}
 
-Now provide a complete, well-structured answer that:
-1. Directly answers the original question
-2. Incorporates all the information gathered from tools
-3. Is clear, comprehensive, and well-organized
-4. Matches the agent's personality and expertise
+YOUR TASK:
+Create a response that answers the original question using EXCLUSIVELY the data from the tool results above.
+If the tool results contain search pages, present them as search pages.
+If information is missing, explicitly state it's not available from the search results.
 
-Final answer:"""
+Final answer (using ONLY the data above):"""
         
         try:
             # Use the full context messages for synthesis too
@@ -874,12 +933,13 @@ Final answer:"""
             return response.strip()
         except Exception as e:
             logger.error(f"Failed to synthesize final answer: {str(e)}")
-            # Fallback: return the best knowledge we have
+            # Fallback: return the best knowledge we have - NO TRUNCATION
             if all_tool_results:
                 result_summary = "Voici les informations trouvées:\n"
                 for tool_result in all_tool_results:
                     if tool_result.success:
-                        result_summary += f"\n{tool_result.tool_name}: {str(tool_result.result)[:500]}\n"
+                        # Use complete result, no truncation
+                        result_summary += f"\n{tool_result.tool_name}: {str(tool_result.result)}\n"
                 return result_summary
             return "Je n'ai pas pu synthétiser une réponse complète."
     
@@ -919,7 +979,7 @@ Final answer:"""
         
         updated['iteration_history'].append({
             "number": iteration.iteration_number,
-            "thought": iteration.thought[:200],
+            "thought": iteration.thought,
             "confidence": iteration.confidence,
             "tools_used": [tc.tool_name for tc in iteration.tool_calls],
             "knowledge": iteration.knowledge_gathered
@@ -940,8 +1000,8 @@ Final answer:"""
         summary = "Recent conversation:\n"
         for msg in recent:
             role = msg.get('role', 'unknown')
-            content = msg.get('content', '')[:100]
-            summary += f"- {role}: {content}...\n"
+            content = msg.get('content', '')
+            summary += f"- {role}: {content}\n"
         
         return summary
 

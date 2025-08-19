@@ -6,49 +6,11 @@ import 'react-lazy-load-image-component/src/effects/blur.css';
 const MediaGallery = ({ content }) => {
   const [showFullscreen, setShowFullscreen] = useState(false);
   
-  // Parse media items from content
-  const items = useMemo(() => {
-    if (!content) return [];
-    
-    const mediaItems = [];
-    const lines = content.split('\n').filter(line => line.trim());
-    
-    lines.forEach(line => {
-      // Parse markdown image/video syntax: ![alt](url)
-      const match = line.match(/!\[([^\]]*)\]\(([^)]+)\)/);
-      if (match) {
-        const [, alt, url] = match;
-        const isVideo = /\.(mp4|webm|ogg)$/i.test(url) || 
-                       url.includes('youtube.com') || 
-                       url.includes('youtu.be') || 
-                       url.includes('vimeo.com');
-        
-        if (isVideo) {
-          // For videos, we'll create a custom render
-          mediaItems.push({
-            original: url,
-            thumbnail: getThumbnail(url, alt),
-            description: alt,
-            renderItem: () => renderVideo(url, alt),
-            renderThumbInner: () => renderVideoThumb(url, alt),
-            isVideo: true
-          });
-        } else {
-          // For images
-          mediaItems.push({
-            original: url,
-            thumbnail: getThumbnail(url, alt),
-            description: alt,
-            originalAlt: alt,
-            thumbnailAlt: alt,
-            isVideo: false
-          });
-        }
-      }
-    });
-    
-    return mediaItems;
-  }, [content]);
+  // Helper function to extract YouTube video ID
+  const extractYouTubeId = (url) => {
+    const match = url.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/)([^&\n?#]+)/);
+    return match ? match[1] : '';
+  };
   
   // Generate thumbnail URL (for videos, you might want to extract from video or use a placeholder)
   const getThumbnail = (url, alt) => {
@@ -62,11 +24,6 @@ const MediaGallery = ({ content }) => {
     }
     // For regular images and local videos, use the same URL
     return url;
-  };
-  
-  const extractYouTubeId = (url) => {
-    const match = url.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/)([^&\n?#]+)/);
-    return match ? match[1] : '';
   };
   
   const renderVideo = (url, alt) => {
@@ -146,6 +103,50 @@ const MediaGallery = ({ content }) => {
       </div>
     );
   };
+  
+  // Parse media items from content
+  const items = useMemo(() => {
+    if (!content) return [];
+    
+    const mediaItems = [];
+    const lines = content.split('\n').filter(line => line.trim());
+    
+    lines.forEach(line => {
+      // Parse markdown image/video syntax: ![alt](url)
+      const match = line.match(/!\[([^\]]*)\]\(([^)]+)\)/);
+      if (match) {
+        const [, alt, url] = match;
+        const isVideo = /\.(mp4|webm|ogg)$/i.test(url) || 
+                       url.includes('youtube.com') || 
+                       url.includes('youtu.be') || 
+                       url.includes('vimeo.com');
+        
+        if (isVideo) {
+          // For videos, we'll create a custom render
+          mediaItems.push({
+            original: url,
+            thumbnail: getThumbnail(url, alt),
+            description: alt,
+            renderItem: () => renderVideo(url, alt),
+            renderThumbInner: () => renderVideoThumb(url, alt),
+            isVideo: true
+          });
+        } else {
+          // For images
+          mediaItems.push({
+            original: url,
+            thumbnail: getThumbnail(url, alt),
+            description: alt,
+            originalAlt: alt,
+            thumbnailAlt: alt,
+            isVideo: false
+          });
+        }
+      }
+    });
+    
+    return mediaItems;
+  }, [content]);
   
   if (items.length === 0) {
     return (
