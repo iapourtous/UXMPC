@@ -3,6 +3,7 @@ import httpx
 import logging
 import uuid
 import asyncio
+import os
 from datetime import datetime
 from typing import Dict, Any, List, Optional, Union, AsyncGenerator
 from app.models.agent import (
@@ -24,6 +25,10 @@ logger = logging.getLogger(__name__)
 
 class AgentExecutor:
     """Executes agents by orchestrating LLM and MCP services"""
+    
+    def __init__(self):
+        """Initialize the agent executor and load markdown capabilities"""
+        self.markdown_capabilities = self._load_markdown_capabilities()
     
     async def execute(
         self, 
@@ -613,6 +618,26 @@ class AgentExecutor:
         
         return formatted
     
+    def _load_markdown_capabilities(self) -> str:
+        """Load markdown capabilities instructions from file"""
+        try:
+            # Try to load from the prompts directory
+            prompt_file = os.path.join(
+                os.path.dirname(os.path.dirname(__file__)),
+                'prompts',
+                'markdown_capabilities.txt'
+            )
+            
+            if os.path.exists(prompt_file):
+                with open(prompt_file, 'r', encoding='utf-8') as f:
+                    return f.read()
+            else:
+                logger.warning(f"Markdown capabilities file not found at {prompt_file}")
+                return ""
+        except Exception as e:
+            logger.error(f"Error loading markdown capabilities: {e}")
+            return ""
+    
     def _build_messages(self, agent: Agent, execution_request: AgentExecution, memory_context: Optional[str] = None, tools: Optional[List[Dict[str, Any]]] = None) -> List[Dict[str, str]]:
         """Build message list for LLM"""
         messages = []
@@ -668,6 +693,10 @@ class AgentExecutor:
             
             if system_content.endswith(". "):
                 system_content += "\n\n"
+        
+        # Add markdown rendering capabilities instructions
+        if self.markdown_capabilities:
+            system_content += self.markdown_capabilities + "\n\n"
         
         # Add memory context if available
         if memory_context:

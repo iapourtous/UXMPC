@@ -1,10 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { agentsApi, conversationsApi, demosApi } from '../services/api';
-import ReactMarkdown from 'react-markdown';
-import remarkGfm from 'remark-gfm';
-import rehypeRaw from 'rehype-raw';
-import mermaid from 'mermaid';
+import MarkdownRenderer from './markdown/MarkdownRenderer';
 import { Select, Button, Input, Drawer, List, Typography, Popconfirm, message, Modal, Tooltip, Tag } from 'antd';
 import { SendOutlined, ClearOutlined, HistoryOutlined, DeleteOutlined, PlusOutlined, SaveOutlined, EyeOutlined, ExperimentOutlined, CompressOutlined, BugOutlined, DislikeOutlined, LikeOutlined } from '@ant-design/icons';
 import axios from 'axios';
@@ -40,7 +37,7 @@ function ChatWithAgents() {
   const [improvedPromptData, setImprovedPromptData] = useState(null);
   const messagesEndRef = useRef(null);
   const queryClient = useQueryClient();
-  const [mermaidKey, setMermaidKey] = useState(0); // Force re-render of mermaid diagrams
+  const [currentTheme, setCurrentTheme] = useState('light'); // Theme for visualizations
   
   // Fetch agents list
   const { data: agentsResponse, isLoading: agentsLoading } = useQuery({
@@ -250,65 +247,13 @@ function ChatWithAgents() {
     }
   });
   
-  // Initialize Mermaid
-  useEffect(() => {
-    mermaid.initialize({ 
-      startOnLoad: true, 
-      theme: 'default',
-      securityLevel: 'loose',
-      themeVariables: {
-        primaryColor: '#4f46e5',
-        primaryTextColor: '#fff',
-        primaryBorderColor: '#7c3aed',
-        lineColor: '#5b21b6',
-        secondaryColor: '#8b5cf6',
-        tertiaryColor: '#ddd6fe'
-      }
-    });
-  }, []);
-
-  // Re-render Mermaid diagrams when messages change
-  useEffect(() => {
-    const renderMermaidDiagrams = async () => {
-      const mermaidElements = document.querySelectorAll('.mermaid-to-render');
-      
-      for (const element of mermaidElements) {
-        const graphDefinition = element.textContent;
-        element.classList.remove('mermaid-to-render');
-        element.classList.add('mermaid-rendered');
-        
-        try {
-          // Generate a valid ID without dots or special characters
-          const id = `mermaid-${Date.now()}-${Math.floor(Math.random() * 100000)}`;
-          const { svg } = await mermaid.render(
-            id,
-            graphDefinition
-          );
-          element.innerHTML = svg;
-        } catch (error) {
-          console.error('Failed to render Mermaid diagram:', error);
-          // Check if it's a duplicate ID error and retry with a new ID
-          if (error.message && error.message.includes('Duplicate id')) {
-            try {
-              // Clear the error and retry with a new unique ID
-              const newId = `mermaid-${Date.now()}-${Math.floor(Math.random() * 1000000)}`;
-              const { svg } = await mermaid.render(
-                newId,
-                graphDefinition
-              );
-              element.innerHTML = svg;
-            } catch (retryError) {
-              element.innerHTML = `<pre class="text-red-500">Failed to render diagram: ${retryError.message}</pre>`;
-            }
-          } else {
-            element.innerHTML = `<pre class="text-red-500">Failed to render diagram: ${error.message}</pre>`;
-          }
-        }
-      }
-    };
-
-    renderMermaidDiagrams();
-  }, [messages, mermaidKey]);
+  // Handle media clicks (for lightbox, etc.)
+  const handleMediaClick = (media) => {
+    if (media.type === 'image') {
+      // Could open in a modal/lightbox
+      console.log('Image clicked:', media);
+    }
+  };
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -794,93 +739,12 @@ function ChatWithAgents() {
               </div>
               <div className="message-content">
                 {message.role === 'assistant' ? (
-                  <ReactMarkdown 
-                    remarkPlugins={[remarkGfm]}
-                    rehypePlugins={[rehypeRaw]}
+                  <MarkdownRenderer 
+                    content={message.content}
                     className="prose prose-base max-w-none prose-gray prose-headings:text-gray-800 prose-p:text-gray-700 prose-p:leading-relaxed"
-                    components={{
-                      pre: ({node, children, ...props}) => {
-                        // Check if this is a mermaid code block or pre tag with mermaid class
-                        const classNames = node?.properties?.className || [];
-                        const isMermaid = classNames.some(cls => 
-                          cls === 'mermaid' || 
-                          cls === 'language-mermaid' ||
-                          cls?.includes('mermaid')
-                        );
-                        
-                        if (isMermaid) {
-                          // Extract the text content from children
-                          let mermaidCode = '';
-                          if (typeof children === 'string') {
-                            mermaidCode = children;
-                          } else if (children?.props?.children) {
-                            if (typeof children.props.children === 'string') {
-                              mermaidCode = children.props.children;
-                            } else if (Array.isArray(children.props.children)) {
-                              mermaidCode = children.props.children.join('');
-                            }
-                          } else if (React.isValidElement(children)) {
-                            // Handle React elements
-                            const extractText = (element) => {
-                              if (typeof element === 'string') return element;
-                              if (Array.isArray(element)) return element.map(extractText).join('');
-                              if (element?.props?.children) return extractText(element.props.children);
-                              return '';
-                            };
-                            mermaidCode = extractText(children);
-                          }
-                          
-                          return (
-                            <div className="mermaid-to-render bg-white border rounded-xl p-6 overflow-x-auto shadow-md my-4">
-                              {mermaidCode}
-                            </div>
-                          );
-                        }
-                        
-                        return <pre className="bg-gray-50 border rounded-xl p-4 overflow-x-auto shadow-inner" {...props}>{children}</pre>;
-                      },
-                      code: ({node, inline, className, children, ...props}) => {
-                        // Check if this is a mermaid code block
-                        const match = /language-(\w+)/.exec(className || '');
-                        const isMermaid = match && match[1] === 'mermaid';
-                        
-                        if (!inline && isMermaid) {
-                          return (
-                            <div className="mermaid-to-render bg-gray-50 border rounded-xl p-4 overflow-x-auto shadow-inner">
-                              {children}
-                            </div>
-                          );
-                        }
-                        
-                        return inline ? 
-                          <code className="bg-gray-100 px-2 py-1 rounded-md text-sm font-mono" {...props}>{children}</code> :
-                          <code className="text-sm" {...props}>{children}</code>;
-                      },
-                      a: ({node, ...props}) => (
-                        <a className="text-blue-600 hover:text-blue-700 underline decoration-2 underline-offset-2" target="_blank" rel="noopener noreferrer" {...props} />
-                      ),
-                      ul: ({node, ...props}) => (
-                        <ul className="list-disc list-inside space-y-1" {...props} />
-                      ),
-                      ol: ({node, ...props}) => (
-                        <ol className="list-decimal list-inside space-y-1" {...props} />
-                      ),
-                      h1: ({node, ...props}) => (
-                        <h1 className="text-xl font-bold text-gray-800 mb-3 mt-4" {...props} />
-                      ),
-                      h2: ({node, ...props}) => (
-                        <h2 className="text-lg font-semibold text-gray-800 mb-2 mt-3" {...props} />
-                      ),
-                      h3: ({node, ...props}) => (
-                        <h3 className="text-base font-medium text-gray-800 mb-2 mt-2" {...props} />
-                      ),
-                      blockquote: ({node, ...props}) => (
-                        <blockquote className="border-l-4 border-indigo-200 pl-4 py-2 bg-indigo-50/50 rounded-r-lg" {...props} />
-                      )
-                    }}
-                  >
-                    {message.content}
-                  </ReactMarkdown>
+                    theme={currentTheme}
+                    onMediaClick={handleMediaClick}
+                  />
                 ) : (
                   <div className="whitespace-pre-wrap break-words text-base leading-relaxed">
                     {message.content}
@@ -1309,9 +1173,11 @@ function ChatWithAgents() {
             <div>
               <h4 className="font-medium mb-2">Problematic Response:</h4>
               <div className="bg-gray-50 p-3 rounded-lg max-h-48 overflow-y-auto">
-                <ReactMarkdown className="prose prose-sm max-w-none">
-                  {feedbackMessage.content}
-                </ReactMarkdown>
+                <MarkdownRenderer 
+                  content={feedbackMessage.content}
+                  className="prose prose-sm max-w-none"
+                  theme={currentTheme}
+                />
               </div>
             </div>
             
@@ -1394,9 +1260,11 @@ function ChatWithAgents() {
             <div>
               <h4 className="font-medium mb-2">New System Prompt:</h4>
               <div className="bg-gray-50 p-4 rounded-lg max-h-96 overflow-y-auto">
-                <ReactMarkdown className="prose prose-sm max-w-none">
-                  {improvedPromptData.improved_prompt}
-                </ReactMarkdown>
+                <MarkdownRenderer 
+                  content={improvedPromptData.improved_prompt}
+                  className="prose prose-sm max-w-none"
+                  theme={currentTheme}
+                />
               </div>
             </div>
             

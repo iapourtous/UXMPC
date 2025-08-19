@@ -1,0 +1,278 @@
+/* Enhanced Markdown Styles */
+
+/* Vega-Lite specific styles */
+.vega-embed-wrapper {
+  margin: 1rem 0;
+  background: white;
+  border-radius: 0.75rem;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+  padding: 1rem;
+}
+
+.vega-embed .vega-actions {
+  right: 0.5rem !important;
+  top: 0.5rem !important;
+}
+
+/* Math styles (KaTeX) */
+.katex-display {
+  overflow-x: auto;
+  padding: 1rem 0;
+  margin: 1rem 0;
+}
+
+.katex {
+  font-size: 1.1em;
+}
+
+.katex-display .katex {
+  text-align: center;
+  padding: 0.5rem;
+}
+
+/* Inline math */
+.math-inline {
+  padding: 0 0.2em;
+}
+
+/* Media Gallery styles */
+.media-gallery {
+  border-radius: 0.75rem;
+  overflow: hidden;
+  margin: 1.5rem 0;
+}
+
+.custom-image-gallery .image-gallery-slide img {
+  max-height: 70vh;
+  object-fit: contain;
+}
+
+.image-gallery-thumbnail {
+  border: 2px solid transparent;
+  transition: border-color 0.2s;
+}
+
+.image-gallery-thumbnail.active,
+.image-gallery-thumbnail:hover {
+  border-color: #3b82f6;
+}
+
+/* Video player styles */
+.video-player-container {
+  margin: 1.5rem 0;
+}
+
+.video-player-wrapper {
+  position: relative;
+  background: #000;
+  border-radius: 0.75rem;
+  overflow: hidden;
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.3);
+}
+
+.video-wrapper {
+  position: relative;
+  padding-bottom: 56.25%; /* 16:9 aspect ratio */
+  height: 0;
+}
+
+.video-wrapper iframe,
+.video-wrapper video {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+}
+
+/* Mermaid diagram styles */
+.mermaid-rendered {
+  background: white;
+  padding: 1.5rem;
+  border-radius: 0.75rem;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+  margin: 1rem 0;
+  overflow-x: auto;
+}
+
+.mermaid-rendered svg {
+  max-width: 100%;
+  height: auto;
+}
+
+/* Code blocks with syntax highlighting */
+.markdown-renderer pre {
+  position: relative;
+  margin: 1rem 0;
+}
+
+.markdown-renderer pre code {
+  display: block;
+  overflow-x: auto;
+  padding: 1rem;
+  background: #1f2937;
+  color: #e5e7eb;
+  border-radius: 0.5rem;
+  font-size: 0.875rem;
+  line-height: 1.5;
+}
+
+/* Enhanced tables */
+.markdown-renderer table {
+  border-collapse: collapse;
+  width: 100%;
+  margin: 1rem 0;
+  font-size: 0.875rem;
+}
+
+.markdown-renderer th {
+  background: #f3f4f6;
+  font-weight: 600;
+  text-align: left;
+  padding: 0.75rem;
+  border: 1px solid #e5e7eb;
+}
+
+.markdown-renderer td {
+  padding: 0.75rem;
+  border: 1px solid #e5e7eb;
+}
+
+.markdown-renderer tbody tr:hover {
+  background: #f9fafb;
+}
+
+/* Blockquotes */
+.markdown-renderer blockquote {
+  border-left: 4px solid #3b82f6;
+  padding-left: 1rem;
+  margin: 1rem 0;
+  background: #eff6ff;
+  border-radius: 0 0.5rem 0.5rem 0;
+  font-style: italic;
+  color: #1e40af;
+}
+
+/* Links */
+.markdown-renderer a {
+  color: #2563eb;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  transition: color 0.2s;
+}
+
+.markdown-renderer a:hover {
+  color: #1d4ed8;
+}
+
+/* Lists */
+.markdown-renderer ul,
+.markdown-renderer ol {
+  margin: 1rem 0;
+  padding-left: 2rem;
+}
+
+.markdown-renderer li {
+  margin: 0.25rem 0;
+}
+
+/* Images with captions */
+.markdown-renderer figure {
+  margin: 1.5rem 0;
+  text-align: center;
+}
+
+.markdown-renderer figure img {
+  border-radius: 0.5rem;
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.2);
+  max-width: 100%;
+  height: auto;
+  cursor: pointer;
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.markdown-renderer figure img:hover {
+  transform: scale(1.02);
+  box-shadow: 0 20px 40px -10px rgba(0, 0, 0, 0.3);
+}
+
+.markdown-renderer figcaption {
+  margin-top: 0.5rem;
+  font-size: 0.875rem;
+  color: #6b7280;
+  font-style: italic;
+}
+
+/* Horizontal rules */
+.markdown-renderer hr {
+  border: none;
+  height: 1px;
+  background: linear-gradient(to right, transparent, #d1d5db, transparent);
+  margin: 2rem 0;
+}
+
+/* Responsive adjustments */
+@media (max-width: 640px) {
+  .vega-embed-wrapper {
+    padding: 0.5rem;
+  }
+  
+  .markdown-renderer pre code {
+    font-size: 0.75rem;
+  }
+  
+  .markdown-renderer table {
+    font-size: 0.75rem;
+  }
+}
+
+/* Dark mode support */
+@media (prefers-color-scheme: dark) {
+  .vega-embed-wrapper,
+  .mermaid-rendered {
+    background: #1f2937;
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.5);
+  }
+  
+  .markdown-renderer blockquote {
+    background: #1e3a8a;
+    color: #bfdbfe;
+    border-left-color: #60a5fa;
+  }
+  
+  .markdown-renderer th {
+    background: #374151;
+    color: #f3f4f6;
+    border-color: #4b5563;
+  }
+  
+  .markdown-renderer td {
+    border-color: #4b5563;
+  }
+  
+  .markdown-renderer tbody tr:hover {
+    background: #374151;
+  }
+}
+
+/* Loading states */
+.vega-loading,
+.video-loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 200px;
+  background: #f3f4f6;
+  border-radius: 0.5rem;
+  color: #6b7280;
+}
+
+/* Error states */
+.render-error {
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  border-radius: 0.5rem;
+  padding: 1rem;
+  color: #dc2626;
+  margin: 1rem 0;
+}

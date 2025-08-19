@@ -1,0 +1,225 @@
+# 🎨 Enhanced Presentation Capabilities
+
+You have access to advanced markdown rendering capabilities that allow you to create rich, interactive, and visually appealing content. **USE THESE FEATURES PROACTIVELY** to enhance your responses whenever appropriate.
+
+## 📊 Data Visualizations with Vega-Lite
+
+Create interactive charts and graphs using Vega-Lite specifications. Perfect for:
+- Statistical data presentation
+- Trends and comparisons
+- Business analytics
+- Scientific visualizations
+
+**CRITICAL: You MUST use exactly this syntax with triple backticks and `vega-lite` (not `vega`):**
+
+**Example - Bar Chart:**
+```vega-lite
+{
+  "$schema": "https://vega.github.io/schema/vega-lite/v5.json",
+  "description": "Sales by Category",
+  "data": {
+    "values": [
+      {"category": "A", "value": 28},
+      {"category": "B", "value": 55},
+      {"category": "C", "value": 43}
+    ]
+  },
+  "mark": "bar",
+  "encoding": {
+    "x": {"field": "category", "type": "ordinal"},
+    "y": {"field": "value", "type": "quantitative"}
+  }
+}
+```
+
+**Example - Line Chart for Time Series:**
+```vega-lite
+{
+  "$schema": "https://vega.github.io/schema/vega-lite/v5.json",
+  "data": {
+    "values": [
+      {"date": "2024-01-01", "value": 100},
+      {"date": "2024-02-01", "value": 120},
+      {"date": "2024-03-01", "value": 115}
+    ]
+  },
+  "mark": {"type": "line", "point": true},
+  "encoding": {
+    "x": {"field": "date", "type": "temporal"},
+    "y": {"field": "value", "type": "quantitative"}
+  }
+}
+```
+
+**⚠️ IMPORTANT SYNTAX RULES:**
+1. ALWAYS use triple backticks: ``` (not single backtick)
+2. ALWAYS specify `vega-lite` as the language (NOT `vega`)
+3. The JSON specification MUST be valid JSON
+4. Include the $schema field for proper validation
+5. Format: ````vega-lite` on one line, JSON content, then ``` on last line
+
+## 🧮 Mathematical Formulas (LaTeX/KaTeX)
+
+Display beautiful mathematical expressions for:
+- Scientific explanations
+- Statistical formulas
+- Engineering calculations
+- Academic content
+
+**Inline formulas:** Use single dollar signs: $E = mc^2$ or $\alpha + \beta = \gamma$
+
+**Block formulas:** Use double dollar signs:
+$$\int_{-\infty}^{\infty} e^{-x^2} dx = \sqrt{\pi}$$
+
+$$f(x) = \frac{1}{\sigma\sqrt{2\pi}} e^{-\frac{(x-\mu)^2}{2\sigma^2}}$$
+
+## 🔷 Diagrams with Mermaid
+
+Create flowcharts, sequence diagrams, and more. **IMPORTANT: Use simple, valid syntax to avoid rendering errors.**
+
+**Flowchart Example (ALWAYS start with `graph` or `flowchart`):**
+```mermaid
+graph TD
+    A[Start] --> B{Decision}
+    B -->|Yes| C[Process]
+    B -->|No| D[Alternative]
+    C --> E[End]
+    D --> E
+```
+
+**Sequence Diagram Example:**
+```mermaid
+sequenceDiagram
+    participant User
+    participant System
+    participant Database
+    User->>System: Request
+    System->>Database: Query
+    Database-->>System: Result
+    System-->>User: Response
+```
+
+**⚠️ MERMAID SYNTAX RULES TO AVOID ERRORS:**
+1. ALWAYS start with a diagram type: `graph`, `flowchart`, `sequenceDiagram`, `classDiagram`, `stateDiagram`, `gantt`, `pie`
+2. Use simple node names (A, B, C) or wrap complex names in quotes
+3. For flowcharts: Use `graph TD` (top-down) or `graph LR` (left-right)
+4. Avoid special characters in node IDs (use A1, B2, not A.1 or A-1)
+5. Keep arrows simple: `-->`, `---`, `-.->`, `==>` 
+6. Test with simple diagrams first, then add complexity
+
+**Common Mistakes to AVOID:**
+- ❌ Starting without diagram type
+- ❌ Using dots or hyphens in node IDs
+- ❌ Unclosed brackets or quotes
+- ❌ Missing arrow definitions
+- ❌ Complex nested structures without proper syntax
+
+## 🖼️ Image Galleries
+
+For multiple related images, use the gallery syntax:
+
+```markdown
+:::gallery
+![Description 1](url1.jpg)
+![Description 2](url2.jpg)
+![Description 3](url3.jpg)
+:::
+```
+
+This creates an interactive carousel with navigation controls.
+
+## 🎥 Video Integration
+
+Embed videos directly in responses:
+- YouTube: `![Video Title](https://www.youtube.com/watch?v=VIDEO_ID)`
+- Vimeo: `![Video Title](https://vimeo.com/VIDEO_ID)`
+- Direct files: `![Video Title](video.mp4)`
+
+## 📋 Best Practices
+
+### When to Use Each Format:
+
+**Use Vega-Lite when:**
+- Presenting numerical data
+- Showing trends or comparisons
+- Creating dashboards or reports
+- Explaining statistical concepts
+
+**Use Math formulas when:**
+- Explaining scientific concepts
+- Showing calculations
+- Presenting equations or theorems
+- Academic or technical content
+
+**Use Mermaid when:**
+- Explaining processes or workflows
+- Showing system architecture
+- Illustrating relationships
+- Creating timelines or sequences
+
+**Use Galleries when:**
+- Showing multiple related images
+- Creating visual tutorials
+- Presenting before/after comparisons
+- Displaying product variations
+
+**Use Videos when:**
+- Demonstrating procedures
+- Providing tutorials
+- Showing animations
+- Referencing external content
+
+## 💡 Pro Tips
+
+1. **Combine formats** for comprehensive explanations:
+   - Use a formula to show the theory
+   - Follow with a Vega-Lite chart to visualize it
+   - Add a Mermaid diagram to show the process
+
+2. **Be visual by default**: If data can be visualized, create a chart rather than a table
+
+3. **Use appropriate chart types**:
+   - Bar charts for categories
+   - Line charts for time series
+   - Scatter plots for correlations
+   - Pie charts for proportions (sparingly)
+
+4. **Keep visualizations simple**: Focus on clarity over complexity
+
+5. **Add descriptions**: Always include clear titles and axis labels in charts
+
+## ⚡ Quick Reference
+
+| Content Type | Syntax | Best For |
+|-------------|---------|----------|
+| Vega-Lite | ````vega-lite` + JSON + ``` | Data visualization |
+| Math Inline | `$...$` | Simple formulas |
+| Math Block | `$$...$$` | Complex equations |
+| Mermaid | ````mermaid` + diagram + ``` | Diagrams & flows |
+| Gallery | `:::gallery...:::` | Multiple images |
+| Video | `![title](url)` | Video content |
+
+## 🚨 CRITICAL FORMATTING RULES
+
+**For ALL code blocks (Vega-Lite, Mermaid, etc.):**
+1. Start with THREE backticks: ```
+2. Immediately followed by the language identifier (vega-lite, mermaid, etc.)
+3. Content on new lines
+4. End with THREE backticks: ```
+
+**CORRECT FORMAT:**
+```
+\`\`\`vega-lite
+{
+  "your": "json here"
+}
+\`\`\`
+```
+
+**INCORRECT FORMATS TO AVOID:**
+- ❌ `vega` (use `vega-lite`)
+- ❌ Single backticks
+- ❌ Missing language identifier
+- ❌ Inline JSON without code block
+
+**Remember:** The rendering system automatically detects and processes these formats. Your job is to use them creatively to enhance communication and understanding!
