@@ -33,13 +33,14 @@ import {
   InfoCircleOutlined,
   ClockCircleOutlined,
   UserOutlined,
-  RobotOutlined
+  RobotOutlined,
+  CompressOutlined
 } from '@ant-design/icons';
 import { agentsApi, agentMemoryApi } from '../services/api';
 import { format, formatDistanceToNow, parseISO } from 'date-fns';
 
 const { Search } = Input;
-const { Title, Text, Paragraph } = Typography;
+const { Text, Paragraph } = Typography;
 
 const AgentMemory = () => {
   const { agentId } = useParams();
@@ -53,6 +54,10 @@ const AgentMemory = () => {
   const [detailModalVisible, setDetailModalVisible] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState(null);
+  const [consolidationModalVisible, setConsolidationModalVisible] = useState(false);
+  const [consolidationPreview, setConsolidationPreview] = useState(null);
+  const [consolidating, setConsolidating] = useState(false);
+  const [previewLoading, setPreviewLoading] = useState(false);
 
   useEffect(() => {
     fetchAgent();
@@ -134,6 +139,43 @@ const AgentMemory = () => {
       fetchStats();
     } catch (error) {
       message.error('Failed to clear memories');
+    }
+  };
+
+  const handlePreviewConsolidation = async () => {
+    setPreviewLoading(true);
+    try {
+      const response = await agentMemoryApi.consolidationPreview(agentId);
+      setConsolidationPreview(response.data);
+      setConsolidationModalVisible(true);
+    } catch (error) {
+      message.error('Failed to preview consolidation');
+    } finally {
+      setPreviewLoading(false);
+    }
+  };
+
+  const handleConsolidate = async (iterations = 5) => {
+    setConsolidating(true);
+    try {
+      const response = await agentMemoryApi.consolidate(agentId, iterations);
+      const data = response.data;
+      
+      if (data.consolidations && data.consolidations.length > 0) {
+        message.success(
+          `Successfully consolidated ${data.total_memories_reduced} memories into ${data.new_consolidated_memories} consolidated memories`
+        );
+      } else {
+        message.info('No memories needed consolidation');
+      }
+      
+      setConsolidationModalVisible(false);
+      fetchMemories();
+      fetchStats();
+    } catch (error) {
+      message.error('Failed to consolidate memories');
+    } finally {
+      setConsolidating(false);
     }
   };
 
@@ -325,6 +367,14 @@ const AgentMemory = () => {
               }}
             >
               Refresh
+            </Button>
+            <Button
+              icon={<CompressOutlined />}
+              onClick={handlePreviewConsolidation}
+              loading={previewLoading}
+              disabled={!stats || stats.total_memories < 6}
+            >
+              Consolidate
             </Button>
             <Popconfirm
               title="Clear all memories?"
@@ -525,6 +575,121 @@ const AgentMemory = () => {
                 )}
               </div>
             </div>
+          </Space>
+        )}
+      </Modal>
+
+      <Modal
+        title="Memory Consolidation"
+        open={consolidationModalVisible}
+        onCancel={() => setConsolidationModalVisible(false)}
+        footer={[
+          <Button key="cancel" onClick={() => setConsolidationModalVisible(false)}>
+            Cancel
+          </Button>,
+          <Button
+            key="consolidate"
+            type="primary"
+            icon={<CompressOutlined />}
+            loading={consolidating}
+            onClick={() => handleConsolidate(5)}
+            disabled={!consolidationPreview || consolidationPreview.clusters_found === 0}
+          >
+            Consolidate Memories
+          </Button>
+        ]}
+        width={900}
+      >
+        {consolidationPreview && (
+          <Space direction="vertical" style={{ width: '100%' }} size="large">
+            <Card size="small">
+              <Row gutter={[16, 16]}>
+                <Col span={8}>
+                  <Statistic
+                    title="Clusters Found"
+                    value={consolidationPreview.clusters_found || 0}
+                    prefix={<DatabaseOutlined />}
+                  />
+                </Col>
+                <Col span={8}>
+                  <Statistic
+                    title="Current Memories"
+                    value={stats?.total_memories || 0}
+                  />
+                </Col>
+                <Col span={8}>
+                  <Statistic
+                    title="Est. After Consolidation"
+                    value={
+                      (stats?.total_memories || 0) - 
+                      (consolidationPreview.clusters_found || 0) * 5 + 
+                      (consolidationPreview.clusters_found || 0)
+                    }
+                  />
+                </Col>
+              </Row>
+            </Card>
+
+            {consolidationPreview.clusters_found > 0 ? (
+              <>
+                <Text type="secondary">
+                  The consolidation process will combine similar memories to reduce redundancy
+                  and improve memory quality. Each cluster of similar memories will be
+                  intelligently summarized into a single, high-importance memory.
+                </Text>
+                
+                <Divider>Clusters to Consolidate</Divider>
+                
+                <List
+                  dataSource={consolidationPreview.clusters || []}
+                  renderItem={(cluster, index) => (
+                    <Card 
+                      key={cluster.cluster_id}
+                      size="small" 
+                      style={{ marginBottom: 16 }}
+                      title={
+                        <Space>
+                          <Text strong>Cluster {index + 1}</Text>
+                          <Tag color="blue">{cluster.memory_count} memories</Tag>
+                          <Tag color="green">Similarity: {(cluster.avg_score * 100).toFixed(0)}%</Tag>
+                        </Space>
+                      }
+                    >
+                      <List
+                        size="small"
+                        dataSource={cluster.memories || []}
+                        renderItem={(memory) => (
+                          <List.Item>
+                            <Space direction="vertical" style={{ width: '100%' }}>
+                              <Space>
+                                <Tag color="purple">{memory.content_type}</Tag>
+                                <Text type="secondary">
+                                  {memory.created_at ? 
+                                    formatDistanceToNow(parseISO(memory.created_at), { addSuffix: true })
+                                    : 'Unknown date'
+                                  }
+                                </Text>
+                              </Space>
+                              <Text ellipsis>{memory.content_preview}</Text>
+                            </Space>
+                          </List.Item>
+                        )}
+                      />
+                    </Card>
+                  )}
+                />
+              </>
+            ) : (
+              <Empty
+                description="No memory clusters found for consolidation"
+                image={Empty.PRESENTED_IMAGE_SIMPLE}
+              >
+                <Text type="secondary">
+                  Consolidation requires at least 6 similar memories.
+                  As your agent accumulates more memories, consolidation will become available.
+                </Text>
+              </Empty>
+            )}
           </Space>
         )}
       </Modal>

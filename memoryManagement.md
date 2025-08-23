@@ -85,7 +85,8 @@ stateDiagram-v2
     Storage --> Check: Vérifier Limite
     Check --> Active: OK
     Check --> Cleanup: Limite Dépassée
-    Cleanup --> Active: Nettoyage Terminé
+    Cleanup --> Consolidation: Auto-Consolidation
+    Consolidation --> Active: Optimisation Terminée
     Active --> Search: Requête
     Search --> Retrieved: Résultat
     Retrieved --> Updated: Mise à jour accès
@@ -93,9 +94,15 @@ stateDiagram-v2
     Active --> [*]: Fin de session
     
     note right of Cleanup
-        Supprime 10% des mémoires
+        1. Supprime 10% des mémoires
         avec le score d'utilité
         le plus faible
+    end note
+    
+    note right of Consolidation
+        2. Lance consolidation auto
+        pour regrouper les mémoires
+        similaires (jusqu'à 3 clusters)
     end note
     
     note left of Embedding
@@ -138,6 +145,209 @@ utility_score = (
     recency_score * 0.2 +   # Jours depuis dernier accès (décroissance 30j)
     (1 - age_score) * 0.1   # Pénalité d'âge (décroissance 90j)
 )
+```
+
+## 🔄 Système de Consolidation de Mémoire
+
+### Vue d'Ensemble de la Consolidation
+
+Le système de consolidation regroupe intelligemment les mémoires similaires pour optimiser l'espace de stockage tout en préservant les informations importantes. Ce processus s'inspire de la consolidation de mémoire humaine pendant le sommeil.
+
+```mermaid
+graph TD
+    subgraph "Processus de Consolidation"
+        Memories[Mémoires Existantes] --> Analysis[Analyse de Similarité]
+        Analysis --> Clustering[Regroupement en Clusters]
+        Clustering --> Scoring[Score de Similarité Cumulé]
+        Scoring --> Selection[Sélection Top Clusters]
+        Selection --> LLM[Résumé par LLM]
+        LLM --> Consolidated[Mémoire Consolidée]
+        
+        subgraph "Détails du Cluster"
+            C1[Mémoire 1]
+            C2[Mémoire 2]
+            C3[Mémoire 3]
+            C4[Mémoire 4]
+            C5[Mémoire 5]
+        end
+        
+        Selection --> C1
+        Selection --> C2
+        Selection --> C3
+        Selection --> C4
+        Selection --> C5
+        
+        C1 --> LLM
+        C2 --> LLM
+        C3 --> LLM
+        C4 --> LLM
+        C5 --> LLM
+    end
+    
+    Consolidated --> Storage[(Stockage)]
+    
+    style Analysis fill:#3498db
+    style LLM fill:#e74c3c
+    style Consolidated fill:#2ecc71
+```
+
+### Algorithme de Consolidation
+
+#### 1. Calcul de Similarité
+
+```mermaid
+flowchart LR
+    subgraph "Calcul de Similarité Sémantique"
+        M1[Mémoire 1] --> E1[Embedding 1]
+        M2[Mémoire 2] --> E2[Embedding 2]
+        E1 --> CS[Cosine Similarity]
+        E2 --> CS
+        CS --> Score[Score 0.0-1.0]
+    end
+    
+    Score --> Threshold{Score > 0.7?}
+    Threshold -->|Oui| Similar[Mémoires Similaires]
+    Threshold -->|Non| Different[Mémoires Différentes]
+    
+    style CS fill:#3498db
+    style Similar fill:#2ecc71
+    style Different fill:#95a5a6
+```
+
+#### 2. Scoring Cumulé
+
+Pour chaque mémoire, on calcule un score cumulé basé sur ses 5 voisins les plus similaires :
+
+```python
+# Pour chaque mémoire
+for memory in all_memories:
+    # Trouver les 5 mémoires les plus similaires
+    top_5_similar = find_top_5_similar(memory)
+    
+    # Calculer le score cumulé
+    cumulative_score = sum(similarity_scores)
+    average_score = cumulative_score / 5
+```
+
+#### 3. Consolidation par LLM
+
+Les clusters avec les scores les plus élevés sont consolidés par un LLM qui :
+- Préserve les informations clés
+- Élimine les redondances
+- Crée un résumé cohérent
+- Assigne une importance élevée (0.9)
+
+### Déclenchement de la Consolidation
+
+```mermaid
+stateDiagram-v2
+    [*] --> MemoryAdded: Nouvelle Mémoire
+    MemoryAdded --> CheckLimit: Vérifier Limite
+    CheckLimit --> LimitExceeded: Limite Dépassée
+    CheckLimit --> Normal: OK
+    
+    LimitExceeded --> Cleanup: Supprimer 10%
+    Cleanup --> AutoConsolidate: Consolidation Auto
+    
+    AutoConsolidate --> FindClusters: Identifier Clusters
+    FindClusters --> Consolidate: Consolider Top 3
+    Consolidate --> Complete: Terminé
+    
+    Normal --> [*]
+    Complete --> [*]
+    
+    note right of AutoConsolidate
+        Nouveau ! Consolidation
+        automatique après nettoyage
+    end note
+    
+    note right of Consolidate
+        Jusqu'à 3 clusters
+        consolidés automatiquement
+    end note
+```
+
+### Consolidation Manuelle
+
+L'interface permet également de déclencher manuellement la consolidation :
+
+```mermaid
+sequenceDiagram
+    participant UI
+    participant API
+    participant ConsolidationService
+    participant LLM
+    participant Storage
+    
+    UI->>API: POST /agents/{id}/memory/consolidate
+    API->>ConsolidationService: consolidate_batch(iterations=5)
+    
+    loop Pour chaque itération
+        ConsolidationService->>ConsolidationService: calculate_similarity_scores()
+        ConsolidationService->>ConsolidationService: identify_best_cluster()
+        ConsolidationService->>LLM: llm_consolidate(memories)
+        LLM-->>ConsolidationService: consolidated_content
+        ConsolidationService->>Storage: save_consolidated_memory()
+        ConsolidationService->>Storage: delete_original_memories()
+    end
+    
+    ConsolidationService-->>API: consolidation_results
+    API-->>UI: {memories_consolidated, new_memories}
+```
+
+### API Endpoints de Consolidation
+
+```mermaid
+graph TD
+    subgraph "Endpoints de Consolidation"
+        Preview[GET /agents/{id}/memory/consolidation-preview<br/>Aperçu des clusters]
+        Consolidate[POST /agents/{id}/memory/consolidate<br/>Lancer consolidation]
+    end
+    
+    subgraph "Paramètres"
+        P1[iterations: int = 5<br/>Nombre de clusters à consolider]
+    end
+    
+    subgraph "Réponse Preview"
+        R1[clusters_found: int]
+        R2[clusters: List[ClusterInfo]]
+    end
+    
+    subgraph "Réponse Consolidate"
+        R3[memories_consolidated: int]
+        R4[new_consolidated_memories: int]
+        R5[consolidations: List[Result]]
+    end
+    
+    Consolidate --> P1
+    Preview --> R1
+    Preview --> R2
+    Consolidate --> R3
+    Consolidate --> R4
+    Consolidate --> R5
+    
+    style Preview fill:#2ecc71
+    style Consolidate fill:#3498db
+```
+
+### Avantages de la Consolidation
+
+1. **Optimisation de l'espace** : Réduit le nombre de mémoires tout en préservant l'information
+2. **Amélioration de la qualité** : Les mémoires consolidées ont une importance élevée (0.9)
+3. **Élimination des redondances** : Fusionne les informations répétitives
+4. **Performance accrue** : Moins de mémoires à parcourir lors des recherches
+5. **Contexte enrichi** : Les résumés consolidés offrent une vue d'ensemble cohérente
+
+### Configuration de la Consolidation
+
+```yaml
+consolidation_config:
+  min_similarity: 0.7          # Seuil de similarité minimum
+  cluster_size: 5              # Taille minimale d'un cluster
+  auto_trigger: true           # Consolidation après nettoyage
+  auto_iterations: 3           # Nombre de clusters auto
+  manual_iterations: 5         # Nombre de clusters manuel
+  consolidated_importance: 0.9 # Importance des mémoires consolidées
 ```
 
 ## 📊 Types de Mémoire et Hiérarchie
@@ -504,6 +714,8 @@ graph TD
         POST2[POST /agents/{id}/memory/save-conversation<br/>Sauver conversation]
         GET3[GET /agents/{id}/memory/stats<br/>Statistiques détaillées]
         GET4[GET /system/memory-info<br/>Info système]
+        GET5[GET /agents/{id}/memory/consolidation-preview<br/>Aperçu consolidation]
+        POST3[POST /agents/{id}/memory/consolidate<br/>Lancer consolidation]
     end
     
     style GET1 fill:#2ecc71
@@ -514,6 +726,8 @@ graph TD
     style POST2 fill:#3498db
     style GET3 fill:#2ecc71
     style GET4 fill:#2ecc71
+    style GET5 fill:#2ecc71
+    style POST3 fill:#f39c12
 ```
 
 ### Flow de Requêtes

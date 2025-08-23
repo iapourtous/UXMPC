@@ -1,2 +1,3 @@
 # Dynamic dependencies installed by UXMCP services
 # This file is automatically managed by the systembeautifulsoup4
+beautifulsoup4

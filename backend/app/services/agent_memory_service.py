@@ -53,7 +53,19 @@ class AgentMemoryService:
         db = get_database()
         memories = []
         
+        # Check for duplicate content to avoid saving the same messages multiple times
+        existing_memories = await db[self.collection_name].find(
+            {"agent_id": agent_id, "conversation_id": conversation_id}
+        ).to_list(None)
+        
+        existing_contents = {mem.get('content', '') for mem in existing_memories}
+        
         for i, message in enumerate(messages):
+            # Skip if this content already exists to prevent duplicates
+            if message['content'] in existing_contents:
+                logger.info(f"Skipping duplicate content for agent {agent_id}: {message['content'][:50]}...")
+                continue
+                
             # Determine content type based on role
             content_type = "user_message" if message['role'] == 'user' else 'agent_response'
             
@@ -454,6 +466,7 @@ class AgentMemoryService:
     async def _enforce_memory_limit(self, agent_id: str):
         """
         Enforce memory limit by removing least useful memories when limit is exceeded
+        Then trigger consolidation to optimize remaining memories
         
         Uses intelligent scoring based on:
         - Importance level (preferences > user_messages > agent_responses)
@@ -533,6 +546,31 @@ class AgentMemoryService:
                 logger.warning(f"Failed to delete memory {memory_id} from vector store: {e}")
         
         logger.info(f"Successfully removed {delete_result.deleted_count} memories. New count: {current_count - delete_result.deleted_count}")
+        
+        # After cleanup, trigger consolidation to optimize remaining memories
+        logger.info(f"Triggering automatic consolidation after memory cleanup for agent {agent_id}")
+        try:
+            from app.services.memory_consolidation_service import memory_consolidation_service
+            
+            # Try to consolidate up to 3 clusters
+            consolidation_results = await memory_consolidation_service.consolidate_batch(
+                agent_id=agent_id,
+                iterations=3  # Consolidate up to 3 clusters
+            )
+            
+            if consolidation_results:
+                total_consolidated = sum(r.get('memories_consolidated', 0) for r in consolidation_results)
+                total_created = len(consolidation_results)
+                logger.info(
+                    f"Auto-consolidation completed: {total_consolidated} memories "
+                    f"consolidated into {total_created} new memories"
+                )
+            else:
+                logger.info("No memories suitable for consolidation after cleanup")
+                
+        except Exception as e:
+            # Don't fail the cleanup if consolidation fails
+            logger.warning(f"Auto-consolidation failed after cleanup: {str(e)}")
     
     def _calculate_utility_score(self, memory: dict, now: datetime, max_access: int) -> float:
         """

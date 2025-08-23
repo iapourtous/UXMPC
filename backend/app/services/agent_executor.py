@@ -1083,28 +1083,29 @@ IMPORTANT: When you have gathered enough information to answer the user's questi
         try:
             from app.services.agent_memory_service import agent_memory_service
             
-            # Extract conversation messages (skip system prompt)
-            conversation = []
-            for msg in messages:
-                if msg["role"] != "system":
-                    conversation.append({
-                        "role": msg["role"],
-                        "content": msg["content"]
-                    })
+            # Only save the NEW messages from this execution to avoid duplicates
+            # We need to identify which messages are new vs. historical
+            new_messages = []
             
-            # Add the final assistant response if not already in messages
-            if messages[-1]["role"] != "assistant":
-                output_content = output_data if isinstance(output_data, str) else json.dumps(output_data)
-                conversation.append({
-                    "role": "assistant",
-                    "content": output_content
-                })
+            # The user input for this execution
+            user_content = input_data if isinstance(input_data, str) else json.dumps(input_data)
+            new_messages.append({
+                "role": "user",
+                "content": user_content
+            })
             
-            # Save to memory
+            # The assistant response for this execution
+            output_content = output_data if isinstance(output_data, str) else json.dumps(output_data)
+            new_messages.append({
+                "role": "assistant", 
+                "content": output_content
+            })
+            
+            # Save only the new messages to memory
             await agent_memory_service.save_conversation(
                 agent_id=agent.id,
                 conversation_id=execution_id,
-                messages=conversation,
+                messages=new_messages,
                 user_id=None,  # Could be extended to track user
                 metadata={
                     "execution_id": execution_id,
@@ -1114,10 +1115,10 @@ IMPORTANT: When you have gathered enough information to answer the user's questi
             
             await agent_logger.info("Conversation saved to memory")
             
-            # Extract preferences if any
+            # Extract preferences from the new messages only
             await agent_memory_service.extract_preferences(
                 agent_id=agent.id,
-                conversation=conversation
+                conversation=new_messages
             )
             
         except Exception as e:

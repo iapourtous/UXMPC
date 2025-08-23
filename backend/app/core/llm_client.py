@@ -9,6 +9,7 @@ import json
 import httpx
 import asyncio
 import logging
+import re
 from typing import Dict, Any, List, Optional, Union
 from app.models.llm import LLMProfile
 
@@ -21,6 +22,29 @@ class LLMClient:
     def __init__(self):
         self.default_timeout = 120.0
         self.default_max_retries = 3
+    
+    def _clean_think_tags(self, content: Optional[str]) -> Optional[str]:
+        """
+        Remove <think>...</think> tags and their content from the response
+        
+        Args:
+            content: The text content to clean
+            
+        Returns:
+            Cleaned content without think tags
+        """
+        if not content:
+            return content
+        
+        # Use regex to remove <think>...</think> tags and their content
+        # Using re.DOTALL to match across multiple lines
+        cleaned = re.sub(r'<think>.*?</think>', '', content, flags=re.DOTALL)
+        
+        # Clean up any extra whitespace that might be left
+        cleaned = re.sub(r'\n\s*\n', '\n\n', cleaned)
+        cleaned = cleaned.strip()
+        
+        return cleaned if cleaned else content
     
     async def call(
         self,
@@ -106,7 +130,8 @@ class LLMClient:
             )
             
             if response and "choices" in response and response["choices"]:
-                return response["choices"][0]["message"]["content"]
+                content = response["choices"][0]["message"]["content"]
+                return self._clean_think_tags(content)
                 
         except Exception as e:
             logger.error(f"Simple LLM call failed: {str(e)}")
@@ -238,7 +263,8 @@ class LLMClient:
             
             # Extract content
             if response and "choices" in response and response["choices"]:
-                return response["choices"][0]["message"]["content"]
+                content = response["choices"][0]["message"]["content"]
+                return self._clean_think_tags(content)
             
             if raise_on_error:
                 raise Exception("No valid response from LLM")
@@ -296,9 +322,11 @@ class LLMClient:
             )
             
             if response and "choices" in response and response["choices"]:
+                content = response["choices"][0]["message"]["content"]
+                cleaned_content = self._clean_think_tags(content)
                 return {
                     "success": True,
-                    "message": response["choices"][0]["message"]["content"],
+                    "message": cleaned_content,
                     "usage": response.get("usage", {}),
                     "model": response.get("model", llm_profile.model),
                     "provider": response.get("provider", "unknown")
@@ -368,12 +396,14 @@ class LLMClient:
                     completion = await client.chat.completions.create(**completion_params)
                     
                     # Convert to standardized format
+                    content = completion.choices[0].message.content
+                    cleaned_content = self._clean_think_tags(content)
                     response = {
                         "choices": [
                             {
                                 "message": {
                                     "role": completion.choices[0].message.role,
-                                    "content": completion.choices[0].message.content
+                                    "content": cleaned_content
                                 }
                             }
                         ],
@@ -496,6 +526,12 @@ class LLMClient:
                     response.raise_for_status()
                     
                     result = response.json()
+                    
+                    # Clean think tags from response content
+                    if "choices" in result and result["choices"]:
+                        for choice in result["choices"]:
+                            if "message" in choice and "content" in choice["message"]:
+                                choice["message"]["content"] = self._clean_think_tags(choice["message"]["content"])
                     
                     # Add provider info
                     result["provider"] = "openai_compatible"

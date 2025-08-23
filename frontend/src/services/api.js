@@ -80,6 +80,8 @@ export const agentMemoryApi = {
   delete: (agentId, memoryId) => api.delete(`/agents/${agentId}/memory/${memoryId}`),
   clear: (agentId) => api.delete(`/agents/${agentId}/memory`),
   stats: (agentId) => api.get(`/agents/${agentId}/memory/summary`),
+  consolidationPreview: (agentId) => api.get(`/agents/${agentId}/memory/consolidation-preview`),
+  consolidate: (agentId, iterations = 5) => api.post(`/agents/${agentId}/memory/consolidate`, { iterations }),
 };
 
 // Demos API

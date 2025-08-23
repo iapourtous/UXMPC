@@ -13,6 +13,7 @@ from app.models.agent_memory import (
 )
 from app.services.agent_memory_service import agent_memory_service
 from app.services.agent_crud import agent_crud
+from app.services.memory_consolidation_service import memory_consolidation_service
 import logging
 
 logger = logging.getLogger(__name__)
@@ -346,4 +347,84 @@ async def get_memory_stats(agent_id: str):
         }
     except Exception as e:
         logger.error(f"Error getting memory stats: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/{agent_id}/memory/consolidate")
+async def consolidate_memory(
+    agent_id: str,
+    iterations: int = Query(5, ge=1, le=20, description="Number of consolidation iterations")
+):
+    """
+    Manually trigger memory consolidation for an agent
+    
+    This will identify clusters of similar memories and consolidate them into
+    high-quality summary memories with importance 0.9.
+    
+    Args:
+        agent_id: The agent's ID
+        iterations: Number of clusters to consolidate (1-20)
+    """
+    # Verify agent exists
+    agent = await agent_crud.get(agent_id)
+    if not agent:
+        raise HTTPException(status_code=404, detail="Agent not found")
+    
+    if not agent.memory_enabled:
+        raise HTTPException(status_code=400, detail="Memory is not enabled for this agent")
+    
+    try:
+        results = await memory_consolidation_service.consolidate_batch(
+            agent_id=agent_id,
+            iterations=iterations
+        )
+        
+        total_reduced = sum(r['memories_consolidated'] for r in results)
+        
+        return {
+            "agent_id": agent_id,
+            "iterations_requested": iterations,
+            "iterations_completed": len(results),
+            "consolidations": results,
+            "total_memories_reduced": total_reduced,
+            "new_consolidated_memories": len(results)
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/{agent_id}/memory/consolidation-preview")
+async def preview_consolidation(
+    agent_id: str,
+    limit: int = Query(10, ge=1, le=20, description="Number of clusters to preview")
+):
+    """
+    Preview which memory clusters would be consolidated
+    
+    This allows you to see what would happen before actually consolidating.
+    
+    Args:
+        agent_id: The agent's ID
+        limit: Maximum number of clusters to preview
+    """
+    # Verify agent exists
+    agent = await agent_crud.get(agent_id)
+    if not agent:
+        raise HTTPException(status_code=404, detail="Agent not found")
+    
+    if not agent.memory_enabled:
+        raise HTTPException(status_code=400, detail="Memory is not enabled for this agent")
+    
+    try:
+        clusters = await memory_consolidation_service.identify_top_clusters(
+            agent_id=agent_id,
+            limit=limit
+        )
+        
+        return {
+            "agent_id": agent_id,
+            "clusters_found": len(clusters),
+            "clusters": clusters
+        }
+    except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
