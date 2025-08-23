@@ -104,83 +104,284 @@ graph TB
 
 ---
 
-## Partie 2 : Chain of Thought - La Transparence du Raisonnement
+## Partie 2 : Chain of Thought Adaptatif - L'Intelligence du Raisonnement
 
-### 2.1 CoT comme Mécanisme de Pensée Explicite
+### 2.1 Architecture du CoT Adaptatif UXMCP
 
-Le Chain of Thought transforme le processus de raisonnement opaque des LLMs en une séquence traçable et compréhensible :
+Le système de **Chain of Thought Adaptatif** d'UXMCP va bien au-delà d'un simple raisonnement séquentiel. Il intègre une boucle de validation automatique, une analyse de complexité et des stratégies de raisonnement diversifiées :
 
 ```mermaid
-flowchart TD
-    QUESTION[Question Complexe]
+graph TB
+    Start([User Input]) --> Analyzer[Analyseur de Complexité]
     
-    subgraph "Chain of Thought"
-        COT1[Étape 1: Décomposition]
-        COT2[Étape 2: Analyse]
-        COT3[Étape 3: Recherche Mémoire]
-        COT4[Étape 4: Synthèse]
-        COT5[Étape 5: Validation]
+    subgraph "Classification Automatique"
+        Analyzer --> SIMPLE[Simple]
+        Analyzer --> ARITHMETIC[Arithmétique]
+        Analyzer --> LOGICAL[Logique]
+        Analyzer --> MULTI_STEP[Multi-Étapes]
+        Analyzer --> CREATIVE[Créatif]
+        Analyzer --> ANALYTICAL[Analytique]
     end
     
-    ANSWER[Réponse Raisonnée]
+    SIMPLE --> Generator[Générateur de Stratégies]
+    ARITHMETIC --> Generator
+    LOGICAL --> Generator
+    MULTI_STEP --> Generator
+    CREATIVE --> Generator
+    ANALYTICAL --> Generator
     
-    QUESTION --> COT1
-    COT1 --> COT2
-    COT2 --> COT3
-    COT3 --> COT4
-    COT4 --> COT5
-    COT5 --> ANSWER
+    Generator --> Engine[Moteur CoT Adaptatif]
     
-    style COT3 fill:#fff9c4
+    subgraph "Boucle de Raisonnement Validée"
+        Engine --> Iteration[Itération de Raisonnement]
+        Iteration --> Validation[Validation Automatique]
+        
+        Validation --> Score{Score > Seuil?}
+        Score -->|Non| Correction[Auto-Correction]
+        Correction --> Iteration
+        Score -->|Oui| Convergence{Convergé?}
+        
+        Convergence -->|Non| Iteration
+        Convergence -->|Oui| Synthesis[Synthèse]
+    end
+    
+    Synthesis --> Response([Réponse Finale])
+    
+    style Analyzer fill:#e3f2fd
+    style Validation fill:#fff3e0
+    style Response fill:#c8e6c9
 ```
 
-### 2.2 Intégration CoT-Mémoire
+### 2.2 Système de Validation Multi-Critères
 
-Le CoT interagit avec les trois niveaux de mémoire :
+Innovation clé d'UXMCP : chaque étape de raisonnement est **automatiquement validée** selon 5 critères :
+
+```mermaid
+graph TD
+    subgraph "Critères de Validation"
+        RELEVANCE[Pertinence<br/>0.0-1.0]
+        PROGRESS[Progrès<br/>0.0-1.0]
+        CORRECTNESS[Exactitude<br/>0.0-1.0]
+        EFFICIENCY[Efficacité<br/>Qualitatif]
+        COMPLETENESS[Complétude<br/>Qualitatif]
+    end
+    
+    subgraph "Scoring"
+        SCORE[Score Global]
+        THRESHOLD[Seuil: 0.7]
+    end
+    
+    RELEVANCE --> SCORE
+    PROGRESS --> SCORE
+    CORRECTNESS --> SCORE
+    EFFICIENCY --> SCORE
+    COMPLETENESS --> SCORE
+    
+    SCORE --> Decision{Valide?}
+    THRESHOLD --> Decision
+    
+    Decision -->|Oui| Continue[Continuer]
+    Decision -->|Non| Feedback[Générer Feedback<br/>+ Correction]
+    
+    style SCORE fill:#fff9c4
+```
+
+**Exemple de Validation en Action :**
+
+```
+Iteration 1:
+  Thought: "Je vais d'abord parler de l'histoire de l'entreprise..."
+  Validation: INVALID ❌
+  - Pertinence: 0.2 (Hors sujet)
+  - Progrès: 0.1 (Pas d'avancement)
+  Feedback: "Focus sur les données demandées, pas l'historique"
+  
+Iteration 1 (Correction):
+  Thought: "Je dois récupérer les données de ventes Q1"
+  Tool Calls: get_sales_data(quarter="Q1")
+  Validation: VALID ✅
+  - Pertinence: 0.9
+  - Progrès: 0.8
+```
+
+### 2.3 Générateur de Stratégies Diversifiées
+
+Le système génère automatiquement **plusieurs chemins de raisonnement** pour éviter les biais :
+
+```mermaid
+graph LR
+    Problem[Problème] --> Strategies{6 Stratégies}
+    
+    Strategies --> S1[Décomposition<br/>Hiérarchique]
+    Strategies --> S2[Raisonnement<br/>Arrière]
+    Strategies --> S3[Analogie<br/>Structurelle]
+    Strategies --> S4[Approche<br/>Systématique]
+    Strategies --> S5[Hypothèse<br/>et Test]
+    Strategies --> S6[Exploration<br/>Créative]
+    
+    S1 --> Selection[Sélection<br/>Optimale]
+    S2 --> Selection
+    S3 --> Selection
+    S4 --> Selection
+    S5 --> Selection
+    S6 --> Selection
+    
+    Selection --> Paths[Chemins<br/>Diversifiés]
+    
+    style Strategies fill:#e3f2fd
+    style Paths fill:#c8e6c9
+```
+
+### 2.4 Intégration CoT-Mémoire avec Validation
+
+Le CoT interagit avec les trois niveaux de mémoire, avec validation à chaque étape :
 
 ```mermaid
 sequenceDiagram
     participant User
-    participant CoT as Chain of Thought
+    participant Analyzer as Analyseur Complexité
+    participant CoT as CoT Adaptatif
+    participant Val as Validateur
     participant CT as Court Terme
     participant MT as Moyen Terme
-    participant LT as Long Terme
+    participant LT as Long Terme Collectif
     
-    User->>CoT: Question
-    CoT->>CoT: Décompose problème
-    CoT->>CT: Contexte immédiat?
-    CT-->>CoT: Conversation récente
-    CoT->>MT: Connaissances pertinentes?
-    MT-->>CoT: Mémoires similaires
-    CoT->>LT: Modèle du monde?
-    LT-->>CoT: Patterns globaux
-    CoT->>CoT: Raisonne étape par étape
-    CoT-->>User: Réponse + Raisonnement
+    User->>Analyzer: Question
+    Analyzer->>CoT: Profil Complexité + Stratégies
+    
+    loop Iterations (Max selon complexité)
+        CoT->>CT: Contexte immédiat?
+        CT-->>CoT: Conversation récente
+        
+        CoT->>MT: Connaissances pertinentes?
+        MT-->>CoT: Mémoires consolidées
+        
+        CoT->>LT: Modèle du monde?
+        LT-->>CoT: Patterns collectifs
+        
+        CoT->>Val: Valider étape
+        
+        alt Validation échouée
+            Val->>CoT: Feedback correction
+            CoT->>CoT: Auto-correction
+        else Validation réussie
+            Val->>CoT: Continue
+        end
+    end
+    
+    CoT-->>User: Réponse + Trace complète
 ```
 
-### 2.3 CoT Collectif : Raisonnement Distribué
+### 2.5 Détecteur de Convergence Intelligent
 
-Innovation majeure : Le CoT devient lui-même collectif, permettant un **raisonnement distribué** :
+Le système détermine automatiquement quand arrêter le raisonnement :
+
+```mermaid
+graph TD
+    Check[Vérifier Convergence]
+    
+    Check --> C1{Max Iterations?}
+    C1 -->|Oui| Stop1[Stop: Limite]
+    C1 -->|Non| C2{Confiance >= 0.85?}
+    
+    C2 -->|Oui| C3{Outils Utilisés?}
+    C3 -->|Oui| Stop2[Stop: Solution Trouvée]
+    C3 -->|Non| C4{Min 2 Iterations?}
+    
+    C2 -->|Non| C5{Agent Satisfait?}
+    C5 -->|Oui & Iter>=2| Stop3[Stop: Agent Complete]
+    C5 -->|Non| Continue[Continuer]
+    
+    C4 -->|Oui| Stop4[Stop: Suffisant]
+    C4 -->|Non| Continue
+    
+    style Stop1 fill:#ffcdd2
+    style Stop2 fill:#c8e6c9
+    style Stop3 fill:#c8e6c9
+    style Stop4 fill:#c8e6c9
+```
+
+### 2.6 CoT Collectif avec Validation Distribuée
+
+Innovation révolutionnaire : Le CoT devient **collectif et auto-validant** :
+
+```mermaid
+graph TB
+    subgraph "Raisonnement Collectif Validé"
+        subgraph "Phase 1: Exploration"
+            AG1[Agent 1:<br/>Stratégie A]
+            AG2[Agent 2:<br/>Stratégie B]
+            AG3[Agent 3:<br/>Stratégie C]
+        end
+        
+        subgraph "Phase 2: Validation Croisée"
+            VAL1[Agent 2 valide A]
+            VAL2[Agent 3 valide B]
+            VAL3[Agent 1 valide C]
+        end
+        
+        subgraph "Phase 3: Consensus"
+            MERGE[Fusion des<br/>Approches Valides]
+            CONSENSUS[Consensus<br/>Score: 0.92]
+        end
+        
+        subgraph "Phase 4: Méta-Validation"
+            META[Validation<br/>Collective Finale]
+        end
+    end
+    
+    AG1 --> VAL2
+    AG2 --> VAL3
+    AG3 --> VAL1
+    
+    VAL1 --> MERGE
+    VAL2 --> MERGE
+    VAL3 --> MERGE
+    
+    MERGE --> CONSENSUS
+    CONSENSUS --> META
+    
+    RESULT[Réponse<br/>Ultra-Fiable]
+    
+    META --> RESULT
+    
+    style CONSENSUS fill:#c8e6c9
+    style RESULT fill:#ffd54f
+```
+
+### 2.7 Métriques de Performance du CoT Adaptatif
+
+Le système suit des métriques précises pour s'améliorer :
 
 ```mermaid
 graph LR
-    subgraph "Raisonnement Collaboratif"
-        AG1_COT[Agent 1: Hypothèse A]
-        AG2_COT[Agent 2: Validation B]
-        AG3_COT[Agent 3: Contre-exemple C]
-        
-        CONSENSUS[Consensus Raisonné]
-        
-        AG1_COT --> CONSENSUS
-        AG2_COT --> CONSENSUS
-        AG3_COT --> CONSENSUS
-        
-        CONCLUSION[Conclusion Collective<br/>+ Trace Complète]
-        
-        CONSENSUS --> CONCLUSION
+    subgraph "Métriques Clés"
+        M1[Convergence Rate<br/>> 85%]
+        M2[Validation Success<br/>> 70% premier essai]
+        M3[Correction Efficiency<br/>> 90% réussite]
+        M4[Tool Efficiency<br/>> 0.8 ratio utilité]
+        M5[Confidence Growth<br/>> 0.15 par itération]
     end
     
-    style CONCLUSION fill:#c8e6c9
+    subgraph "Optimisations"
+        O1[Cache Démonstrations]
+        O2[Parallélisation Outils]
+        O3[Early Stopping]
+        O4[Context Pruning]
+    end
+    
+    M1 --> Performance[Performance<br/>Globale]
+    M2 --> Performance
+    M3 --> Performance
+    M4 --> Performance
+    M5 --> Performance
+    
+    Performance --> O1
+    Performance --> O2
+    Performance --> O3
+    Performance --> O4
+    
+    style Performance fill:#e1bee7
 ```
 
 ---
