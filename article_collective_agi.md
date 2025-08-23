@@ -846,7 +846,7 @@ Ensemble, nous ne créons pas simplement une technologie - nous façonnons poten
 *"L'intelligence n'est pas ce qu'une machine sait, mais ce qu'un réseau découvre."*
 
 **Auteur** : Architecture Cognitive UXMCP Team  
-**Date** : Janvier 2025  
+**Date** : aout 2025  
 **Version** : 1.0  
 **Licence** : Open Source - Contribution Collective
 
@@ -864,4 +864,4 @@ Ensemble, nous ne créons pas simplement une technologie - nous façonnons poten
 
 ---
 
-*Pour contribuer au projet UXMCP ou participer aux discussions sur l'architecture proto-AGI, visitez : [github.com/uxmcp]*
+*Pour contribuer au projet UXMCP ou participer aux discussions sur l'architecture proto-AGI, visitez : [github.com/iapourtous/uxmcp]*
