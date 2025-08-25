@@ -219,7 +219,7 @@ class LLMClient:
             temperature: Override temperature
             max_tokens: Override max tokens
             timeout: Override timeout
-            json_mode: Force JSON response mode
+            json_mode: Force JSON response mode (deprecated - always uses text mode now)
             raise_on_error: Raise exception on error (True) or return None (False)
             
         Returns:
@@ -244,15 +244,17 @@ class LLMClient:
             else:
                 raise ValueError("Must provide either messages, prompt, or base_messages+prompt")
             
-            # Handle JSON mode override safely
-            profile_to_use = llm_profile
-            if json_mode is not None:
-                # Create a shallow copy to avoid modifying the original profile
-                import copy
-                profile_to_use = copy.copy(llm_profile)
-                profile_to_use.mode = "json" if json_mode else "text"
+            # ALWAYS use text mode for better compatibility
+            # JSON mode is deprecated and causes issues with tools
+            import copy
+            profile_to_use = copy.copy(llm_profile)
+            profile_to_use.mode = "text"  # Force text mode
             
-            # Make the call
+            # Log if we're overriding JSON mode
+            if json_mode or llm_profile.mode == "json":
+                logger.debug(f"Overriding JSON mode to text mode for compatibility (was json_mode={json_mode}, profile.mode={llm_profile.mode})")
+            
+            # Make the call with text mode profile
             response = await self.call(
                 llm_profile=profile_to_use,
                 messages=final_messages,
@@ -264,7 +266,23 @@ class LLMClient:
             # Extract content
             if response and "choices" in response and response["choices"]:
                 content = response["choices"][0]["message"]["content"]
-                return self._clean_think_tags(content)
+                cleaned_content = self._clean_think_tags(content)
+                
+                # If the caller expected JSON (json_mode was True or profile was JSON),
+                # we can try to extract JSON from the text response
+                if json_mode or llm_profile.mode == "json":
+                    try:
+                        from app.core.json_extractor import extract_json_from_text
+                        extracted = extract_json_from_text(cleaned_content)
+                        if extracted:
+                            # Return as string since that's what call_advanced returns
+                            import json
+                            return json.dumps(extracted)
+                    except:
+                        # If extraction fails, return the cleaned content as-is
+                        pass
+                
+                return cleaned_content
             
             if raise_on_error:
                 raise Exception("No valid response from LLM")
@@ -385,8 +403,8 @@ class LLMClient:
                 completion_params["tools"] = tools
                 completion_params["tool_choice"] = tool_choice or "auto"
                 
-            # Add JSON mode if configured
-            if llm_profile.mode == "json":
+            # Add JSON mode if configured (but not if tools are present - they're incompatible)
+            if llm_profile.mode == "json" and not tools:
                 completion_params["response_format"] = {"type": "json_object"}
             
             max_retries = max_retries or self.default_max_retries
@@ -513,8 +531,8 @@ class LLMClient:
             payload["tools"] = tools
             payload["tool_choice"] = tool_choice or "auto"
             
-        # Add JSON mode if configured
-        if llm_profile.mode == "json":
+        # Add JSON mode if configured (but not if tools are present - they're incompatible)
+        if llm_profile.mode == "json" and not tools:
             payload["response_format"] = {"type": "json_object"}
         
         max_retries = max_retries or self.default_max_retries

@@ -131,63 +131,64 @@ diversity_factor, confidence_threshold, needs_tools, tool_intensive, key_challen
             prompt,
             llm_profile,
             temperature=0.3,  # Low temperature for consistent analysis
-            max_tokens=500    # Enough for JSON response
+            max_tokens=None   # Use the model's default/configured max_tokens
         )
         
-        # Parse the response
+        # Parse the response using JSON extractor
         try:
-            # Direct JSON parsing since LLM is in JSON mode
-            analysis = json.loads(response.strip())
+            from app.core.json_extractor import extract_json_from_text
             
-            # Convert cluster string to enum
-            cluster_str = analysis.get("cluster", "multi_step")
-            cluster = ProblemCluster(cluster_str.lower())
+            # Extract JSON from the text response
+            analysis = extract_json_from_text(response)
             
-            # Create ComplexityProfile with parsed data
-            return ComplexityProfile(
-                cluster=cluster,
-                estimated_steps=analysis.get("estimated_steps", 5),
-                max_iterations=analysis.get("max_iterations", 7),
-                reasoning_strategy=analysis.get("reasoning_strategy", "decomposition"),
-                diversity_factor=analysis.get("diversity_factor", 1.5),
-                confidence_threshold=analysis.get("confidence_threshold", 0.85),
-                needs_tools=analysis.get("needs_tools", False),
-                tool_intensive=analysis.get("tool_intensive", False),
-                key_challenges=analysis.get("key_challenges", []),
-                ambiguities=analysis.get("ambiguities", [])
-            )
-            
-        except (json.JSONDecodeError, KeyError, ValueError) as e:
-            logger.error(f"Failed to parse LLM response: {str(e)}")
-            logger.error(f"Response was: {response[:500] if response else 'None'}")
-            # Try to extract any valid JSON from partial response
-            try:
+            if not analysis:
+                # Try the legacy parsing as fallback
+                logger.warning("Could not extract JSON using extractor, trying legacy parsing")
                 # Sometimes the response starts with explanatory text
                 if "{" in response:
                     json_start = response.index("{")
                     json_end = response.rindex("}") + 1
                     json_str = response[json_start:json_end]
                     analysis = json.loads(json_str)
-                    
-                    # Retry with extracted JSON
-                    cluster_str = analysis.get("cluster", "multi_step")
-                    cluster = ProblemCluster(cluster_str.lower())
-                    
-                    return ComplexityProfile(
-                        cluster=cluster,
-                        estimated_steps=analysis.get("estimated_steps", 5),
-                        max_iterations=analysis.get("max_iterations", 7),
-                        reasoning_strategy=analysis.get("reasoning_strategy", "decomposition"),
-                        diversity_factor=analysis.get("diversity_factor", 1.5),
-                        confidence_threshold=analysis.get("confidence_threshold", 0.85),
-                        needs_tools=analysis.get("needs_tools", False),
-                        tool_intensive=analysis.get("tool_intensive", False),
-                        key_challenges=analysis.get("key_challenges", []),
-                        ambiguities=analysis.get("ambiguities", [])
-                    )
-            except:
-                pass
+                else:
+                    logger.error(f"Could not extract JSON from response: {response[:500]}")
+                    return self._get_default_profile()
             
+            # Convert cluster string to enum
+            cluster_str = analysis.get("cluster", "multi_step")
+            # Normalize cluster string
+            cluster_str = cluster_str.lower().replace("-", "_").replace(" ", "_")
+            
+            # Map to enum with all possible variations
+            cluster_map = {
+                "simple": ProblemCluster.SIMPLE,
+                "arithmetic": ProblemCluster.ARITHMETIC,
+                "logical": ProblemCluster.LOGICAL,
+                "multi_step": ProblemCluster.MULTI_STEP,
+                "multistep": ProblemCluster.MULTI_STEP,
+                "multi step": ProblemCluster.MULTI_STEP,
+                "creative": ProblemCluster.CREATIVE,
+                "analytical": ProblemCluster.ANALYTICAL
+            }
+            cluster = cluster_map.get(cluster_str, ProblemCluster.MULTI_STEP)
+            
+            # Create ComplexityProfile with parsed data
+            return ComplexityProfile(
+                cluster=cluster,
+                estimated_steps=int(analysis.get("estimated_steps", 5)),
+                max_iterations=int(analysis.get("max_iterations", 7)),
+                reasoning_strategy=str(analysis.get("reasoning_strategy", "decomposition")),
+                diversity_factor=float(analysis.get("diversity_factor", 1.5)),
+                confidence_threshold=float(analysis.get("confidence_threshold", 0.85)),
+                needs_tools=bool(analysis.get("needs_tools", False)),
+                tool_intensive=bool(analysis.get("tool_intensive", False)),
+                key_challenges=list(analysis.get("key_challenges", [])),
+                ambiguities=list(analysis.get("ambiguities", []))
+            )
+            
+        except (json.JSONDecodeError, KeyError, ValueError, TypeError) as e:
+            logger.error(f"Failed to parse LLM response: {str(e)}")
+            logger.error(f"Response was: {response[:500] if response else 'None'}")
             return self._get_default_profile()
     
     def _build_analysis_prompt(self, problem: str, context: Dict) -> str:
@@ -216,17 +217,41 @@ diversity_factor, confidence_threshold, needs_tools, tool_intensive, key_challen
         prompt: str, 
         llm_profile: Any,
         temperature: float = 0.3,
-        max_tokens: int = 500
+        max_tokens: int = None
     ) -> str:
         """Make a call to the LLM for analysis"""
         try:
+            # Add explicit JSON formatting instructions
+            enhanced_prompt = prompt + """
+
+Please respond with a JSON object in the following format:
+```json
+{
+    "cluster": "simple|arithmetic|logical|multi_step|creative|analytical",
+    "estimated_steps": 5,
+    "max_iterations": 7,
+    "reasoning_strategy": "decomposition",
+    "diversity_factor": 1.5,
+    "confidence_threshold": 0.85,
+    "needs_tools": false,
+    "tool_intensive": false,
+    "key_challenges": [],
+    "ambiguities": []
+}
+```
+
+IMPORTANT: Wrap your JSON response in a markdown code block as shown above."""
+            
+            # Use the model's configured max_tokens if not specified
+            actual_max_tokens = max_tokens or llm_profile.max_tokens
+            
             content = await llm_client.call_advanced(
                 llm_profile=llm_profile,
-                prompt=prompt,
-                system_message="You are an expert at analyzing problem complexity. Always respond with valid JSON only.",
+                prompt=enhanced_prompt,
+                system_message="You are an expert at analyzing problem complexity. Respond with valid JSON in a markdown code block.",
                 temperature=temperature,
-                max_tokens=max_tokens,
-                json_mode=True,
+                max_tokens=actual_max_tokens,
+                json_mode=False,  # Always use text mode
                 timeout=10.0,
                 raise_on_error=True
             )

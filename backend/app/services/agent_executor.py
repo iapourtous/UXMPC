@@ -4,6 +4,7 @@ import logging
 import uuid
 import asyncio
 import os
+import copy
 from datetime import datetime
 from typing import Dict, Any, List, Optional, Union, AsyncGenerator
 from app.models.agent import (
@@ -19,6 +20,7 @@ from app.models.conversation import MessageCreate, ConversationCreate
 from app.services.conversation_compactor import conversation_compactor
 from app.services.settings_crud import settings_crud
 from app.core.llm_client import llm_client
+from app.core.json_extractor import extract_json_from_text, create_json_instruction
 
 logger = logging.getLogger(__name__)
 
@@ -734,6 +736,10 @@ You have a persistent memory that remembers past conversations, user preferences
         if agent.system_prompt:
             system_content += agent.system_prompt
         
+        # Add JSON formatting instructions if structured output is expected
+        if agent.output_schema and agent.output_schema != "text":
+            system_content += f"\n\n{create_json_instruction(agent.output_schema)}\n"
+        
         # Add critical constraints about links and web access
         system_content += """
 
@@ -789,18 +795,22 @@ IMPORTANT: When you have gathered enough information to answer the user's questi
         iterations = 0
         total_usage = {"prompt_tokens": 0, "completion_tokens": 0, "total_tokens": 0}
         
+        # Force text mode for compatibility with tools
+        text_mode_profile = copy.copy(llm_profile)
+        text_mode_profile.mode = "text"
+        
         while iterations < max_iterations:
             iterations += 1
             await agent_logger.debug(f"LLM iteration {iterations}")
             
             try:
-                # Use centralized client for LLM call
+                # Use centralized client for LLM call with text mode profile
                 response = await llm_client.call_with_tools_iteration(
-                    llm_profile=llm_profile,
+                    llm_profile=text_mode_profile,
                     messages=messages,
                     tools=tools,
-                    temperature=agent.temperature or llm_profile.temperature,
-                    max_tokens=agent.max_tokens or llm_profile.max_tokens,
+                    temperature=agent.temperature or text_mode_profile.temperature,
+                    max_tokens=agent.max_tokens or text_mode_profile.max_tokens,
                     require_tool_use=agent.require_tool_use if tools else False,
                     timeout=120.0
                 )
@@ -860,11 +870,23 @@ IMPORTANT: When you have gathered enough information to answer the user's questi
                 output = message["content"]
                 
                 # Try to parse as JSON if output schema is not text
-                if agent.output_schema != "text":
-                    try:
-                        output = json.loads(output)
-                    except:
-                        pass
+                if agent.output_schema and agent.output_schema != "text":
+                    # Use our JSON extractor for robust parsing
+                    extracted = extract_json_from_text(output)
+                    if extracted:
+                        output = extracted
+                        await agent_logger.debug("Successfully extracted JSON from text response")
+                    else:
+                        # Fallback to direct parsing
+                        try:
+                            output = json.loads(output)
+                        except:
+                            # Keep as text if parsing fails
+                            await agent_logger.warning(
+                                "Could not parse output as JSON despite non-text schema",
+                                schema=agent.output_schema
+                            )
+                            pass
                 
                 return {
                     "output": output,

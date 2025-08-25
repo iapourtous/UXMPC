@@ -157,6 +157,19 @@ class AdaptiveChainOfThought:
         Returns:
             Complete CoT result with reasoning chain and tool results
         """
+        # Validate inputs
+        if conversation_history is not None and not isinstance(conversation_history, list):
+            logger.warning(f"conversation_history should be a list, got {type(conversation_history)}. Converting to empty list.")
+            conversation_history = []
+        
+        if tools is not None and not isinstance(tools, list):
+            logger.warning(f"tools should be a list, got {type(tools)}. Converting to None.")
+            tools = None
+        
+        # Log input types for debugging
+        logger.debug(f"COT execute - conversation_history type: {type(conversation_history)}, len: {len(conversation_history) if conversation_history else 0}")
+        logger.debug(f"COT execute - tools type: {type(tools)}, len: {len(tools) if tools else 0}")
+        
         try:
             # Analyze problem complexity (now with LLM support)
             complexity = await self.complexity_analyzer.analyze_problem(
@@ -192,7 +205,12 @@ class AdaptiveChainOfThought:
             
             # Store the full context messages for use in all iterations
             # conversation_history contains all the system messages with agent config, memory, etc.
-            current_context['full_context_messages'] = conversation_history[:-1] if conversation_history else []
+            if conversation_history and isinstance(conversation_history, list) and len(conversation_history) > 0:
+                current_context['full_context_messages'] = conversation_history[:-1]
+            else:
+                current_context['full_context_messages'] = []
+            
+            logger.debug(f"full_context_messages set with {len(current_context['full_context_messages'])} messages")
             
             # Update convergence detector with dynamic confidence threshold from complexity analysis
             self.convergence_detector.confidence_threshold = complexity.confidence_threshold
@@ -314,9 +332,9 @@ class AdaptiveChainOfThought:
                     tools
                 )
             
-            # Call LLM with full context messages if available
+            # Call LLM with full context messages if available and tools
             base_messages = context.get('full_context_messages')
-            response = await self._call_llm(prompt, llm_profile, base_messages)
+            response = await self._call_llm(prompt, llm_profile, base_messages, tools)
             
             # Parse response
             thought, tool_calls, evaluation, confidence, should_continue, knowledge = \
@@ -444,7 +462,7 @@ Remember all the context about the user (their name, preferences, etc.) from the
             prompt += "\n"
         
         # Add available tools - NO LIMIT, show ALL tools
-        if tools:
+        if tools and isinstance(tools, list):
             prompt += "Available tools:\n"
             
             # Prioritize memory tools - show them FIRST
@@ -514,25 +532,97 @@ Important:
         
         return prompt
     
-    async def _call_llm(self, prompt: str, llm_profile: Any, base_messages: List[Dict[str, Any]] = None) -> str:
-        """Make a call to the LLM"""
+    async def _call_llm(self, prompt: str, llm_profile: Any, base_messages: List[Dict[str, Any]] = None, tools: List[Dict[str, Any]] = None) -> str:
+        """Make a call to the LLM with optional tools support"""
         try:
-            content = await llm_client.call_advanced(
-                llm_profile=llm_profile,
-                prompt=prompt,
-                base_messages=base_messages,
-                system_message="You are performing systematic chain of thought reasoning. Use tools when needed to gather information." if not base_messages else None,
-                temperature=getattr(llm_profile, 'temperature', 0.7),
-                max_tokens=getattr(llm_profile, 'max_tokens', 2000),
-                timeout=60.0,
-                json_mode=False,  # Force text mode for COT iterations (not JSON)
-                raise_on_error=True
-            )
+            # Validate and sanitize inputs
+            if base_messages is not None and not isinstance(base_messages, list):
+                logger.error(f"base_messages should be a list or None, got {type(base_messages)}")
+                base_messages = []
             
-            if not content:
-                raise Exception("No content received from LLM")
+            if tools is not None and not isinstance(tools, list):
+                logger.error(f"tools should be a list or None, got {type(tools)}")
+                tools = None
+            
+            # If tools are provided, use call_with_tools_iteration for proper tool support
+            if tools and isinstance(tools, list) and len(tools) > 0:
+                # Build messages list
+                messages = base_messages.copy() if base_messages else []
+                # Check if we need to add a system message
+                if messages and not any(msg and isinstance(msg, dict) and msg.get('role') == 'system' for msg in messages):
+                    messages.insert(0, {
+                        "role": "system", 
+                        "content": "You are performing systematic chain of thought reasoning. Use tools when needed to gather information."
+                    })
+                messages.append({"role": "user", "content": prompt})
                 
-            return content
+                # Use tools-enabled call
+                response = await llm_client.call_with_tools_iteration(
+                    llm_profile=llm_profile,
+                    messages=messages,
+                    tools=tools,
+                    temperature=getattr(llm_profile, 'temperature', 0.7),
+                    max_tokens=getattr(llm_profile, 'max_tokens', 2000),
+                    require_tool_use=False,  # Don't force tool use
+                    timeout=60.0
+                )
+                
+                # Extract content from response
+                if response and "choices" in response and response["choices"]:
+                    # Ensure content is never None
+                    content = response["choices"][0]["message"].get("content") or ""
+                    
+                    # If the model called tools, format them in the response
+                    tool_calls = response["choices"][0]["message"].get("tool_calls", [])
+                    if tool_calls:
+                        # Add tool calls to the content in the expected format
+                        tool_calls_text = "\n\nTOOL_CALLS:\n"
+                        for tc in tool_calls:
+                            func = tc.get("function", {})
+                            name = func.get("name", "unknown")
+                            args = func.get("arguments", "{}")
+                            # Parse arguments if they're a JSON string
+                            try:
+                                import json
+                                args_dict = json.loads(args) if isinstance(args, str) else args
+                                args_str = ", ".join([f'{k}="{v}"' for k, v in args_dict.items()])
+                                tool_calls_text += f"{name}({args_str})\n"
+                            except:
+                                tool_calls_text += f"{name}({args})\n"
+                        
+                        # Insert tool calls into content if not already present
+                        if content and "TOOL_CALLS:" not in content:
+                            # Try to insert after THOUGHT section
+                            if "THOUGHT:" in content and "EVALUATION:" in content:
+                                parts = content.split("EVALUATION:")
+                                content = parts[0] + tool_calls_text + "\nEVALUATION:" + "EVALUATION:".join(parts[1:])
+                            else:
+                                content = (content or "") + tool_calls_text
+                    
+                    if not content:
+                        raise Exception("No content received from LLM")
+                    return content
+                else:
+                    raise Exception("Invalid response structure from LLM")
+            
+            # Otherwise use the standard call_advanced without tools
+            else:
+                content = await llm_client.call_advanced(
+                    llm_profile=llm_profile,
+                    prompt=prompt,
+                    base_messages=base_messages,
+                    system_message="You are performing systematic chain of thought reasoning. Use tools when needed to gather information." if not base_messages else None,
+                    temperature=getattr(llm_profile, 'temperature', 0.7),
+                    max_tokens=getattr(llm_profile, 'max_tokens', 2000),
+                    timeout=60.0,
+                    json_mode=False,  # Force text mode for COT iterations (not JSON)
+                    raise_on_error=True
+                )
+                
+                if not content:
+                    raise Exception("No content received from LLM")
+                    
+                return content
                 
         except Exception as e:
             logger.error(f"LLM call failed: {str(e)}")
