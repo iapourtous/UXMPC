@@ -1,0 +1,14 @@
+Check solution completeness.
+
+Problem: {problem}
+Solution Attempt: {solution_attempt}
+{requirements_text}
+
+Requirements:
+1. Review problem requirements
+2. Check solution coverage
+3. Identify missing elements
+4. Assess adequacy
+5. Suggest improvements
+
+Provide completeness analysis.

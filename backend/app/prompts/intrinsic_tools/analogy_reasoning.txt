@@ -1,0 +1,14 @@
+Apply analogical reasoning between domains.
+
+Source Domain: {source_domain}
+Target Domain: {target_domain}
+Mapping Focus: {mapping_focus}
+
+Requirements:
+1. Analyze source domain structure
+2. Identify key {mapping_focus} elements
+3. Map to target domain
+4. Note similarities and differences
+5. Transfer insights appropriately
+
+Provide analogical analysis.

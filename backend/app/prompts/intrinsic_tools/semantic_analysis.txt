@@ -1,0 +1,13 @@
+Perform deep semantic analysis on the content.
+
+Content: {content}
+Analysis Focus: {focus}
+
+Requirements:
+1. Examine the literal meaning
+2. Identify {focus_instruction}
+3. Consider context and subtext
+4. Look for hidden layers of meaning
+5. Evaluate semantic coherence
+
+Provide insightful semantic analysis.

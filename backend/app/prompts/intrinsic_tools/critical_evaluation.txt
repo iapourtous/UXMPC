@@ -1,0 +1,14 @@
+Critically evaluate the content.
+
+Content: {content}
+{criteria_text}
+Identify flaws: {identify_flaws}
+
+Requirements:
+1. Examine claims carefully
+2. {evaluation_instruction}
+3. Check logical consistency
+4. Identify biases
+5. Assess evidence quality
+
+Provide rigorous evaluation.

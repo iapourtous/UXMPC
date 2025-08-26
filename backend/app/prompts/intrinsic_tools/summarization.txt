@@ -1,0 +1,14 @@
+Create a {style} summary of the following content.
+
+Content: {content}
+{length_constraint}
+{focus_instruction}
+
+Requirements:
+1. Capture essential information
+2. Maintain accuracy
+3. Use {style} format
+4. {additional_requirements}
+5. Ensure coherence
+
+Provide a clear, concise summary.

@@ -1,0 +1,14 @@
+Analyze and extract information from the provided text.
+
+Text: {text}
+{question_text}
+Extraction Focus: {extract_type}
+
+Requirements:
+1. Read the text carefully
+2. Identify key information relevant to the task
+3. {extraction_instruction}
+4. Structure your response clearly
+5. Be precise and accurate
+
+Provide a comprehensive analysis based on the text.

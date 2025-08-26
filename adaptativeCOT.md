@@ -278,34 +278,128 @@ Le système ajuste automatiquement les paramètres selon :
 - **Longueur du problème** : +2 itérations si > 200 caractères
 - **Présence de calculs** : +1 itération si nombres présents
 
-## 🛠️ Intégration avec les Outils MCP
+## 🛠️ Intégration avec les Outils : Hybride Intrinsèque + MCP
 
-### Support des Outils
+### 🆕 Outils LLM Intrinsèques
 
-Le système intègre transparemment les outils MCP :
+Le système inclut maintenant **15 outils intrinsèques** qui exploitent les capacités natives du LLM, toujours disponibles même sans outils externes :
+
+#### Outils de Raisonnement
+1. **`logical_reasoning`** - Raisonnement logique (déduction, induction, syllogismes)
+2. **`causal_analysis`** - Analyse cause-effet et chaînes causales
+3. **`hypothesis_generation`** - Génération d'hypothèses plausibles
+4. **`analogy_reasoning`** - Transfert d'insights entre domaines
+
+#### Outils d'Analyse Textuelle
+5. **`text_comprehension`** - Extraction d'informations clés
+6. **`semantic_analysis`** - Analyse du sens, nuances, implications
+7. **`summarization`** - Résumés adaptatifs contextuels
+8. **`classification`** - Catégorisation systématique
+
+#### Outils de Synthèse
+9. **`knowledge_synthesis`** - Combinaison d'informations multiples
+10. **`pattern_recognition`** - Identification de motifs conceptuels
+
+#### Outils de Décomposition
+11. **`problem_decomposition`** - Division en sous-problèmes
+12. **`completeness_check`** - Vérification de complétude
+
+#### Outils Créatifs/Évaluatifs
+13. **`creative_brainstorming`** - Génération d'idées innovantes
+14. **`critical_evaluation`** - Évaluation critique d'arguments
+15. **`scenario_exploration`** - Exploration de scénarios what-if
+
+### Architecture d'Exécution Hybride
+
+```mermaid
+graph TB
+    subgraph "Chain of Thought"
+        CoT[CoT Engine]
+    end
+    
+    subgraph "Outils Disponibles"
+        Intrinsic[Outils Intrinsèques<br/>15 outils LLM]
+        External[Outils MCP Externes<br/>Services, APIs]
+    end
+    
+    CoT --> Merger[Fusion des Outils]
+    Intrinsic --> Merger
+    External --> Merger
+    
+    Merger --> Router[Routeur Intelligent]
+    
+    Router --> IntrinsicExec[IntrinsicLLMToolsExecutor]
+    Router --> MCPExec[MCP Tool Executor]
+    
+    IntrinsicExec --> LLM[Appel LLM Spécialisé]
+    MCPExec --> Services[Services Externes]
+    
+    style Intrinsic fill:#e1f5fe
+    style IntrinsicExec fill:#c3e9ff
+    style LLM fill:#81d4fa
+```
+
+### Logique de Routage
 
 ```python
-async def cot_tool_executor(tool_name: str, arguments: Dict) -> Any:
-    # Outils de mémoire
-    if tool_name in ["memory_search", "memory_store", "memory_analyze"]:
-        return await memory_tool_handler(tool_name, arguments)
-    
-    # Outils MCP externes
-    if tool_name.startswith("mcp_"):
-        return await external_mcp_handler(tool_name, arguments)
-    
-    # Services MCP locaux
-    return await mcp_manager.execute_tool(tool_name, arguments)
+# Dans _execute_iteration
+if tool_call.tool_name in INTRINSIC_TOOL_NAMES:
+    # Outil intrinsèque -> LLM spécialisé
+    result = await intrinsic_executor.execute(
+        tool_name, arguments, llm_profile, context
+    )
+else:
+    # Outil externe -> MCP executor
+    result = await tool_executor(tool_name, arguments)
 ```
 
-### Format des Appels d'Outils
+### Exemples d'Utilisation Combinée
 
+#### Problème Logique Pur (Intrinsèque uniquement)
 ```
-TOOL_CALLS: 
-memory_search(query="information sur le client X")
-calculate_metrics(data="[1,2,3,4,5]", operation="mean")
-web_search(query="dernières nouvelles IA 2024")
+Itération 1:
+  TOOL_CALLS:
+  logical_reasoning(problem="Si tous les A sont B et tous les B sont C, que peut-on dire de A et C?", approach="syllogism")
+  → Résultat: "Par transitivité syllogistique, tous les A sont C"
+
+Itération 2:
+  TOOL_CALLS:
+  critical_evaluation(content="[résultat précédent]", identify_flaws=true)
+  → Validation du raisonnement
 ```
+
+#### Problème Hybride (Intrinsèque + Externe)
+```
+Itération 1:
+  TOOL_CALLS:
+  problem_decomposition(problem="Analyser les ventes Q1 et proposer des améliorations")
+  → Décomposition en 3 sous-tâches
+
+Itération 2:
+  TOOL_CALLS:
+  get_sales_data(quarter="Q1")  # Outil MCP externe
+  → Données de ventes récupérées
+
+Itération 3:
+  TOOL_CALLS:
+  pattern_recognition(data="[données ventes]", pattern_type="temporal")
+  → Identification de tendances
+
+Itération 4:
+  TOOL_CALLS:
+  creative_brainstorming(challenge="améliorer ventes", constraints=["budget limité"])
+  → 5 propositions innovantes
+```
+
+### Avantages de l'Approche Hybride
+
+| Aspect | Bénéfice |
+|--------|----------|
+| **Autonomie** | Le CoT fonctionne même sans outils externes |
+| **Uniformité** | Tous les raisonnements sont des "outils" |
+| **Traçabilité** | Chaque étape est explicite et auditable |
+| **Flexibilité** | Combine forces du LLM et précision des outils |
+| **Évolutivité** | Facile d'ajouter de nouveaux outils intrinsèques |
 
 ## 📈 Métriques et Performance
 
@@ -315,6 +409,8 @@ web_search(query="dernières nouvelles IA 2024")
 |----------|-------------|-----------------|
 | **Convergence Rate** | % de problèmes résolus avant max iterations | > 85% |
 | **Tool Efficiency** | Ratio outils utiles / outils appelés | > 0.8 |
+| **Intrinsic Tool Usage** | % d'utilisation des outils intrinsèques | Variable |
+| **Hybrid Reasoning** | % de sessions utilisant les deux types d'outils | > 60% |
 | **Confidence Growth** | Augmentation moyenne par itération | > 0.15 |
 | **Answer Quality** | Évaluation de la réponse finale | > 0.9 |
 | **Validation Success** | % d'itérations valides au premier essai | > 70% |
@@ -357,25 +453,33 @@ Iteration 2:
   Final Answer: "Analyse complète avec 5 recommandations..."
 ```
 
-### Exemple 1 : Question Simple
+### Exemple 1 : Raisonnement Logique Pur (Intrinsèque uniquement)
 
 ```python
-Input: "Quelle est la capitale de la France ?"
+Input: "Si tous les chats sont des animaux et tous les animaux sont mortels, que peut-on dire des chats ?"
 
-Complexity: SIMPLE
+Complexity: LOGICAL
 Max Iterations: 3
-Strategy: direct
+Strategy: logical_deduction
+Tools Available: 15 intrinsic + 0 external
 
 Iteration 1:
-  Thought: "Question factuelle simple sur la géographie"
-  Tool Calls: memory_search(query="capitale France")
+  Thought: "Problème de syllogisme classique à résoudre"
+  Tool Calls: 
+    logical_reasoning(
+      problem="Si tous les chats sont des animaux et tous les animaux sont mortels, que peut-on dire des chats ?",
+      approach="syllogism",
+      premises=["Tous les chats sont des animaux", "Tous les animaux sont mortels"]
+    )
+  Result: "Par transitivité syllogistique : Tous les chats sont mortels"
   Confidence: 0.95
   Should Continue: false
 
-Final Answer: "La capitale de la France est Paris."
+Final Answer: "Par raisonnement syllogistique : tous les chats sont mortels. 
+C'est une conclusion logique nécessaire découlant des deux prémisses données."
 ```
 
-### Exemple 2 : Problème Multi-Étapes
+### Exemple 2 : Analyse Complexe Hybride (Intrinsèque + Externe)
 
 ```python
 Input: "Compare les ventes Q1 et Q2, calcule la croissance et suggère des améliorations"
@@ -383,20 +487,46 @@ Input: "Compare les ventes Q1 et Q2, calcule la croissance et suggère des amél
 Complexity: MULTI_STEP
 Max Iterations: 10
 Strategy: hierarchical_decomposition
+Tools Available: 15 intrinsic + 5 external
 
 Iteration 1:
-  Thought: "Décomposer en 3 sous-tâches : récupération données, calcul, suggestions"
-  Tool Calls: get_sales_data(quarter="Q1"), get_sales_data(quarter="Q2")
-  
+  Thought: "Décomposer le problème en sous-tâches logiques"
+  Tool Calls: 
+    problem_decomposition(problem="Comparer ventes Q1/Q2 et suggérer améliorations", approach="hierarchical")
+  Result: "1. Récupérer données, 2. Calculer métriques, 3. Identifier patterns, 4. Générer suggestions"
+
 Iteration 2:
-  Thought: "Calculer la croissance avec les données obtenues"
-  Tool Calls: calculate_growth(q1=150000, q2=175000)
-  
+  Thought: "Récupérer les données de ventes pour les deux trimestres"
+  Tool Calls: 
+    get_sales_data(quarter="Q1")  # Externe
+    get_sales_data(quarter="Q2")  # Externe
+  Results: Q1=150000€, Q2=175000€ avec détails par produit
+
 Iteration 3:
-  Thought: "Analyser les tendances pour suggestions"
-  Tool Calls: analyze_trends(data={...})
+  Thought: "Analyser les patterns et calculer la croissance"
+  Tool Calls:
+    calculate_growth(q1=150000, q2=175000)  # Externe
+    pattern_recognition(data="[détails ventes]", pattern_type="temporal")  # Intrinsèque
+  Results: Croissance +16.7%, pic ventes mardis, baisse week-ends
+
+Iteration 4:
+  Thought: "Identifier les causes et générer des suggestions créatives"
+  Tool Calls:
+    causal_analysis(situation="baisse ventes week-ends", identify="root_causes")  # Intrinsèque
+    creative_brainstorming(challenge="augmenter ventes", constraints=["budget limité"])  # Intrinsèque
+  Results: 5 causes identifiées, 8 solutions innovantes proposées
+
+Iteration 5:
+  Thought: "Synthétiser toutes les informations en recommandations cohérentes"
+  Tool Calls:
+    knowledge_synthesis(
+      information_pieces=["croissance 16.7%", "patterns temporels", "causes identifiées", "solutions créatives"],
+      synthesis_goal="plan d'action structuré"
+    )  # Intrinsèque
   
-Final Answer: "Analyse complète avec croissance de 16.7% et 5 recommandations..."
+Final Answer: "Analyse complète : Croissance Q1→Q2 de 16.7% (150k€→175k€).
+Patterns identifiés : pics mardis (+23%), baisses week-ends (-15%).
+5 recommandations prioritaires avec ROI estimé..."
 ```
 
 ## 🔄 Optimisation du Contexte et Résumés Intelligents
@@ -483,6 +613,14 @@ Les résumés utilisent le même profil LLM configuré globalement :
 - **Température** : 0.3 (basse pour précision)
 - **Max Tokens** : 8192 pour résumés détaillés
 - **Mode** : Forcé en "text" (pas de JSON)
+
+### Configuration des Outils Intrinsèques
+
+Les outils intrinsèques utilisent des paramètres optimisés :
+- **Température** : 0.3 (précision maximale)
+- **Max Tokens** : 2000 (réponses concises)
+- **Mode** : Toujours "text" 
+- **Prompts** : Spécialisés par type d'outil
 
 ### Impact sur les Performances
 
@@ -588,21 +726,31 @@ Le système génère des logs à chaque étape :
    - Ajustement automatique des seuils de validation
    - Mémorisation des stratégies efficaces
    - Personnalisation des critères par type de problème
+   - **Apprentissage des préférences d'outils** (intrinsèque vs externe)
 
 2. **Parallélisation Avancée**
    - Exploration simultanée de chemins
    - Validation parallèle de multiples approches
    - Fusion des résultats parallèles
+   - **Exécution parallèle d'outils intrinsèques**
 
 3. **Meta-Raisonnement**
    - Réflexion sur le processus de raisonnement
    - Auto-amélioration continue
    - Apprentissage des patterns de correction
+   - **Auto-sélection du mix optimal intrinsèque/externe**
 
 4. **Validation Contextuelle**
    - Critères adaptatifs selon le domaine
    - Validation par pairs (multi-agents)
    - Métriques personnalisées par utilisateur
+   - **Validation croisée intrinsèque** (un outil vérifie l'autre)
+
+5. **Outils Intrinsèques Avancés**
+   - **`mathematical_proof`** - Preuves mathématiques formelles
+   - **`ethical_reasoning`** - Analyse éthique et morale
+   - **`temporal_reasoning`** - Raisonnement temporel
+   - **`counterfactual_thinking`** - Analyse contrefactuelle
 
 ## 📚 Références
 

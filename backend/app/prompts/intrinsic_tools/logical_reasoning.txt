@@ -1,0 +1,15 @@
+Perform systematic logical reasoning on the following problem.
+
+Problem: {problem}
+Approach: {approach}
+{premises_text}
+
+Requirements:
+1. State the problem clearly
+2. Identify key logical components
+3. Apply {approach} reasoning step by step
+4. Show each logical connection explicitly
+5. Draw a clear conclusion
+6. Check for logical validity
+
+Provide structured reasoning with clear logical steps.

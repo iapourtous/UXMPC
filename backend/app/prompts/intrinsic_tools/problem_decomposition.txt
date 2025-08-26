@@ -1,0 +1,15 @@
+Decompose the complex problem into manageable parts.
+
+Problem: {problem}
+Approach: {approach}
+Max Depth: {max_depth}
+
+Requirements:
+1. Understand the overall problem
+2. Apply {approach} decomposition
+3. Identify sub-problems
+4. Show dependencies
+5. Maintain coherence
+6. Limit to {max_depth} levels
+
+Provide structured decomposition.

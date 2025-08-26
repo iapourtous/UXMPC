@@ -1,0 +1,14 @@
+Classify the items systematically.
+
+Items: {items}
+{categories_text}
+Criteria: {criteria}
+
+Requirements:
+1. Analyze item characteristics
+2. Apply classification criteria
+3. {category_instruction}
+4. Justify classifications
+5. Note edge cases
+
+Provide clear classification.

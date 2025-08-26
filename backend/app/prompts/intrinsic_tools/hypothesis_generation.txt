@@ -1,0 +1,14 @@
+Generate plausible hypotheses for the observations.
+
+Observations: {observations}
+{constraints_text}
+Number of hypotheses: {number}
+
+Requirements:
+1. Analyze the observations
+2. Consider multiple explanations
+3. Ensure hypotheses are testable
+4. {constraint_instruction}
+5. Rank by plausibility
+
+Generate {number} distinct hypotheses.

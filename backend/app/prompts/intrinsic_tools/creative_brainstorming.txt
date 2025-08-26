@@ -1,0 +1,15 @@
+Generate creative ideas for the challenge.
+
+Challenge: {challenge}
+{constraints_text}
+{techniques_text}
+Quantity: {quantity}
+
+Requirements:
+1. Understand the challenge
+2. {technique_instruction}
+3. Think beyond obvious solutions
+4. {constraint_instruction}
+5. Generate {quantity} distinct ideas
+
+Provide creative solutions.

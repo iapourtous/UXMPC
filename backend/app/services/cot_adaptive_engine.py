@@ -14,6 +14,11 @@ from app.services.cot_complexity_analyzer import ComplexityAnalyzer, ComplexityP
 from app.services.cot_demonstration_generator import DemonstrationGenerator, ReasoningPath
 from app.services.llm_crud import llm_crud
 from app.services.settings_crud import settings_crud
+from app.services.intrinsic_llm_tools import (
+    INTRINSIC_LLM_TOOLS,
+    INTRINSIC_TOOL_NAMES,
+    intrinsic_tools_executor
+)
 
 logger = logging.getLogger(__name__)
 
@@ -133,6 +138,7 @@ class AdaptiveChainOfThought:
         self.complexity_analyzer = ComplexityAnalyzer()
         self.demonstration_generator = DemonstrationGenerator()
         self.convergence_detector = ConvergenceDetector()
+        self.intrinsic_executor = intrinsic_tools_executor
     
     async def execute(
         self,
@@ -193,6 +199,15 @@ class AdaptiveChainOfThought:
                 context
             )
             
+            # Merge intrinsic LLM tools with external tools
+            # Intrinsic tools are always available for reasoning
+            combined_tools = INTRINSIC_LLM_TOOLS.copy()
+            if tools:
+                # Add external MCP tools
+                combined_tools.extend(tools)
+            
+            logger.info(f"Total tools available: {len(combined_tools)} ({len(INTRINSIC_LLM_TOOLS)} intrinsic + {len(tools) if tools else 0} external)")
+            
             # Initialize reasoning chain
             iterations = []
             all_tool_results = []
@@ -202,7 +217,7 @@ class AdaptiveChainOfThought:
                 conversation_history,
                 agent_config,
                 demonstrations,
-                tools
+                combined_tools  # Use combined tools instead of just external tools
             )
             
             # Store the full context messages for use in all iterations
@@ -219,7 +234,7 @@ class AdaptiveChainOfThought:
             
             # Adjust max iterations if tool intensive
             adjusted_max_iterations = complexity.max_iterations
-            if complexity.tool_intensive and tools:
+            if complexity.tool_intensive and combined_tools:
                 adjusted_max_iterations = min(complexity.max_iterations + 2, 15)
                 logger.info(f"Tool-intensive problem detected, adjusting max iterations to {adjusted_max_iterations}")
             
@@ -234,7 +249,7 @@ class AdaptiveChainOfThought:
                     complexity,
                     llm_profile,
                     agent_config,
-                    tools,
+                    combined_tools,  # Use combined tools
                     tool_executor
                 )
                 
@@ -245,7 +260,7 @@ class AdaptiveChainOfThought:
                 converged, reason = self.convergence_detector.check_convergence(
                     iterations,
                     adjusted_max_iterations,
-                    has_tools=bool(tools)
+                    has_tools=bool(combined_tools)  # Always true now with intrinsic tools
                 )
                 
                 if converged:
@@ -355,15 +370,50 @@ class AdaptiveChainOfThought:
             
             # Execute tools if requested
             tool_results = []
-            if tool_calls and tool_executor:
+            if tool_calls:
                 for tool_call in tool_calls:
                     try:
-                        result = await tool_executor(tool_call.tool_name, tool_call.arguments)
-                        tool_results.append(ToolResult(
-                            tool_name=tool_call.tool_name,
-                            result=result,
-                            success=True
-                        ))
+                        # Check if it's an intrinsic tool
+                        if tool_call.tool_name in INTRINSIC_TOOL_NAMES:
+                            # Execute intrinsic LLM tool
+                            logger.debug(f"Executing intrinsic tool: {tool_call.tool_name}")
+                            result_dict = await self.intrinsic_executor.execute(
+                                tool_call.tool_name,
+                                tool_call.arguments,
+                                llm_profile,
+                                context
+                            )
+                            
+                            if result_dict["success"]:
+                                tool_results.append(ToolResult(
+                                    tool_name=tool_call.tool_name,
+                                    result=result_dict["result"],
+                                    success=True
+                                ))
+                            else:
+                                tool_results.append(ToolResult(
+                                    tool_name=tool_call.tool_name,
+                                    result=None,
+                                    success=False,
+                                    error=result_dict.get("error", "Unknown error")
+                                ))
+                        elif tool_executor:
+                            # Execute external MCP tool
+                            logger.debug(f"Executing external tool: {tool_call.tool_name}")
+                            result = await tool_executor(tool_call.tool_name, tool_call.arguments)
+                            tool_results.append(ToolResult(
+                                tool_name=tool_call.tool_name,
+                                result=result,
+                                success=True
+                            ))
+                        else:
+                            logger.warning(f"External tool {tool_call.tool_name} called but no executor provided")
+                            tool_results.append(ToolResult(
+                                tool_name=tool_call.tool_name,
+                                result=None,
+                                success=False,
+                                error="No tool executor available for external tools"
+                            ))
                     except Exception as e:
                         logger.error(f"Tool execution failed: {tool_call.tool_name} - {str(e)}")
                         tool_results.append(ToolResult(

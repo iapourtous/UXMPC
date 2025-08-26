@@ -1,0 +1,13 @@
+Identify patterns in the provided data.
+
+Data: {data}
+Pattern Type: {pattern_type}
+
+Requirements:
+1. Examine the data systematically
+2. Look for {pattern_type} patterns
+3. Identify recurring elements
+4. Note exceptions or anomalies
+5. Explain pattern significance
+
+Provide clear pattern analysis.

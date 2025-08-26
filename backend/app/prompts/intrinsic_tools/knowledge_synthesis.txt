@@ -1,0 +1,16 @@
+Synthesize multiple pieces of information into coherent understanding.
+
+Information pieces:
+{information_list}
+
+Synthesis goal: {synthesis_goal}
+Resolve contradictions: {resolve_contradictions}
+
+Requirements:
+1. Identify common themes
+2. Find connections between pieces
+3. {contradiction_instruction}
+4. Build coherent narrative
+5. Highlight key insights
+
+Provide integrated synthesis.

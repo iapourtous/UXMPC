@@ -1,0 +1,13 @@
+Analyze causal relationships in the situation.
+
+Situation: {situation}
+Analysis Focus: {identify}
+
+Requirements:
+1. Map out the situation
+2. Identify {identify_instruction}
+3. Trace causal connections
+4. Consider indirect effects
+5. Evaluate causal strength
+
+Provide thorough causal analysis.

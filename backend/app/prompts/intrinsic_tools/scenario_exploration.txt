@@ -1,0 +1,15 @@
+Explore potential scenarios.
+
+Base Scenario: {base_scenario}
+{variables_text}
+Time Horizon: {time_horizon}
+Scenarios: {scenarios_count}
+
+Requirements:
+1. Understand current state
+2. Identify key variables
+3. Create {scenarios_count} distinct scenarios
+4. Consider {time_horizon} impacts
+5. Assess likelihood and impact
+
+Provide scenario analysis.
