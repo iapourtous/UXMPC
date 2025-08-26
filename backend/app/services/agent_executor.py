@@ -441,7 +441,8 @@ class AgentExecutor:
                 tool_calls=result.get("tool_calls", []),
                 iterations=result.get("iterations", 1),
                 usage=result.get("usage", {}),
-                conversation_id=conversation_id
+                conversation_id=conversation_id,
+                reasoning_chain=result.get("reasoning_chain")
             )
             
         except Exception as e:

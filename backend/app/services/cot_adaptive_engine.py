@@ -13,6 +13,7 @@ from app.core.llm_client import llm_client
 from app.services.cot_complexity_analyzer import ComplexityAnalyzer, ComplexityProfile
 from app.services.cot_demonstration_generator import DemonstrationGenerator, ReasoningPath
 from app.services.llm_crud import llm_crud
+from app.services.settings_crud import settings_crud
 
 logger = logging.getLogger(__name__)
 
@@ -71,7 +72,7 @@ class ConvergenceDetector:
     
     def __init__(self):
         self.confidence_threshold = 0.85
-        self.min_iterations_with_tools = 2  # At least 2 iterations if tools are available
+        self.min_iterations_with_tools = 3  # At least 3 iterations if tools are available
         
     def check_convergence(
         self,
@@ -101,22 +102,23 @@ class ConvergenceDetector:
                 return False, "Tools available but not yet used"
             
             # Check if we have enough information from tools
-            if current_iteration.tool_results:
+            # But require at least 3 iterations even with high confidence
+            if current_iteration.tool_results and len(iterations) >= 3:
                 # If we got good results and high confidence
                 if current_iteration.confidence >= self.confidence_threshold:
-                    return True, "High confidence with tool results"
+                    return True, "High confidence with tool results after multiple iterations"
         
-        # Check if agent decided to stop
-        if not current_iteration.should_continue and len(iterations) >= 2:
+        # Check if agent decided to stop (but require at least 3 iterations)
+        if not current_iteration.should_continue and len(iterations) >= 3:
             return True, "Agent determined answer is complete with sufficient iterations"
         
         # Check confidence threshold (only after minimum iterations)
-        if current_iteration.confidence >= self.confidence_threshold and len(iterations) >= 3:
+        if current_iteration.confidence >= self.confidence_threshold and len(iterations) >= 4:
             return True, f"High confidence reached ({current_iteration.confidence:.2f})"
         
-        # Don't converge too early
-        if len(iterations) < 2:
-            return False, "Need more iterations"
+        # Don't converge too early - require at least 3 iterations for complex problems
+        if len(iterations) < 3:
+            return False, "Need more iterations for comprehensive analysis"
         
         return False, "Continue reasoning"
 
@@ -257,6 +259,11 @@ class AdaptiveChainOfThought:
                 )
             
             # Synthesize final answer from all iterations and tool results
+            logger.info("=" * 50)
+            logger.info("STARTING SYNTHESIS PHASE")
+            logger.info(f"Number of tool results to synthesize: {len(all_tool_results)}")
+            logger.info("=" * 50)
+            
             final_answer = await self._synthesize_final_answer(
                 problem,
                 iterations,
@@ -265,6 +272,12 @@ class AdaptiveChainOfThought:
                 llm_profile,
                 agent_config
             )
+            
+            logger.info("=" * 50)
+            logger.info("SYNTHESIS COMPLETE")
+            logger.info(f"Final answer type: {type(final_answer)}")
+            logger.info(f"Final answer starts with: {final_answer[:100] if final_answer else 'None'}...")
+            logger.info("=" * 50)
             
             return ChainOfThoughtResult(
                 final_answer=final_answer,
@@ -309,7 +322,7 @@ class AdaptiveChainOfThought:
         while correction_attempt <= max_correction_attempts:
             # Build prompt for this iteration (or correction)
             if correction_attempt == 0:
-                prompt = self._build_iteration_prompt(
+                prompt = await self._build_iteration_prompt(
                     iteration_num,
                     problem,
                     context,
@@ -414,7 +427,7 @@ class AdaptiveChainOfThought:
         
         return iteration
     
-    def _build_iteration_prompt(
+    async def _build_iteration_prompt(
         self,
         iteration_num: int,
         problem: str,
@@ -444,21 +457,55 @@ Remember all the context about the user (their name, preferences, etc.) from the
 
 """
         
-        # Add previous iterations summary
+        # Add previous iterations - use summary for older iterations to save context
         if previous_iterations:
-            prompt += "Previous reasoning and findings:\n"
-            for prev in previous_iterations[-3:]:  # Show last 3 iterations
-                prompt += f"\n- Iteration {prev.iteration_number}:\n"
-                prompt += f"  Thought: {prev.thought}\n"
-                if prev.tool_results:
-                    prompt += f"  Tools used: {', '.join([tr.tool_name for tr in prev.tool_results])}\n"
-                if prev.knowledge_gathered:
-                    prompt += f"  Learned: {prev.knowledge_gathered}\n"
-                # Add validation feedback if available
-                if hasattr(prev, 'validation_feedback') and prev.validation_feedback:
-                    prompt += f"  Validation: {prev.validation_feedback}\n"
-                if hasattr(prev, 'is_valid') and not prev.is_valid:
-                    prompt += f"  ⚠️ This iteration was marked as ineffective (relevance: {prev.relevance_score:.1f}, progress: {prev.progress_score:.1f})\n"
+            # Strategy: Keep last 2 iterations complete, summarize the rest
+            if len(previous_iterations) > 2:
+                # Summarize older iterations
+                older_iterations = previous_iterations[:-2]
+                recent_iterations = previous_iterations[-2:]
+                
+                # Get summary of older iterations
+                summary = await self._summarize_previous_iterations(older_iterations, problem)
+                prompt += "## Previous iterations context:\n"
+                prompt += summary + "\n\n"
+                
+                # Add recent iterations in full detail
+                prompt += "## Recent iterations (detailed):\n"
+                for prev in recent_iterations:
+                    prompt += f"\n- Iteration {prev.iteration_number}:\n"
+                    prompt += f"  Thought: {prev.thought}\n"
+                    if prev.tool_results:
+                        prompt += f"  Tools used: {', '.join([tr.tool_name for tr in prev.tool_results])}\n"
+                        # Show actual results but limited to avoid context explosion
+                        for tr in prev.tool_results:
+                            if tr.success and tr.result:
+                                result_str = str(tr.result)
+                                if len(result_str) > 1000:
+                                    result_str = result_str[:1000] + "... [see full in synthesis]"
+                                prompt += f"    → {tr.tool_name} found: {result_str}\n"
+                            else:
+                                prompt += f"    → {tr.tool_name} FAILED: {tr.error}\n"
+                    if prev.knowledge_gathered:
+                        prompt += f"  Learned: {prev.knowledge_gathered}\n"
+                    if hasattr(prev, 'validation_feedback') and prev.validation_feedback:
+                        prompt += f"  Validation: {prev.validation_feedback}\n"
+            else:
+                # For first iterations, keep everything
+                prompt += "Previous reasoning and findings:\n"
+                for prev in previous_iterations:
+                    prompt += f"\n- Iteration {prev.iteration_number}:\n"
+                    prompt += f"  Thought: {prev.thought}\n"
+                    if prev.tool_results:
+                        prompt += f"  Tools used: {', '.join([tr.tool_name for tr in prev.tool_results])}\n"
+                        for tr in prev.tool_results:
+                            if tr.success and tr.result:
+                                result_str = str(tr.result)
+                                if len(result_str) > 2000:
+                                    result_str = result_str[:2000] + "... [truncated]"
+                                prompt += f"    → {tr.tool_name} found: {result_str}\n"
+                    if prev.knowledge_gathered:
+                        prompt += f"  Learned: {prev.knowledge_gathered}\n"
             prompt += "\n"
         
         # Add available tools - NO LIMIT, show ALL tools
@@ -498,6 +545,17 @@ Remember all the context about the user (their name, preferences, etc.) from the
         if context.get('memory_context'):
             prompt += f"Relevant memory: {context['memory_context']}\n\n"
         
+        # Add accumulated facts to avoid repetition
+        if context.get('accumulated_facts'):
+            prompt += "📊 **Key facts discovered so far:**\n"
+            # Show unique facts, avoiding duplicates
+            seen_facts = set()
+            for fact in context['accumulated_facts'][-10:]:  # Last 10 facts
+                if fact not in seen_facts:
+                    prompt += f"  • {fact}\n"
+                    seen_facts.add(fact)
+            prompt += "\n⚠️ Build on these facts, don't repeat the same searches!\n\n"
+        
         # Request structured response
         prompt += """Perform the next reasoning step. You MUST provide your response in this EXACT format:
 
@@ -511,9 +569,9 @@ web_search(query="additional information needed")
 
 EVALUATION: [Self-evaluation of your progress - what have you learned so far?]
 
-CONFIDENCE: [A number between 0 and 1 indicating confidence in having enough information]
+CONFIDENCE: [A number between 0 and 1 indicating confidence in having enough information. Be conservative - only use high confidence (>0.8) after gathering comprehensive data from multiple sources]
 
-SHOULD_CONTINUE: [true if you need more information/iterations, false if you have everything needed]
+SHOULD_CONTINUE: [true if you need more information/iterations, false if you have everything needed. For complex questions, gather data from at least 3-4 different angles]
 
 KNOWLEDGE_GATHERED: [Brief summary of key facts/data gathered so far]
 
@@ -717,6 +775,12 @@ Important:
         
         if 'KNOWLEDGE_GATHERED' in sections:
             knowledge = sections['KNOWLEDGE_GATHERED'].strip()
+        
+        # If knowledge is empty or generic, extract from evaluation
+        if not knowledge or knowledge in ["", "None", "N/A"]:
+            if evaluation:
+                # Use evaluation as knowledge if it contains insights
+                knowledge = evaluation
         
         return thought, tool_calls, evaluation, confidence, should_continue, knowledge
     
@@ -936,7 +1000,7 @@ Now, try again with a better approach. Focus on:
 """
         
         # Add the rest of the standard prompt structure
-        base_prompt = self._build_iteration_prompt(
+        base_prompt = await self._build_iteration_prompt(
             iteration_num,
             problem,
             context,
@@ -966,65 +1030,166 @@ Now, try again with a better approach. Focus on:
     ) -> str:
         """Synthesize final answer from all iterations and tool results"""
         
-        # Build synthesis prompt
-        synthesis_prompt = f"""⚠️ CRITICAL INSTRUCTIONS FOR FINAL ANSWER ⚠️
-
-You MUST create your response using ONLY the information provided below. 
-DO NOT add ANY information that is not explicitly present in the tool results or reasoning insights.
-
-Original question: {problem}
-
-AVAILABLE DATA FROM TOOLS (USE ONLY THIS):
-"""
+        logger.info("_synthesize_final_answer called")
+        logger.info(f"Problem: {problem[:100]}...")
+        logger.info(f"Number of iterations: {len(iterations)}")
+        logger.info(f"Number of tool results: {len(all_tool_results)}")
         
-        # Add tool results - NO TRUNCATION, use complete data
-        tool_data_sections = []
-        for tool_result in all_tool_results:
-            if tool_result.success and tool_result.result:
-                # Convert result to string and use COMPLETE data
-                result_str = str(tool_result.result)
-                tool_data_sections.append(f"{tool_result.tool_name} result:\n{result_str}")
-                synthesis_prompt += f"\n{tool_result.tool_name} result:\n{result_str}\n"
-        
-        # Add key insights from iterations
-        synthesis_prompt += "\nKEY INSIGHTS FROM YOUR REASONING:\n"
-        insights = []
-        for iteration in iterations:
-            if iteration.knowledge_gathered:
-                insights.append(iteration.knowledge_gathered)
-                synthesis_prompt += f"- {iteration.knowledge_gathered}\n"
-        
-        synthesis_prompt += f"""
-
-STRICT RULES FOR YOUR RESPONSE:
-1. ✅ USE ONLY the data from tool results shown above
-2. ✅ QUOTE exactly from tool results when providing information
-3. ✅ If tools returned URLs, use those EXACT URLs
-4. ✅ If tools returned summaries, use those EXACT summaries
-5. ❌ DO NOT invent any data not present above
-6. ❌ DO NOT create fake URLs, prices, or details
-7. ❌ DO NOT add information you think "should be there"
-8. ❌ DO NOT extrapolate beyond the tool results
-
-Agent personality: {agent_config.get('name', 'Assistant')}
-Communication style: {json.dumps(agent_config.get('personality', {}).get('communication_style', 'clear and helpful'))}
-
-YOUR TASK:
-Create a response that answers the original question using EXCLUSIVELY the data from the tool results above.
-If the tool results contain search pages, present them as search pages.
-If information is missing, explicitly state it's not available from the search results.
-
-Final answer (using ONLY the data above):"""
+        # Load synthesis prompt template
+        import os
+        prompt_path = os.path.join(
+            os.path.dirname(os.path.dirname(__file__)),
+            "prompts", "cot", "synthesize_answer.txt"
+        )
         
         try:
-            # Use the full context messages for synthesis too
-            base_messages = context.get('full_context_messages')
-            response = await self._call_llm(synthesis_prompt, llm_profile, base_messages)
+            with open(prompt_path, 'r') as f:
+                prompt_template = f.read()
+        except Exception as e:
+            logger.error(f"Failed to load synthesis prompt: {str(e)}")
+            # Fallback to inline prompt if file not found
+            prompt_template = """Answer the question: {problem}
+            
+Using the following data:
+{tool_results}
+
+{insights}
+
+Your response:"""
+        
+        # Build complete reasoning chain with iterations and tool results
+        reasoning_chain_text = "## CHAIN OF THOUGHT REASONING PROCESS:\n\n"
+        for iteration in iterations:
+            reasoning_chain_text += f"### Iteration {iteration.iteration_number}\n"
+            reasoning_chain_text += f"**Thought:** {iteration.thought}\n"
+            reasoning_chain_text += f"**Confidence:** {iteration.confidence}%\n"
+            
+            # Add tool calls and results for this iteration
+            if iteration.tool_calls:
+                reasoning_chain_text += f"**Tools used:** {', '.join([tc.tool_name for tc in iteration.tool_calls])}\n"
+                
+            if iteration.tool_results:
+                reasoning_chain_text += "**Tool Results:**\n"
+                for tr in iteration.tool_results:
+                    if tr.success and tr.result:
+                        result_str = str(tr.result)
+                        # If result is too long, summarize it with Summary LLM
+                        if len(result_str) > 10000:
+                            result_str = await self._summarize_tool_result(
+                                tool_name=tr.tool_name,
+                                result=result_str,
+                                problem=problem,
+                                iteration_thought=iteration.thought
+                            )
+                            reasoning_chain_text += f"- {tr.tool_name} (summarized from {len(str(tr.result))} chars):\n```\n{result_str}\n```\n"
+                        else:
+                            reasoning_chain_text += f"- {tr.tool_name}:\n```\n{result_str}\n```\n"
+            
+            if iteration.knowledge_gathered:
+                reasoning_chain_text += f"**Knowledge gathered:** {iteration.knowledge_gathered}\n"
+            reasoning_chain_text += "\n---\n\n"
+        
+        # Build consolidated tool results section  
+        tool_results_text = "## ALL TOOL RESULTS:\n\n"
+        logger.info(f"Building synthesis with {len(all_tool_results)} tool results")
+        for i, tool_result in enumerate(all_tool_results):
+            if tool_result.success and tool_result.result:
+                result_str = str(tool_result.result)
+                original_length = len(result_str)
+                
+                # If result is too long, summarize it with Summary LLM
+                if len(result_str) > 10000:
+                    # Find the corresponding iteration for context
+                    iteration_thought = ""
+                    for iteration in iterations:
+                        if any(tr.tool_name == tool_result.tool_name for tr in iteration.tool_results):
+                            iteration_thought = iteration.thought
+                            break
+                    
+                    result_str = await self._summarize_tool_result(
+                        tool_name=tool_result.tool_name,
+                        result=result_str,
+                        problem=problem,
+                        iteration_thought=iteration_thought
+                    )
+                    tool_results_text += f"### {tool_result.tool_name} (summarized from {original_length} chars):\n```\n{result_str}\n```\n\n"
+                    logger.debug(f"Added summarized tool result from {tool_result.tool_name} ({original_length} -> {len(result_str)} chars)")
+                else:
+                    tool_results_text += f"### {tool_result.tool_name}:\n```\n{result_str}\n```\n\n"
+                    logger.debug(f"Added tool result from {tool_result.tool_name} (length: {len(result_str)})")
+        
+        # Build key insights section from all iterations
+        insights_text = "## KEY INSIGHTS:\n\n"
+        for iteration in iterations:
+            if iteration.knowledge_gathered:
+                insights_text += f"- **Iteration {iteration.iteration_number}:** {iteration.knowledge_gathered}\n"
+        
+        # Get communication style
+        communication_style = agent_config.get('personality', {}).get('communication_style', 'clear and direct')
+        
+        # Format the prompt with all variables including reasoning chain
+        synthesis_prompt = prompt_template.format(
+            problem=problem,
+            reasoning_chain=reasoning_chain_text,
+            tool_results=tool_results_text,
+            insights=insights_text,
+            communication_style=json.dumps(communication_style)
+        )
+        
+        try:
+            # SYNTHESIS = SIMPLE TEXT GENERATION - NO COMPLEXITY!
+            from app.core.llm_client import LLMClient
+            llm_client = LLMClient()
+            
+            logger.info(f"Calling LLM for synthesis - SIMPLE TEXT GENERATION")
+            
+            # Force text mode by temporarily modifying the profile
+            import copy
+            synthesis_profile = copy.deepcopy(llm_profile)
+            synthesis_profile.mode = "text"  # FORCE TEXT MODE
+            
+            # Build messages with full context for synthesis
+            synthesis_messages = []
+            
+            # Add all context messages (agent config, user context, memory, etc.)
+            if context.get('full_context_messages'):
+                synthesis_messages.extend(context.get('full_context_messages'))
+                logger.info(f"Added {len(context.get('full_context_messages'))} context messages to synthesis")
+            
+            # Add synthesis system message
+            synthesis_messages.append({
+                "role": "system",
+                "content": "You are creating the final answer. Transform all data into natural language. Never return JSON, always return prose."
+            })
+            
+            # Add the synthesis prompt as user message
+            synthesis_messages.append({
+                "role": "user",
+                "content": synthesis_prompt
+            })
+            
+            # Use call_advanced with full context
+            response = await llm_client.call_advanced(
+                llm_profile=synthesis_profile,
+                messages=synthesis_messages,
+                temperature=getattr(synthesis_profile, 'temperature', 0.7)
+            )
+            
+            logger.info(f"Synthesis response received, length: {len(response)}")
+            logger.debug(f"Final answer preview: {response[:200]}...")
             return response.strip()
         except Exception as e:
             logger.error(f"Failed to synthesize final answer: {str(e)}")
+            logger.error(f"Using fallback for synthesis")
             # Fallback: return the best knowledge we have - NO TRUNCATION
             if all_tool_results:
+                # Check if any result looks like JSON
+                for tool_result in all_tool_results:
+                    if tool_result.success and tool_result.result:
+                        result_str = str(tool_result.result)
+                        if result_str.strip().startswith('{'):
+                            logger.warning(f"Tool {tool_result.tool_name} returned JSON: {result_str[:100]}...")
+                
                 result_summary = "Voici les informations trouvées:\n"
                 for tool_result in all_tool_results:
                     if tool_result.success:
@@ -1072,10 +1237,261 @@ Final answer (using ONLY the data above):"""
             "thought": iteration.thought,
             "confidence": iteration.confidence,
             "tools_used": [tc.tool_name for tc in iteration.tool_calls],
-            "knowledge": iteration.knowledge_gathered
+            "knowledge": iteration.knowledge_gathered,
+            "tool_results": [
+                {
+                    "tool": tr.tool_name,
+                    "result": str(tr.result) if tr.success and tr.result else tr.error
+                }
+                for tr in iteration.tool_results
+            ]
         })
         
+        # Add accumulated facts from tool results
+        if 'accumulated_facts' not in updated:
+            updated['accumulated_facts'] = []
+        
+        # Extract key facts from this iteration's results
+        for tr in iteration.tool_results:
+            if tr.success and tr.result:
+                # Extract important information (numbers, percentages, names, dates)
+                facts = self._extract_key_facts(str(tr.result))
+                updated['accumulated_facts'].extend(facts)
+        
+        # Also add the knowledge gathered as a fact
+        if iteration.knowledge_gathered and iteration.knowledge_gathered not in ["", "None", "N/A"]:
+            # NO TRUNCATION - use complete knowledge
+            updated['accumulated_facts'].append(f"Iteration {iteration.iteration_number}: {iteration.knowledge_gathered}")
+        
+        # NO LIMIT on facts - let the LLM profile handle context size
+        # The LLM's context window is the only limit
+        # if len(updated['accumulated_facts']) > 20:
+        #     updated['accumulated_facts'] = updated['accumulated_facts'][-20:]
+        
         return updated
+    
+    async def _summarize_tool_result(
+        self,
+        tool_name: str,
+        result: str,
+        problem: str,
+        iteration_thought: str
+    ) -> str:
+        """Summarize long tool results using Summary LLM Profile from settings"""
+        try:
+            # Get global settings
+            settings = await settings_crud.get_or_create()
+            if not settings or not settings.summary_llm_profile:
+                logger.warning("No Summary LLM profile configured in settings")
+                # Fallback to truncation
+                return result[:10000] + "\n... [truncated to 10000 chars]"
+            
+            # Get the Summary LLM profile
+            summary_profile = await llm_crud.get_by_name(settings.summary_llm_profile)
+            if not summary_profile or not summary_profile.active:
+                logger.warning(f"Summary LLM profile '{settings.summary_llm_profile}' not found or inactive")
+                # Fallback to truncation
+                return result[:10000] + "\n... [truncated to 10000 chars]"
+            
+            # Force text mode for summary
+            import copy
+            summary_profile = copy.deepcopy(summary_profile)
+            summary_profile.mode = "text"
+            
+            summary_prompt = f"""Summarize this tool result, keeping ONLY information relevant to answering the user's question.
+
+USER'S QUESTION: {problem}
+
+REASONING CONTEXT: {iteration_thought}
+
+TOOL NAME: {tool_name}
+
+FULL TOOL RESULT TO SUMMARIZE (length: {len(result)} characters):
+{result}
+
+INSTRUCTIONS:
+- Extract ONLY data relevant to the user's question
+- Keep ALL specific numbers, dates, names, facts, and data points
+- Keep important URLs, references, and citations
+- Remove redundant or irrelevant information
+- Maintain the original data structure when possible (lists, key-value pairs)
+- If the data contains search results, keep the most relevant ones
+- Target output: ~5000 characters maximum
+
+CONCISE SUMMARY (relevant data only):"""
+
+            from app.core.llm_client import LLMClient
+            llm_client = LLMClient()
+            
+            # Use higher max_tokens for summary as requested (8192)
+            summary = await llm_client.call_advanced(
+                llm_profile=summary_profile,
+                prompt=summary_prompt,
+                temperature=0.3,  # Low temperature for accurate summarization
+                max_tokens=8192   # As requested by user
+            )
+            
+            if summary:
+                logger.info(f"Summarized {tool_name} result from {len(result)} to {len(summary)} characters")
+                return summary.strip()
+            else:
+                logger.warning(f"Summary returned empty for {tool_name}")
+                return result[:10000] + "\n... [truncated to 10000 chars]"
+            
+        except Exception as e:
+            logger.error(f"Failed to summarize tool result: {e}")
+            # Fallback to truncation
+            return result[:10000] + "\n... [truncated to 10000 chars]"
+    
+    async def _summarize_previous_iterations(
+        self,
+        iterations: List[ReasoningIteration],
+        problem: str
+    ) -> str:
+        """Summarize previous iterations to reduce context size"""
+        try:
+            # Get global settings
+            settings = await settings_crud.get_or_create()
+            if not settings or not settings.summary_llm_profile:
+                logger.warning("No Summary LLM profile for iteration summary, using fallback")
+                return self._fallback_iteration_summary(iterations)
+            
+            # Get the Summary LLM profile
+            summary_profile = await llm_crud.get_by_name(settings.summary_llm_profile)
+            if not summary_profile or not summary_profile.active:
+                logger.warning(f"Summary profile not active, using fallback")
+                return self._fallback_iteration_summary(iterations)
+            
+            # Build detailed text of iterations to summarize
+            iterations_text = ""
+            for iteration in iterations:
+                iterations_text += f"\nIteration {iteration.iteration_number}:\n"
+                iterations_text += f"- Thought: {iteration.thought}\n"
+                
+                if iteration.tool_results:
+                    iterations_text += f"- Tools used: {', '.join([tr.tool_name for tr in iteration.tool_results])}\n"
+                    for tr in iteration.tool_results:
+                        if tr.success:
+                            # Include key results but limited
+                            result_preview = str(tr.result)[:500]
+                            iterations_text += f"  • {tr.tool_name} found: {result_preview}\n"
+                        else:
+                            iterations_text += f"  • {tr.tool_name} FAILED: {tr.error}\n"
+                
+                if iteration.knowledge_gathered:
+                    iterations_text += f"- Knowledge: {iteration.knowledge_gathered}\n"
+                
+                iterations_text += f"- Confidence: {iteration.confidence}%\n"
+            
+            # Create summary prompt
+            summary_prompt = f"""Summarize these Chain of Thought iterations for the next reasoning step.
+
+USER'S QUESTION: {problem}
+
+ITERATIONS TO SUMMARIZE:
+{iterations_text}
+
+CREATE A FUNCTIONAL SUMMARY that includes:
+1. KEY FINDINGS: Most important facts and data discovered
+2. FAILED ATTEMPTS: Tools that failed (to avoid repetition)  
+3. ESTABLISHED FACTS: Confirmed information with specific data
+4. CURRENT UNDERSTANDING: What we know so far about the question
+
+Keep ONLY information useful for continuing the reasoning.
+Remove redundancies and intermediate steps.
+Preserve all important numbers, dates, names, and facts.
+
+FUNCTIONAL SUMMARY:"""
+
+            # Force text mode
+            import copy
+            summary_profile = copy.deepcopy(summary_profile)
+            summary_profile.mode = "text"
+            
+            from app.core.llm_client import LLMClient
+            llm_client = LLMClient()
+            
+            summary = await llm_client.call_advanced(
+                llm_profile=summary_profile,
+                prompt=summary_prompt,
+                temperature=0.3,
+                max_tokens=8192
+            )
+            
+            if summary:
+                logger.info(f"Summarized {len(iterations)} iterations to {len(summary)} characters")
+                return summary.strip()
+            else:
+                return self._fallback_iteration_summary(iterations)
+                
+        except Exception as e:
+            logger.error(f"Failed to summarize iterations: {e}")
+            return self._fallback_iteration_summary(iterations)
+    
+    def _fallback_iteration_summary(self, iterations: List[ReasoningIteration]) -> str:
+        """Simple fallback summary if LLM summarization fails"""
+        summary = "Previous iterations summary:\n"
+        
+        # Collect key findings
+        key_findings = []
+        failed_tools = set()
+        
+        for iteration in iterations:
+            # Add knowledge gathered
+            if iteration.knowledge_gathered:
+                key_findings.append(f"Iter {iteration.iteration_number}: {iteration.knowledge_gathered[:1000]}")
+            
+            # Track failed tools
+            for tr in iteration.tool_results:
+                if not tr.success:
+                    failed_tools.add(tr.tool_name)
+        
+        summary += "Key findings:\n"
+        for finding in key_findings[-5:]:  # Last 5 findings
+            summary += f"- {finding}\n"
+        
+        if failed_tools:
+            summary += f"\nFailed tools (avoid): {', '.join(failed_tools)}\n"
+        
+        return summary
+    
+    def _extract_key_facts(self, text: str) -> List[str]:
+        """Extract key facts from tool results"""
+        import re
+        facts = []
+        
+        # Extract percentages
+        percentages = re.findall(r'\b\d+(?:\.\d+)?%', text)
+        for pct in percentages:  # NO LIMIT - extract all percentages
+            # Find context around percentage
+            idx = text.find(pct)
+            start = max(0, idx - 30)
+            end = min(len(text), idx + 30)
+            context = text[start:end].strip()
+            if context:
+                facts.append(context)
+        
+        # Extract large numbers (e.g., statistics)
+        numbers = re.findall(r'\b\d{4,}\b', text)
+        for num in numbers:  # NO LIMIT - extract all numbers
+            idx = text.find(num)
+            start = max(0, idx - 30)
+            end = min(len(text), idx + 30)
+            context = text[start:end].strip()
+            if context:
+                facts.append(context)
+        
+        # Extract dates (years)
+        years = re.findall(r'\b20\d{2}\b', text)
+        for year in set(years):  # NO LIMIT - extract all years
+            idx = text.find(year)
+            start = max(0, idx - 30)
+            end = min(len(text), idx + 30)
+            context = text[start:end].strip()
+            if context:
+                facts.append(context)
+        
+        return facts  # NO LIMIT - return all extracted facts
     
     def _summarize_conversation(
         self,

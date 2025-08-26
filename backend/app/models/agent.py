@@ -224,6 +224,10 @@ class AgentExecutionResponse(BaseModel):
     iterations: Optional[int] = Field(None, description="Number of iterations used")
     usage: Optional[Dict[str, Any]] = Field(None, description="Token usage statistics")
     conversation_id: Optional[str] = Field(None, description="Conversation ID used/created for this execution")
+    reasoning_chain: Optional[List[Dict[str, Any]]] = Field(
+        None,
+        description="Chain of thought reasoning iterations"
+    )
 
 
 class ExecutionStep(str, Enum):

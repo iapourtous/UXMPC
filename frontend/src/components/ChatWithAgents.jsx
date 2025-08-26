@@ -2,8 +2,8 @@ import React, { useState, useRef, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { agentsApi, conversationsApi, demosApi } from '../services/api';
 import MarkdownRenderer from './markdown/MarkdownRenderer';
-import { Select, Button, Input, Drawer, List, Typography, Popconfirm, message, Modal, Tooltip, Tag } from 'antd';
-import { SendOutlined, ClearOutlined, HistoryOutlined, DeleteOutlined, PlusOutlined, SaveOutlined, EyeOutlined, ExperimentOutlined, CompressOutlined, BugOutlined, DislikeOutlined, LikeOutlined } from '@ant-design/icons';
+import { Select, Button, Input, Drawer, List, Typography, Popconfirm, message, Modal, Tooltip, Tag, Card, Progress } from 'antd';
+import { SendOutlined, ClearOutlined, HistoryOutlined, DeleteOutlined, PlusOutlined, SaveOutlined, EyeOutlined, ExperimentOutlined, CompressOutlined, BugOutlined, DislikeOutlined, LikeOutlined, BulbOutlined } from '@ant-design/icons';
 import axios from 'axios';
 
 const { TextArea } = Input;
@@ -35,6 +35,8 @@ function ChatWithAgents() {
   const [improvingPrompt, setImprovingPrompt] = useState(false);
   const [improvedPromptModalOpen, setImprovedPromptModalOpen] = useState(false);
   const [improvedPromptData, setImprovedPromptData] = useState(null);
+  const [reasoningModalOpen, setReasoningModalOpen] = useState(false);
+  const [reasoningData, setReasoningData] = useState(null);
   const messagesEndRef = useRef(null);
   const queryClient = useQueryClient();
   const [currentTheme, setCurrentTheme] = useState('light'); // Theme for visualizations
@@ -230,7 +232,8 @@ function ChatWithAgents() {
           role: 'assistant',
           content: data.output,
           tool_calls: data.tool_calls,
-          agent_id: selectedAgent
+          agent_id: selectedAgent,
+          reasoning_chain: data.reasoning_chain
         }]);
       } else {
         setMessages(prev => [...prev, {
@@ -723,18 +726,34 @@ function ChatWithAgents() {
                     </div>
                   )}
                 </div>
-                {/* Feedback button for assistant messages */}
+                {/* Feedback and reasoning buttons for assistant messages */}
                 {message.role === 'assistant' && (
-                  <button
-                    onClick={() => {
-                      setFeedbackMessage(message);
-                      setFeedbackModalOpen(true);
-                    }}
-                    className="ml-auto opacity-0 group-hover:opacity-100 transition-opacity duration-200 p-1 hover:bg-gray-100 rounded-lg"
-                    title="Report issue with this response"
-                  >
-                    <DislikeOutlined className="text-gray-500 hover:text-red-500" />
-                  </button>
+                  <div className="ml-auto flex items-center gap-2">
+                    {/* Reasoning button - only show if reasoning_chain exists */}
+                    {message.reasoning_chain && message.reasoning_chain.length > 0 && (
+                      <button
+                        onClick={() => {
+                          setReasoningData(message.reasoning_chain);
+                          setReasoningModalOpen(true);
+                        }}
+                        className="opacity-0 group-hover:opacity-100 transition-opacity duration-200 p-1 hover:bg-yellow-50 rounded-lg"
+                        title="View reasoning process"
+                      >
+                        <BulbOutlined className="text-yellow-500 hover:text-yellow-600" />
+                      </button>
+                    )}
+                    {/* Feedback button */}
+                    <button
+                      onClick={() => {
+                        setFeedbackMessage(message);
+                        setFeedbackModalOpen(true);
+                      }}
+                      className="opacity-0 group-hover:opacity-100 transition-opacity duration-200 p-1 hover:bg-gray-100 rounded-lg"
+                      title="Report issue with this response"
+                    >
+                      <DislikeOutlined className="text-gray-500 hover:text-red-500" />
+                    </button>
+                  </div>
                 )}
               </div>
               <div className="message-content">
@@ -1270,6 +1289,126 @@ function ChatWithAgents() {
             
             <div className="text-sm text-gray-600">
               <p>This improved prompt addresses the reported issue while maintaining general applicability.</p>
+            </div>
+          </div>
+        )}
+      </Modal>
+
+      {/* Reasoning Chain Modal */}
+      <Modal
+        title={
+          <div className="flex items-center gap-2">
+            <BulbOutlined className="text-yellow-500" />
+            <span>Chain of Thought Reasoning</span>
+          </div>
+        }
+        open={reasoningModalOpen}
+        onCancel={() => {
+          setReasoningModalOpen(false);
+          setReasoningData(null);
+        }}
+        footer={[
+          <Button key="close" onClick={() => {
+            setReasoningModalOpen(false);
+            setReasoningData(null);
+          }}>
+            Close
+          </Button>
+        ]}
+        width={800}
+      >
+        {reasoningData && (
+          <div className="space-y-4 max-h-[70vh] overflow-y-auto">
+            {/* Summary */}
+            <div className="bg-gradient-to-r from-yellow-50 to-orange-50 p-4 rounded-lg border border-yellow-200">
+              <div className="flex items-center justify-between mb-2">
+                <h3 className="font-semibold text-lg">Reasoning Process</h3>
+                <Tag color="blue">{reasoningData.length} iterations</Tag>
+              </div>
+              <p className="text-sm text-gray-600">
+                The agent went through {reasoningData.length} reasoning steps to formulate the response.
+              </p>
+            </div>
+
+            {/* Iterations */}
+            <div className="space-y-3">
+              {reasoningData.map((iteration, index) => (
+                <Card
+                  key={index}
+                  size="small"
+                  className="shadow-sm hover:shadow-md transition-shadow duration-200"
+                  title={
+                    <div className="flex items-center justify-between">
+                      <span className="font-medium">
+                        Iteration {iteration.iteration}
+                      </span>
+                      <div className="flex items-center gap-2">
+                        {iteration.tools_used && iteration.tools_used.length > 0 && (
+                          <Tooltip title="Tools used in this iteration">
+                            <Tag color="purple" icon={<ExperimentOutlined />}>
+                              {iteration.tools_used.length} tool{iteration.tools_used.length > 1 ? 's' : ''}
+                            </Tag>
+                          </Tooltip>
+                        )}
+                        <Tooltip title="Confidence level">
+                          <div className="flex items-center gap-1">
+                            <Progress
+                              type="circle"
+                              percent={Math.round((iteration.confidence || 0) * 100)}
+                              width={32}
+                              strokeColor={{
+                                '0%': '#ff4d4f',
+                                '50%': '#faad14',
+                                '100%': '#52c41a',
+                              }}
+                              format={percent => `${percent}%`}
+                            />
+                          </div>
+                        </Tooltip>
+                      </div>
+                    </div>
+                  }
+                >
+                  {/* Thought */}
+                  <div className="space-y-3">
+                    <div>
+                      <h4 className="text-sm font-semibold text-gray-700 mb-1">Thought Process:</h4>
+                      <p className="text-sm text-gray-600 bg-gray-50 p-3 rounded">
+                        {iteration.thought}
+                      </p>
+                    </div>
+
+                    {/* Tools Used */}
+                    {iteration.tools_used && iteration.tools_used.length > 0 && (
+                      <div>
+                        <h4 className="text-sm font-semibold text-gray-700 mb-1">Tools Used:</h4>
+                        <div className="flex flex-wrap gap-1">
+                          {iteration.tools_used.map((tool, toolIndex) => (
+                            <Tag key={toolIndex} color="blue" className="text-xs">
+                              {tool}
+                            </Tag>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Confidence Bar */}
+                    <div>
+                      <h4 className="text-sm font-semibold text-gray-700 mb-1">Confidence Level:</h4>
+                      <Progress
+                        percent={Math.round((iteration.confidence || 0) * 100)}
+                        strokeColor={{
+                          '0%': '#ff4d4f',
+                          '50%': '#faad14',
+                          '100%': '#52c41a',
+                        }}
+                        size="small"
+                        format={percent => `${percent}% confident`}
+                      />
+                    </div>
+                  </div>
+                </Card>
+              ))}
             </div>
           </div>
         )}

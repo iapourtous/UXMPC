@@ -399,6 +399,100 @@ Iteration 3:
 Final Answer: "Analyse complète avec croissance de 16.7% et 5 recommandations..."
 ```
 
+## 🔄 Optimisation du Contexte et Résumés Intelligents
+
+### ✨ Nouveau : Résumé Adaptatif des Itérations
+
+Pour éviter l'explosion du contexte lors de raisonnements longs, le système implémente maintenant un **résumé intelligent** des itérations précédentes :
+
+#### Stratégie de Gestion du Contexte
+
+```mermaid
+graph TD
+    Start[Nouvelle Itération] --> Check{Nombre d'itérations?}
+    
+    Check -->|<= 2| Full[Garder tout le détail]
+    Check -->|> 2| Split[Diviser l'historique]
+    
+    Split --> Older[Itérations anciennes]
+    Split --> Recent[2 dernières itérations]
+    
+    Older --> Summary[Résumé via LLM Summary]
+    Summary --> Compact[~1000 caractères max]
+    
+    Recent --> Detail[Garder détail complet]
+    
+    Compact --> Merge[Combiner]
+    Detail --> Merge
+    
+    Merge --> NextIter[Prompt pour itération suivante]
+    Full --> NextIter
+    
+    style Summary fill:#e1f5fe
+    style Compact fill:#c8e6c9
+```
+
+#### Contenu du Résumé
+
+Le résumé préserve :
+- **Key Findings** : Faits et données essentiels découverts
+- **Failed Attempts** : Outils qui ont échoué (éviter répétition)
+- **Established Facts** : Informations confirmées avec données précises
+- **Current Understanding** : Synthèse de l'état actuel des connaissances
+
+### ✨ Nouveau : Résumé Intelligent des Résultats d'Outils
+
+Les résultats d'outils > 10 000 caractères sont automatiquement résumés en préservant l'information pertinente :
+
+#### Processus de Résumé des Outils
+
+```mermaid
+graph LR
+    Tool[Résultat d'outil] --> Size{Taille?}
+    
+    Size -->|< 10k chars| Keep[Garder complet]
+    Size -->|> 10k chars| Summarize[Résumer via LLM]
+    
+    Summarize --> Context[Avec contexte]
+    Context --> Question[Question utilisateur]
+    Context --> Iteration[Pensée de l'itération]
+    
+    Question --> Smart[Résumé intelligent]
+    Iteration --> Smart
+    
+    Smart --> Output[~5000 chars max]
+    
+    Keep --> Use[Utiliser dans CoT]
+    Output --> Use
+    
+    style Summarize fill:#fff3e0
+    style Smart fill:#e8f5e9
+```
+
+#### Caractéristiques du Résumé
+
+- **Contextuel** : Basé sur la question de l'utilisateur
+- **Préservatif** : Garde tous les nombres, dates, noms, faits
+- **Intelligent** : Élimine les redondances
+- **Structuré** : Maintient la structure des données
+
+### Configuration du Summary LLM Profile
+
+Les résumés utilisent le même profil LLM configuré globalement :
+- **Profile** : "Summary" dans les settings globaux
+- **Température** : 0.3 (basse pour précision)
+- **Max Tokens** : 8192 pour résumés détaillés
+- **Mode** : Forcé en "text" (pas de JSON)
+
+### Impact sur les Performances
+
+| Métrique | Sans Résumé | Avec Résumé | Amélioration |
+|----------|-------------|-------------|--------------|
+| **Contexte après 5 iter** | ~50k tokens | ~15k tokens | -70% |
+| **Contexte après 10 iter** | Dépasse limite | ~25k tokens | Viable |
+| **Temps par itération** | Croissant | Stable | ✅ |
+| **Qualité du raisonnement** | Dégradation | Maintenue | ✅ |
+
 ## 🔄 États et Transitions
 
 ```mermaid

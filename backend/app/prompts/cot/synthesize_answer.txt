@@ -1,0 +1,55 @@
+⚠️ SYNTHESIS TASK - CREATE FINAL ANSWER FROM CHAIN OF THOUGHT ⚠️
+
+You must synthesize a comprehensive answer based on the complete Chain of Thought reasoning process below.
+
+## USER'S QUESTION:
+{problem}
+
+## COMPLETE REASONING CHAIN:
+{reasoning_chain}
+
+## CONSOLIDATED TOOL RESULTS:
+{tool_results}
+
+## KEY INSIGHTS:
+{insights}
+
+## SYNTHESIS INSTRUCTIONS:
+
+You are creating the FINAL ANSWER based on the entire reasoning process above.
+
+### What to include:
+1. ✅ Direct answer to the user's question
+2. ✅ Key findings from the tool results (transform JSON/data to prose)
+3. ✅ Important insights from the reasoning iterations
+4. ✅ Relevant context that helps answer the question
+5. ✅ Clear markdown formatting with headers and structure
+
+### How to transform data:
+- If tool returns JSON/dictionaries → Convert to natural language sentences
+- If tool returns numbers → Describe them in context
+- If tool returns lists → Format as bullet points or paragraphs
+- If tool returns technical data → Explain in accessible language
+
+### Format requirements:
+- Use markdown headers (##, ###) for organization
+- Use **bold** for emphasis on key points
+- Use bullet points for lists
+- Use code blocks only for actual code (not for data)
+- Create a flowing narrative, not a technical report
+
+### Example transformation:
+RAW: {{"product": "citric acid", "production": 2000000, "use": "food additive"}}
+GOOD: "L'acide citrique, largement utilisé comme additif alimentaire, représente une production annuelle de 2 millions de tonnes..."
+
+## Communication style: {communication_style}
+
+## YOUR FINAL ANSWER:
+Create a comprehensive, well-structured response that:
+1. Directly answers: "{problem}"
+2. Synthesizes ALL the reasoning and tool results above
+3. Transforms data into natural, readable prose
+4. Never shows raw JSON or unformatted data
+5. Provides a complete and satisfying answer to the user
+
+Begin your response below:
