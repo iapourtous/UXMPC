@@ -613,9 +613,11 @@ THOUGHT: [Your detailed reasoning for this step - what do you need to figure out
 
 TOOL_CALLS: [List ALL tools you need, ONE PER LINE. You can use MULTIPLE tools!]
 memory_search(query="what do I know about this topic")
+memory_search(query="user preferences", filter_type="preference")
 exa_property_finder(city="Paris", rent_or_buy="rent", price_max=1500)
 web_search(query="additional information needed")
 [Leave empty if no tools needed this iteration]
+NOTE: For memory_search, omit filter_type to search all types, or use: "user_message", "agent_response", "preference", "stored_knowledge"
 
 EVALUATION: [Self-evaluation of your progress - what have you learned so far?]
 
@@ -664,9 +666,30 @@ Important:
                     })
                 messages.append({"role": "user", "content": prompt})
                 
-                # Use tools-enabled call
+                # Force text mode for tools (JSON mode is incompatible with function calling)
+                import copy
+                text_mode_profile = copy.copy(llm_profile)
+                text_mode_profile.mode = "text"
+                
+                # Debug logging for troubleshooting
+                logger.info(f"[COT DEBUG] Calling LLM with tools")
+                logger.info(f"[COT DEBUG] Number of messages: {len(messages)}")
+                logger.info(f"[COT DEBUG] Message types: {[msg.get('role') for msg in messages]}")
+                logger.info(f"[COT DEBUG] Number of tools: {len(tools) if tools else 0}")
+                logger.info(f"[COT DEBUG] Tool names: {[t.get('function', {}).get('name') for t in (tools or [])][:5]}...")  # First 5 tools
+                logger.info(f"[COT DEBUG] Profile: model={text_mode_profile.model}, mode={text_mode_profile.mode}")
+                logger.info(f"[COT DEBUG] Temperature: {getattr(llm_profile, 'temperature', 0.7)}")
+                logger.info(f"[COT DEBUG] Max tokens: {getattr(llm_profile, 'max_tokens', 2000)}")
+                
+                # Log the actual prompt content (first 500 chars)
+                if messages:
+                    user_msg = next((msg for msg in messages if msg.get('role') == 'user'), None)
+                    if user_msg:
+                        logger.info(f"[COT DEBUG] User message preview (first 500 chars): {user_msg.get('content', '')[:500]}...")
+                
+                # Use tools-enabled call with text mode
                 response = await llm_client.call_with_tools_iteration(
-                    llm_profile=llm_profile,
+                    llm_profile=text_mode_profile,
                     messages=messages,
                     tools=tools,
                     temperature=getattr(llm_profile, 'temperature', 0.7),
@@ -674,6 +697,18 @@ Important:
                     require_tool_use=False,  # Don't force tool use
                     timeout=60.0
                 )
+                
+                # Log the full response structure for debugging
+                logger.info(f"[COT DEBUG] Response keys: {list(response.keys()) if response else 'None'}")
+                if response and "choices" in response:
+                    logger.info(f"[COT DEBUG] Number of choices: {len(response.get('choices', []))}")
+                    if response["choices"]:
+                        message = response["choices"][0].get("message", {})
+                        logger.info(f"[COT DEBUG] Message keys: {list(message.keys())}")
+                        logger.info(f"[COT DEBUG] Content present: {bool(message.get('content'))}")
+                        logger.info(f"[COT DEBUG] Tool calls present: {bool(message.get('tool_calls'))}")
+                        if message.get('tool_calls'):
+                            logger.info(f"[COT DEBUG] Number of tool calls: {len(message.get('tool_calls'))}")
                 
                 # Extract content from response
                 if response and "choices" in response and response["choices"]:
@@ -684,7 +719,7 @@ Important:
                     tool_calls = response["choices"][0]["message"].get("tool_calls", [])
                     if tool_calls:
                         # Add tool calls to the content in the expected format
-                        tool_calls_text = "\n\nTOOL_CALLS:\n"
+                        tool_calls_text = "\nTOOL_CALLS:\n"
                         for tc in tool_calls:
                             func = tc.get("function", {})
                             name = func.get("name", "unknown")
@@ -698,17 +733,22 @@ Important:
                             except:
                                 tool_calls_text += f"{name}({args})\n"
                         
-                        # Insert tool calls into content if not already present
-                        if content and "TOOL_CALLS:" not in content:
-                            # Try to insert after THOUGHT section
+                        # If we have tool calls but no content, create a minimal valid response
+                        if not content:
+                            logger.info("[COT DEBUG] No content but have tool calls, creating minimal response")
+                            content = f"THOUGHT: I need to use tools to gather information.{tool_calls_text}\nEVALUATION: Gathering information.\nCONFIDENCE: 0.3\nSHOULD_CONTINUE: true\nKNOWLEDGE_GATHERED: Processing..."
+                        elif "TOOL_CALLS:" not in content:
+                            # Insert tool calls into existing content
                             if "THOUGHT:" in content and "EVALUATION:" in content:
                                 parts = content.split("EVALUATION:")
                                 content = parts[0] + tool_calls_text + "\nEVALUATION:" + "EVALUATION:".join(parts[1:])
                             else:
-                                content = (content or "") + tool_calls_text
+                                content = content + "\n" + tool_calls_text
                     
+                    # If still no content and no tool calls, create a default response
                     if not content:
-                        raise Exception("No content received from LLM")
+                        logger.warning("[COT DEBUG] No content and no tool calls from LLM, creating default response")
+                        content = "THOUGHT: Processing the request.\n\nTOOL_CALLS:\n\nEVALUATION: Need to continue analysis.\nCONFIDENCE: 0.2\nSHOULD_CONTINUE: true\nKNOWLEDGE_GATHERED: Starting analysis..."
                     return content
                 else:
                     raise Exception("Invalid response structure from LLM")
@@ -734,6 +774,20 @@ Important:
                 
         except Exception as e:
             logger.error(f"LLM call failed: {str(e)}")
+            
+            # Log detailed error information for debugging
+            if "400" in str(e):
+                logger.error("[COT DEBUG] Got 400 error - Bad Request")
+                logger.error(f"[COT DEBUG] Full error: {e}")
+                logger.error(f"[COT DEBUG] Error type: {type(e).__name__}")
+                
+                # Try to extract more details from the error
+                if hasattr(e, 'response'):
+                    logger.error(f"[COT DEBUG] Response status: {getattr(e.response, 'status_code', 'N/A')}")
+                    logger.error(f"[COT DEBUG] Response text: {getattr(e.response, 'text', 'N/A')}")
+                if hasattr(e, '__dict__'):
+                    logger.error(f"[COT DEBUG] Error attributes: {e.__dict__}")
+            
             raise
     
     def _parse_iteration_response(

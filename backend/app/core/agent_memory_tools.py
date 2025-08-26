@@ -40,6 +40,10 @@ async def memory_search(
     try:
         start_time = datetime.utcnow()
         
+        # Handle "all" as no filter (same as None)
+        if filter_type == "all":
+            filter_type = None
+        
         # Build search request
         search_request = MemorySearchRequest(
             query=query,
