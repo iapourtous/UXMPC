@@ -19,6 +19,8 @@ from app.services.intrinsic_llm_tools import (
     INTRINSIC_TOOL_NAMES,
     intrinsic_tools_executor
 )
+from app.services.unified_logger import UnifiedLogger
+import uuid
 
 logger = logging.getLogger(__name__)
 
@@ -100,6 +102,10 @@ class ConvergenceDetector:
         if len(iterations) >= max_iterations:
             return True, f"Reached maximum iterations ({max_iterations})"
         
+        # PRIORITY CHECK: Stop immediately if confidence > 90% (regardless of iteration count)
+        if current_iteration.confidence >= 0.90:
+            return True, f"Very high confidence reached ({current_iteration.confidence:.0%})"
+        
         # If tools are available, ensure they've been used
         if has_tools:
             tool_calls_made = sum(len(it.tool_calls) for it in iterations)
@@ -107,22 +113,22 @@ class ConvergenceDetector:
                 return False, "Tools available but not yet used"
             
             # Check if we have enough information from tools
-            # But require at least 3 iterations even with high confidence
+            # But require at least 3 iterations for moderate confidence
             if current_iteration.tool_results and len(iterations) >= 3:
                 # If we got good results and high confidence
                 if current_iteration.confidence >= self.confidence_threshold:
                     return True, "High confidence with tool results after multiple iterations"
         
-        # Check if agent decided to stop (but require at least 3 iterations)
+        # Check if agent decided to stop (but require at least 3 iterations for moderate confidence)
         if not current_iteration.should_continue and len(iterations) >= 3:
             return True, "Agent determined answer is complete with sufficient iterations"
         
-        # Check confidence threshold (only after minimum iterations)
+        # Check confidence threshold (only after minimum iterations for moderate confidence)
         if current_iteration.confidence >= self.confidence_threshold and len(iterations) >= 4:
             return True, f"High confidence reached ({current_iteration.confidence:.2f})"
         
-        # Don't converge too early - require at least 3 iterations for complex problems
-        if len(iterations) < 3:
+        # Don't converge too early - require at least 3 iterations for complex problems (unless confidence > 90%)
+        if len(iterations) < 3 and current_iteration.confidence < 0.90:
             return False, "Need more iterations for comprehensive analysis"
         
         return False, "Continue reasoning"
@@ -148,7 +154,8 @@ class AdaptiveChainOfThought:
         conversation_history: List[Dict[str, Any]],
         agent_config: Dict[str, Any],
         tools: List[Dict[str, Any]] = None,
-        tool_executor = None
+        tool_executor = None,
+        execution_id: Optional[str] = None
     ) -> ChainOfThoughtResult:
         """
         Execute adaptive Chain of Thought reasoning with tool support
@@ -165,18 +172,25 @@ class AdaptiveChainOfThought:
         Returns:
             Complete CoT result with reasoning chain and tool results
         """
+        # Initialize unified logger
+        execution_id = execution_id or str(uuid.uuid4())
+        unified_logger = UnifiedLogger("cot_engine", "Chain of Thought Engine", execution_id)
+        
         # Validate inputs
         if conversation_history is not None and not isinstance(conversation_history, list):
-            logger.warning(f"conversation_history should be a list, got {type(conversation_history)}. Converting to empty list.")
+            # Type mismatch handled silently
+            await unified_logger.warning(f"conversation_history type mismatch: {type(conversation_history)}")
             conversation_history = []
         
         if tools is not None and not isinstance(tools, list):
-            logger.warning(f"tools should be a list, got {type(tools)}. Converting to None.")
+            # Type mismatch handled silently
+            await unified_logger.warning(f"tools type mismatch: {type(tools)}")
             tools = None
         
-        # Log input types for debugging
-        logger.debug(f"COT execute - conversation_history type: {type(conversation_history)}, len: {len(conversation_history) if conversation_history else 0}")
-        logger.debug(f"COT execute - tools type: {type(tools)}, len: {len(tools) if tools else 0}")
+        # Log input types for debugging (removed verbose logging)
+        await unified_logger.debug("COT execution started", 
+                                   conversation_length=len(conversation_history) if conversation_history else 0,
+                                   tools_count=len(tools) if tools else 0)
         
         try:
             # Analyze problem complexity (now with LLM support)
@@ -186,10 +200,12 @@ class AdaptiveChainOfThought:
                 llm_profile  # Pass LLM profile for intelligent analysis
             )
             
-            logger.info(
-                f"Problem complexity: {complexity.cluster.value}, "
-                f"max iterations: {complexity.max_iterations}, "
-                f"confidence threshold: {complexity.confidence_threshold}"
+            # Log complexity to MongoDB only, not terminal
+            # Complexity logged to MongoDB only
+            await unified_logger.info(
+                f"Problem complexity analyzed: {complexity.cluster.value}",
+                max_iterations=complexity.max_iterations,
+                confidence_threshold=complexity.confidence_threshold
             )
             
             # Generate diverse reasoning demonstrations
@@ -206,7 +222,14 @@ class AdaptiveChainOfThought:
                 # Add external MCP tools
                 combined_tools.extend(tools)
             
-            logger.info(f"Total tools available: {len(combined_tools)} ({len(INTRINSIC_LLM_TOOLS)} intrinsic + {len(tools) if tools else 0} external)")
+            # Log tools count to MongoDB only
+            # Tools count logged to MongoDB only
+            await unified_logger.info(
+                "Tools configured",
+                intrinsic_tools=len(INTRINSIC_LLM_TOOLS),
+                external_tools=len(tools) if tools else 0,
+                total_tools=len(combined_tools)
+            )
             
             # Initialize reasoning chain
             iterations = []
@@ -227,7 +250,7 @@ class AdaptiveChainOfThought:
             else:
                 current_context['full_context_messages'] = []
             
-            logger.debug(f"full_context_messages set with {len(current_context['full_context_messages'])} messages")
+            # Context size logged to MongoDB only
             
             # Update convergence detector with dynamic confidence threshold from complexity analysis
             self.convergence_detector.confidence_threshold = complexity.confidence_threshold
@@ -236,7 +259,7 @@ class AdaptiveChainOfThought:
             adjusted_max_iterations = complexity.max_iterations
             if complexity.tool_intensive and combined_tools:
                 adjusted_max_iterations = min(complexity.max_iterations + 2, 15)
-                logger.info(f"Tool-intensive problem detected, adjusting max iterations to {adjusted_max_iterations}")
+                # Max iterations logged to MongoDB only
             
             # Main reasoning loop
             for iteration_num in range(1, adjusted_max_iterations + 1):
@@ -250,7 +273,8 @@ class AdaptiveChainOfThought:
                     llm_profile,
                     agent_config,
                     combined_tools,  # Use combined tools
-                    tool_executor
+                    tool_executor,
+                    unified_logger
                 )
                 
                 iterations.append(iteration)
@@ -264,7 +288,7 @@ class AdaptiveChainOfThought:
                 )
                 
                 if converged:
-                    logger.info(f"Reasoning converged: {reason}")
+                    # Convergence logged to MongoDB only
                     break
                 
                 # Update context for next iteration
@@ -274,10 +298,8 @@ class AdaptiveChainOfThought:
                 )
             
             # Synthesize final answer from all iterations and tool results
-            logger.info("=" * 50)
-            logger.info("STARTING SYNTHESIS PHASE")
-            logger.info(f"Number of tool results to synthesize: {len(all_tool_results)}")
-            logger.info("=" * 50)
+            # Synthesis phase (logging to MongoDB only)
+            # Synthesis start logged to MongoDB only
             
             final_answer = await self._synthesize_final_answer(
                 problem,
@@ -288,11 +310,8 @@ class AdaptiveChainOfThought:
                 agent_config
             )
             
-            logger.info("=" * 50)
-            logger.info("SYNTHESIS COMPLETE")
-            logger.info(f"Final answer type: {type(final_answer)}")
-            logger.info(f"Final answer starts with: {final_answer[:100] if final_answer else 'None'}...")
-            logger.info("=" * 50)
+            # Synthesis complete (logging to MongoDB only)
+            # Synthesis completion logged to MongoDB only
             
             return ChainOfThoughtResult(
                 final_answer=final_answer,
@@ -326,7 +345,8 @@ class AdaptiveChainOfThought:
         llm_profile: Any,
         agent_config: Dict[str, Any],
         tools: List[Dict[str, Any]],
-        tool_executor
+        tool_executor,
+        unified_logger: UnifiedLogger
     ) -> ReasoningIteration:
         """Execute a single reasoning iteration with tool support and validation"""
         
@@ -376,7 +396,7 @@ class AdaptiveChainOfThought:
                         # Check if it's an intrinsic tool
                         if tool_call.tool_name in INTRINSIC_TOOL_NAMES:
                             # Execute intrinsic LLM tool
-                            logger.debug(f"Executing intrinsic tool: {tool_call.tool_name}")
+                            # Tool execution logged to MongoDB only
                             result_dict = await self.intrinsic_executor.execute(
                                 tool_call.tool_name,
                                 tool_call.arguments,
@@ -399,7 +419,7 @@ class AdaptiveChainOfThought:
                                 ))
                         elif tool_executor:
                             # Execute external MCP tool
-                            logger.debug(f"Executing external tool: {tool_call.tool_name}")
+                            # External tool execution logged to MongoDB only
                             result = await tool_executor(tool_call.tool_name, tool_call.arguments)
                             tool_results.append(ToolResult(
                                 tool_name=tool_call.tool_name,
@@ -407,7 +427,7 @@ class AdaptiveChainOfThought:
                                 success=True
                             ))
                         else:
-                            logger.warning(f"External tool {tool_call.tool_name} called but no executor provided")
+                            # Warning logged to MongoDB only
                             tool_results.append(ToolResult(
                                 tool_name=tool_call.tool_name,
                                 result=None,
@@ -455,14 +475,34 @@ class AdaptiveChainOfThought:
                 # If invalid and we haven't exceeded corrections, try again
                 if not iteration.is_valid:
                     correction_attempt += 1
-                    logger.info(
+                    logger.debug(
                         f"Iteration {iteration_num} validation failed. "
                         f"Attempting correction {correction_attempt}/{max_correction_attempts}"
+                    )
+                    await unified_logger.log_validation(
+                        validation_type=f"iteration_{iteration_num}",
+                        is_valid=False,
+                        feedback=iteration.validation_feedback,
+                        scores={
+                            "relevance": iteration.relevance_score,
+                            "progress": iteration.progress_score,
+                            "correctness": iteration.correctness_score
+                        }
                     )
                     continue
                 else:
                     # Valid iteration, we're done
-                    logger.info(f"Iteration {iteration_num} validated successfully")
+                    # Validation success logged to MongoDB only
+                    await unified_logger.log_validation(
+                        validation_type=f"iteration_{iteration_num}",
+                        is_valid=True,
+                        feedback=iteration.validation_feedback,
+                        scores={
+                            "relevance": iteration.relevance_score,
+                            "progress": iteration.progress_score,
+                            "correctness": iteration.correctness_score
+                        }
+                    )
                     break
             else:
                 # No validation needed (first iteration or max corrections reached)
@@ -470,9 +510,14 @@ class AdaptiveChainOfThought:
         
         # Log if we exhausted correction attempts
         if correction_attempt >= max_correction_attempts and not iteration.is_valid:
-            logger.warning(
+            logger.debug(
                 f"Iteration {iteration_num} still invalid after {max_correction_attempts} corrections. "
                 f"Proceeding anyway."
+            )
+            await unified_logger.warning(
+                f"Iteration {iteration_num} still invalid after corrections",
+                correction_attempts=max_correction_attempts,
+                validation_feedback=iteration.validation_feedback
             )
         
         return iteration
@@ -671,21 +716,9 @@ Important:
                 text_mode_profile = copy.copy(llm_profile)
                 text_mode_profile.mode = "text"
                 
-                # Debug logging for troubleshooting
-                logger.info(f"[COT DEBUG] Calling LLM with tools")
-                logger.info(f"[COT DEBUG] Number of messages: {len(messages)}")
-                logger.info(f"[COT DEBUG] Message types: {[msg.get('role') for msg in messages]}")
-                logger.info(f"[COT DEBUG] Number of tools: {len(tools) if tools else 0}")
-                logger.info(f"[COT DEBUG] Tool names: {[t.get('function', {}).get('name') for t in (tools or [])][:5]}...")  # First 5 tools
-                logger.info(f"[COT DEBUG] Profile: model={text_mode_profile.model}, mode={text_mode_profile.mode}")
-                logger.info(f"[COT DEBUG] Temperature: {getattr(llm_profile, 'temperature', 0.7)}")
-                logger.info(f"[COT DEBUG] Max tokens: {getattr(llm_profile, 'max_tokens', 2000)}")
+                # LLM call details logged to MongoDB only via unified_logger
                 
-                # Log the actual prompt content (first 500 chars)
-                if messages:
-                    user_msg = next((msg for msg in messages if msg.get('role') == 'user'), None)
-                    if user_msg:
-                        logger.info(f"[COT DEBUG] User message preview (first 500 chars): {user_msg.get('content', '')[:500]}...")
+                # Message content logged to MongoDB only
                 
                 # Use tools-enabled call with text mode
                 response = await llm_client.call_with_tools_iteration(
@@ -698,17 +731,7 @@ Important:
                     timeout=60.0
                 )
                 
-                # Log the full response structure for debugging
-                logger.info(f"[COT DEBUG] Response keys: {list(response.keys()) if response else 'None'}")
-                if response and "choices" in response:
-                    logger.info(f"[COT DEBUG] Number of choices: {len(response.get('choices', []))}")
-                    if response["choices"]:
-                        message = response["choices"][0].get("message", {})
-                        logger.info(f"[COT DEBUG] Message keys: {list(message.keys())}")
-                        logger.info(f"[COT DEBUG] Content present: {bool(message.get('content'))}")
-                        logger.info(f"[COT DEBUG] Tool calls present: {bool(message.get('tool_calls'))}")
-                        if message.get('tool_calls'):
-                            logger.info(f"[COT DEBUG] Number of tool calls: {len(message.get('tool_calls'))}")
+                # Response structure debug logging removed - details in MongoDB
                 
                 # Extract content from response
                 if response and "choices" in response and response["choices"]:
@@ -735,7 +758,7 @@ Important:
                         
                         # If we have tool calls but no content, create a minimal valid response
                         if not content:
-                            logger.info("[COT DEBUG] No content but have tool calls, creating minimal response")
+                            # Tool call response logged to MongoDB only
                             content = f"THOUGHT: I need to use tools to gather information.{tool_calls_text}\nEVALUATION: Gathering information.\nCONFIDENCE: 0.3\nSHOULD_CONTINUE: true\nKNOWLEDGE_GATHERED: Processing..."
                         elif "TOOL_CALLS:" not in content:
                             # Insert tool calls into existing content
@@ -747,7 +770,7 @@ Important:
                     
                     # If still no content and no tool calls, create a default response
                     if not content:
-                        logger.warning("[COT DEBUG] No content and no tool calls from LLM, creating default response")
+                        # No content from LLM - logged to MongoDB only
                         content = "THOUGHT: Processing the request.\n\nTOOL_CALLS:\n\nEVALUATION: Need to continue analysis.\nCONFIDENCE: 0.2\nSHOULD_CONTINUE: true\nKNOWLEDGE_GATHERED: Starting analysis..."
                     return content
                 else:
@@ -775,18 +798,9 @@ Important:
         except Exception as e:
             logger.error(f"LLM call failed: {str(e)}")
             
-            # Log detailed error information for debugging
+            # Log error briefly
             if "400" in str(e):
-                logger.error("[COT DEBUG] Got 400 error - Bad Request")
-                logger.error(f"[COT DEBUG] Full error: {e}")
-                logger.error(f"[COT DEBUG] Error type: {type(e).__name__}")
-                
-                # Try to extract more details from the error
-                if hasattr(e, 'response'):
-                    logger.error(f"[COT DEBUG] Response status: {getattr(e.response, 'status_code', 'N/A')}")
-                    logger.error(f"[COT DEBUG] Response text: {getattr(e.response, 'text', 'N/A')}")
-                if hasattr(e, '__dict__'):
-                    logger.error(f"[COT DEBUG] Error attributes: {e.__dict__}")
+                logger.error(f"LLM call failed (400): {str(e)[:200]}")
             
             raise
     
@@ -1134,10 +1148,13 @@ Now, try again with a better approach. Focus on:
     ) -> str:
         """Synthesize final answer from all iterations and tool results"""
         
-        logger.info("_synthesize_final_answer called")
-        logger.info(f"Problem: {problem[:100]}...")
-        logger.info(f"Number of iterations: {len(iterations)}")
-        logger.info(f"Number of tool results: {len(all_tool_results)}")
+        # Synthesis called - details logged to MongoDB only
+        # Problem logged to MongoDB only
+        # Iterations count logged to MongoDB only
+        # Tool results count logged to MongoDB only
+        
+        # Initialize URL collection
+        all_urls = []
         
         # Load synthesis prompt template
         import os
@@ -1179,15 +1196,25 @@ Your response:"""
                         result_str = str(tr.result)
                         # If result is too long, summarize it with Summary LLM
                         if len(result_str) > 10000:
-                            result_str = await self._summarize_tool_result(
+                            summary_result = await self._summarize_tool_result(
                                 tool_name=tr.tool_name,
                                 result=result_str,
                                 problem=problem,
                                 iteration_thought=iteration.thought
                             )
+                            # Handle new format
+                            if isinstance(summary_result, dict):
+                                result_str = summary_result.get("summary", result_str[:10000])
+                                # Collect URLs for later
+                                all_urls.extend(summary_result.get("urls", []))
+                            else:
+                                result_str = summary_result  # Fallback for old format
                             reasoning_chain_text += f"- {tr.tool_name} (summarized from {len(str(tr.result))} chars):\n```\n{result_str}\n```\n"
                         else:
                             reasoning_chain_text += f"- {tr.tool_name}:\n```\n{result_str}\n```\n"
+                            # Also extract URLs from non-summarized results
+                            extracted = self._extract_urls(result_str)
+                            all_urls.extend(extracted)
             
             if iteration.knowledge_gathered:
                 reasoning_chain_text += f"**Knowledge gathered:** {iteration.knowledge_gathered}\n"
@@ -1195,7 +1222,7 @@ Your response:"""
         
         # Build consolidated tool results section  
         tool_results_text = "## ALL TOOL RESULTS:\n\n"
-        logger.info(f"Building synthesis with {len(all_tool_results)} tool results")
+        # Building synthesis - logged to MongoDB only
         for i, tool_result in enumerate(all_tool_results):
             if tool_result.success and tool_result.result:
                 result_str = str(tool_result.result)
@@ -1210,17 +1237,27 @@ Your response:"""
                             iteration_thought = iteration.thought
                             break
                     
-                    result_str = await self._summarize_tool_result(
+                    summary_result = await self._summarize_tool_result(
                         tool_name=tool_result.tool_name,
                         result=result_str,
                         problem=problem,
                         iteration_thought=iteration_thought
                     )
+                    # Handle new format
+                    if isinstance(summary_result, dict):
+                        result_str = summary_result.get("summary", result_str[:10000])
+                        # Collect URLs for later
+                        all_urls.extend(summary_result.get("urls", []))
+                    else:
+                        result_str = summary_result  # Fallback for old format
                     tool_results_text += f"### {tool_result.tool_name} (summarized from {original_length} chars):\n```\n{result_str}\n```\n\n"
                     logger.debug(f"Added summarized tool result from {tool_result.tool_name} ({original_length} -> {len(result_str)} chars)")
                 else:
                     tool_results_text += f"### {tool_result.tool_name}:\n```\n{result_str}\n```\n\n"
                     logger.debug(f"Added tool result from {tool_result.tool_name} (length: {len(result_str)})")
+                    # Also extract URLs from non-summarized results
+                    extracted = self._extract_urls(result_str)
+                    all_urls.extend(extracted)
         
         # Build key insights section from all iterations
         insights_text = "## KEY INSIGHTS:\n\n"
@@ -1245,7 +1282,7 @@ Your response:"""
             from app.core.llm_client import LLMClient
             llm_client = LLMClient()
             
-            logger.info(f"Calling LLM for synthesis - SIMPLE TEXT GENERATION")
+            # LLM synthesis call - logged to MongoDB only
             
             # Force text mode by temporarily modifying the profile
             import copy
@@ -1258,7 +1295,7 @@ Your response:"""
             # Add all context messages (agent config, user context, memory, etc.)
             if context.get('full_context_messages'):
                 synthesis_messages.extend(context.get('full_context_messages'))
-                logger.info(f"Added {len(context.get('full_context_messages'))} context messages to synthesis")
+                # Context messages count logged to MongoDB only
             
             # Add synthesis system message
             synthesis_messages.append({
@@ -1279,8 +1316,35 @@ Your response:"""
                 temperature=getattr(synthesis_profile, 'temperature', 0.7)
             )
             
-            logger.info(f"Synthesis response received, length: {len(response)}")
+            # Synthesis response logged to MongoDB only
             logger.debug(f"Final answer preview: {response[:200]}...")
+            
+            # Add URLs section if we found any (after synthesis to avoid hallucination)
+            if all_urls:
+                # Deduplicate URLs
+                seen_urls = set()
+                unique_urls = []
+                for url_info in all_urls:
+                    if url_info['url'] not in seen_urls:
+                        seen_urls.add(url_info['url'])
+                        unique_urls.append(url_info)
+                
+                if unique_urls:
+                    # Filter and select most relevant URLs
+                    relevant_urls = await self._filter_relevant_urls(unique_urls, problem, llm_profile)
+                    
+                    if relevant_urls:
+                        # Generate descriptions for filtered URLs
+                        urls_with_descriptions = await self._describe_urls_with_llm(relevant_urls, llm_profile)
+                        
+                        # Add URLs section
+                        url_section = "\n\n---\n\n## 📎 Liens et références\n\n"
+                        for url_info in urls_with_descriptions:
+                            description = url_info.get('description', f"Lien vers {url_info['url'].split('/')[2]}")
+                            url_section += f"- [{description}]({url_info['url']})\n"
+                        
+                        response = response.strip() + url_section
+            
             return response.strip()
         except Exception as e:
             logger.error(f"Failed to synthesize final answer: {str(e)}")
@@ -1292,7 +1356,7 @@ Your response:"""
                     if tool_result.success and tool_result.result:
                         result_str = str(tool_result.result)
                         if result_str.strip().startswith('{'):
-                            logger.warning(f"Tool {tool_result.tool_name} returned JSON: {result_str[:100]}...")
+                            pass  # Tool JSON result logged to MongoDB only
                 
                 result_summary = "Voici les informations trouvées:\n"
                 for tool_result in all_tool_results:
@@ -1374,33 +1438,267 @@ Your response:"""
         
         return updated
     
+    def _extract_urls(self, text: str) -> List[Dict[str, str]]:
+        """Extract all URLs from text with their surrounding context
+        
+        Args:
+            text: Text to extract URLs from
+            
+        Returns:
+            List of dicts with 'url' and 'context' keys
+        """
+        # Regex pattern for URLs
+        url_pattern = r'https?://[^\s<>"{}|\\^`\[\]]+(?:[.,;](?=[^\s])|[^\s.,;])*'
+        
+        urls_with_context = []
+        seen_urls = set()
+        
+        # Patterns to exclude (internal/debug URLs)
+        exclude_patterns = [
+            r'localhost',
+            r'127\.0\.0\.1',
+            r'0\.0\.0\.0',
+            r'192\.168\.',
+            r'10\.0\.',
+            r'172\.16\.',
+            r'\.local/',
+            r'example\.com',
+            r'test\.com'
+        ]
+        
+        # Find all URLs
+        for match in re.finditer(url_pattern, text):
+            url = match.group(0).rstrip('.,;:')  # Clean trailing punctuation
+            
+            # Skip internal/debug URLs
+            if any(re.search(pattern, url, re.IGNORECASE) for pattern in exclude_patterns):
+                continue
+            
+            # Skip if we've already seen this URL
+            if url in seen_urls:
+                continue
+            seen_urls.add(url)
+            
+            # Get context around the URL (50 chars before and after)
+            start = max(0, match.start() - 50)
+            end = min(len(text), match.end() + 50)
+            context = text[start:end].strip()
+            
+            # Clean up context
+            context = context.replace('\n', ' ').replace('\r', ' ')
+            context = ' '.join(context.split())  # Normalize whitespace
+            
+            urls_with_context.append({
+                "url": url,
+                "context": context
+            })
+        
+        return urls_with_context
+    
+    async def _describe_urls_with_llm(
+        self,
+        urls: List[Dict[str, str]],
+        llm_profile: Any
+    ) -> List[Dict[str, str]]:
+        """Generate short descriptions for URLs using LLM
+        
+        Args:
+            urls: List of URL dicts with 'url' and 'context'
+            llm_profile: LLM profile to use
+            
+        Returns:
+            List of URL dicts with added 'description' field
+        """
+        if not urls:
+            return urls
+        
+        try:
+            # Build prompt for URL descriptions
+            prompt = "Pour chaque URL suivante, génère une description courte (1 phrase) basée sur le contexte fourni:\n\n"
+            
+            for i, url_info in enumerate(urls, 1):
+                prompt += f"{i}. URL: {url_info['url']}\n"
+                prompt += f"   Contexte: {url_info['context'][:200]}\n\n"
+            
+            prompt += """Format de réponse attendu (une ligne par URL):
+1. [Description courte et claire]
+2. [Description courte et claire]
+etc.
+
+Descriptions (une par ligne):"""
+            
+            # Use LLM to generate descriptions
+            from app.core.llm_client import LLMClient
+            client = LLMClient()
+            
+            import copy
+            text_profile = copy.deepcopy(llm_profile)
+            text_profile.mode = "text"
+            
+            response = await client.call_advanced(
+                llm_profile=text_profile,
+                prompt=prompt,
+                temperature=0.3,
+                max_tokens=1000
+            )
+            
+            if response:
+                # Parse descriptions
+                lines = response.strip().split('\n')
+                for i, line in enumerate(lines):
+                    if i < len(urls):
+                        # Remove numbering if present
+                        desc = re.sub(r'^\d+\.\s*', '', line.strip())
+                        urls[i]['description'] = desc if desc else f"Lien vers {urls[i]['url'].split('/')[2]}"
+            
+            # Add fallback descriptions for any missing ones
+            for url_info in urls:
+                if 'description' not in url_info:
+                    # Extract domain as fallback
+                    domain = url_info['url'].split('/')[2] if len(url_info['url'].split('/')) > 2 else 'ressource'
+                    url_info['description'] = f"Lien vers {domain}"
+                    
+        except Exception as e:
+            logger.error(f"Failed to generate URL descriptions: {e}")
+            # Add fallback descriptions
+            for url_info in urls:
+                domain = url_info['url'].split('/')[2] if len(url_info['url'].split('/')) > 2 else 'ressource'
+                url_info['description'] = f"Lien vers {domain}"
+        
+        return urls
+    
+    async def _filter_relevant_urls(
+        self,
+        urls: List[Dict[str, str]],
+        problem: str,
+        llm_profile: Any,
+        max_urls: int = 5
+    ) -> List[Dict[str, str]]:
+        """Filter and select only the most relevant URLs for the user's question
+        
+        Args:
+            urls: List of URL dicts with 'url' and 'context'
+            problem: The user's original question
+            llm_profile: LLM profile to use
+            max_urls: Maximum number of URLs to keep
+            
+        Returns:
+            Filtered list of most relevant URLs
+        """
+        if not urls:
+            return []
+        
+        # If we have few URLs, keep them all
+        if len(urls) <= max_urls:
+            return urls
+        
+        try:
+            # Build prompt for URL relevance scoring
+            prompt = f"""Question de l'utilisateur: {problem}
+
+URLs trouvées dans les résultats:
+"""
+            for i, url_info in enumerate(urls, 1):
+                prompt += f"\n{i}. URL: {url_info['url']}"
+                if url_info.get('context'):
+                    prompt += f"\n   Contexte: {url_info['context'][:100]}"
+            
+            prompt += f"""
+
+Sélectionne les {max_urls} URLs les PLUS PERTINENTES et UTILES pour répondre à la question.
+Critères de sélection:
+- Pertinence directe avec la question
+- Sources officielles ou de référence
+- Informations complémentaires utiles
+- Éviter les doublons de contenu
+
+Retourne UNIQUEMENT les numéros des URLs sélectionnées, séparés par des virgules.
+Exemple de format: 1,3,5,7,9
+
+URLs sélectionnées (numéros uniquement):"""
+            
+            # Use LLM to select relevant URLs
+            from app.core.llm_client import LLMClient
+            client = LLMClient()
+            
+            import copy
+            text_profile = copy.deepcopy(llm_profile)
+            text_profile.mode = "text"
+            
+            response = await client.call_advanced(
+                llm_profile=text_profile,
+                prompt=prompt,
+                temperature=0.3,
+                max_tokens=100
+            )
+            
+            if response:
+                # Parse selected indices
+                selected_indices = []
+                try:
+                    # Extract numbers from response
+                    import re
+                    numbers = re.findall(r'\d+', response.strip())
+                    for num_str in numbers[:max_urls]:  # Limit to max_urls
+                        idx = int(num_str) - 1  # Convert to 0-based index
+                        if 0 <= idx < len(urls):
+                            selected_indices.append(idx)
+                except:
+                    pass
+                
+                # Return selected URLs
+                if selected_indices:
+                    return [urls[i] for i in selected_indices]
+                
+            # Fallback: return first max_urls
+            return urls[:max_urls]
+            
+        except Exception as e:
+            logger.error(f"Failed to filter URLs: {e}")
+            # Fallback: return first max_urls
+            return urls[:max_urls]
+    
     async def _summarize_tool_result(
         self,
         tool_name: str,
         result: str,
         problem: str,
         iteration_thought: str
-    ) -> str:
-        """Summarize long tool results using Summary LLM Profile from settings"""
+    ) -> Dict[str, Any]:
+        """Summarize long tool results using Summary LLM Profile from settings, preserving URLs"""
+        # First, extract all URLs from the result (reliable method)
+        extracted_urls = self._extract_urls(result)
+        
         try:
             # Get global settings
             settings = await settings_crud.get_or_create()
             if not settings or not settings.summary_llm_profile:
-                logger.warning("No Summary LLM profile configured in settings")
-                # Fallback to truncation
-                return result[:10000] + "\n... [truncated to 10000 chars]"
+                logger.debug("No Summary LLM profile configured in settings")
+                # Fallback to truncation but preserve URLs
+                truncated = result[:10000] + "\n... [truncated to 10000 chars]"
+                return {
+                    "summary": truncated,
+                    "urls": extracted_urls
+                }
             
             # Get the Summary LLM profile
             summary_profile = await llm_crud.get_by_name(settings.summary_llm_profile)
             if not summary_profile or not summary_profile.active:
-                logger.warning(f"Summary LLM profile '{settings.summary_llm_profile}' not found or inactive")
-                # Fallback to truncation
-                return result[:10000] + "\n... [truncated to 10000 chars]"
+                logger.debug(f"Summary LLM profile '{settings.summary_llm_profile}' not found or inactive")
+                # Fallback to truncation but preserve URLs
+                truncated = result[:10000] + "\n... [truncated to 10000 chars]"
+                return {
+                    "summary": truncated,
+                    "urls": extracted_urls
+                }
             
             # Force text mode for summary
             import copy
             summary_profile = copy.deepcopy(summary_profile)
             summary_profile.mode = "text"
+            
+            # Build list of URLs to force inclusion
+            urls_list = "\n".join([f"- {url['url']}" for url in extracted_urls]) if extracted_urls else "Aucune URL trouvée"
             
             summary_prompt = f"""Summarize this tool result, keeping ONLY information relevant to answering the user's question.
 
@@ -1410,19 +1708,23 @@ REASONING CONTEXT: {iteration_thought}
 
 TOOL NAME: {tool_name}
 
+URLs FOUND IN RESULT (MUST BE PRESERVED):
+{urls_list}
+
 FULL TOOL RESULT TO SUMMARIZE (length: {len(result)} characters):
 {result}
 
 INSTRUCTIONS:
 - Extract ONLY data relevant to the user's question
 - Keep ALL specific numbers, dates, names, facts, and data points
-- Keep important URLs, references, and citations
+- MANDATORY: Include ALL URLs listed above in your summary
+- Keep important references and citations
 - Remove redundant or irrelevant information
 - Maintain the original data structure when possible (lists, key-value pairs)
 - If the data contains search results, keep the most relevant ones
 - Target output: ~5000 characters maximum
 
-CONCISE SUMMARY (relevant data only):"""
+CONCISE SUMMARY (with all URLs preserved):"""
 
             from app.core.llm_client import LLMClient
             llm_client = LLMClient()
@@ -1436,16 +1738,27 @@ CONCISE SUMMARY (relevant data only):"""
             )
             
             if summary:
-                logger.info(f"Summarized {tool_name} result from {len(result)} to {len(summary)} characters")
-                return summary.strip()
+                # Tool result summary logged to MongoDB only
+                return {
+                    "summary": summary.strip(),
+                    "urls": extracted_urls
+                }
             else:
-                logger.warning(f"Summary returned empty for {tool_name}")
-                return result[:10000] + "\n... [truncated to 10000 chars]"
+                logger.debug(f"Summary returned empty for {tool_name}")
+                truncated = result[:10000] + "\n... [truncated to 10000 chars]"
+                return {
+                    "summary": truncated,
+                    "urls": extracted_urls
+                }
             
         except Exception as e:
             logger.error(f"Failed to summarize tool result: {e}")
-            # Fallback to truncation
-            return result[:10000] + "\n... [truncated to 10000 chars]"
+            # Fallback to truncation but preserve URLs
+            truncated = result[:10000] + "\n... [truncated to 10000 chars]"
+            return {
+                "summary": truncated,
+                "urls": extracted_urls
+            }
     
     async def _summarize_previous_iterations(
         self,
@@ -1457,13 +1770,13 @@ CONCISE SUMMARY (relevant data only):"""
             # Get global settings
             settings = await settings_crud.get_or_create()
             if not settings or not settings.summary_llm_profile:
-                logger.warning("No Summary LLM profile for iteration summary, using fallback")
+                logger.debug("No Summary LLM profile for iteration summary, using fallback")
                 return self._fallback_iteration_summary(iterations)
             
             # Get the Summary LLM profile
             summary_profile = await llm_crud.get_by_name(settings.summary_llm_profile)
             if not summary_profile or not summary_profile.active:
-                logger.warning(f"Summary profile not active, using fallback")
+                logger.debug(f"Summary profile not active, using fallback")
                 return self._fallback_iteration_summary(iterations)
             
             # Build detailed text of iterations to summarize
@@ -1523,7 +1836,7 @@ FUNCTIONAL SUMMARY:"""
             )
             
             if summary:
-                logger.info(f"Summarized {len(iterations)} iterations to {len(summary)} characters")
+                # Iterations summary logged to MongoDB only
                 return summary.strip()
             else:
                 return self._fallback_iteration_summary(iterations)

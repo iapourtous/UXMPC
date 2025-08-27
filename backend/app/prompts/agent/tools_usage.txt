@@ -1,0 +1,5 @@
+💡 **How to use tools:**
+- Call tools when you need specific information or to perform actions
+- Provide all required parameters
+- You can call multiple tools in sequence if needed
+- Once you have gathered all necessary information, provide your final answer

@@ -2,8 +2,9 @@ import React, { useState, useRef, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { agentsApi, conversationsApi, demosApi } from '../services/api';
 import MarkdownRenderer from './markdown/MarkdownRenderer';
+import CotAgentLogs from './CotAgentLogs';
 import { Select, Button, Input, Drawer, List, Typography, Popconfirm, message, Modal, Tooltip, Tag, Card, Progress } from 'antd';
-import { SendOutlined, ClearOutlined, HistoryOutlined, DeleteOutlined, PlusOutlined, SaveOutlined, EyeOutlined, ExperimentOutlined, CompressOutlined, BugOutlined, DislikeOutlined, LikeOutlined, BulbOutlined } from '@ant-design/icons';
+import { SendOutlined, ClearOutlined, HistoryOutlined, DeleteOutlined, PlusOutlined, SaveOutlined, EyeOutlined, ExperimentOutlined, CompressOutlined, BugOutlined, DislikeOutlined, LikeOutlined, BulbOutlined, FileTextOutlined } from '@ant-design/icons';
 import axios from 'axios';
 
 const { TextArea } = Input;
@@ -37,6 +38,7 @@ function ChatWithAgents() {
   const [improvedPromptData, setImprovedPromptData] = useState(null);
   const [reasoningModalOpen, setReasoningModalOpen] = useState(false);
   const [reasoningData, setReasoningData] = useState(null);
+  const [logsDrawerOpen, setLogsDrawerOpen] = useState(false);
   const messagesEndRef = useRef(null);
   const queryClient = useQueryClient();
   const [currentTheme, setCurrentTheme] = useState('light'); // Theme for visualizations
@@ -616,6 +618,13 @@ function ChatWithAgents() {
               onClick={() => setHistoryDrawerOpen(true)}
             >
               History
+            </Button>
+            <Button
+              icon={<FileTextOutlined />}
+              onClick={() => setLogsDrawerOpen(true)}
+              disabled={!selectedAgent}
+            >
+              Logs
             </Button>
             <Button
               icon={<PlusOutlined />}
@@ -1413,6 +1422,18 @@ function ChatWithAgents() {
           </div>
         )}
       </Modal>
+
+      {/* Logs Drawer */}
+      <Drawer
+        title="Agent & COT Execution Logs"
+        placement="right"
+        width={900}
+        open={logsDrawerOpen}
+        onClose={() => setLogsDrawerOpen(false)}
+        destroyOnClose
+      >
+        <CotAgentLogs agentId={selectedAgent} />
+      </Drawer>
     </div>
   );
 }

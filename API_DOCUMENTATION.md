@@ -1244,6 +1244,83 @@ Obtenir les statistiques de logs d'un service.
 #### GET /logs/search
 Rechercher dans tous les logs de services.
 
+#### GET /logs/cot
+Obtenir les logs du moteur Chain of Thought.
+
+**Query Parameters:**
+- `execution_id`: string (optionnel) - ID d'exécution spécifique
+- `level`: LogLevel (optionnel) - Niveau de log (DEBUG, INFO, WARNING, ERROR, CRITICAL)
+- `search`: string (optionnel) - Terme de recherche
+- `start_time`: datetime (optionnel) - Date/heure de début
+- `end_time`: datetime (optionnel) - Date/heure de fin
+- `limit`: int (default: 100, max: 1000)
+- `skip`: int (default: 0)
+
+**Response:**
+```json
+[
+  {
+    "id": "log_id",
+    "timestamp": "2024-01-01T00:00:00Z",
+    "service_id": "cot_engine",
+    "service_name": "Chain of Thought Engine",
+    "level": "INFO",
+    "message": "COT Iteration 1: deductive (confidence: 0.85)",
+    "details": {
+      "iteration_number": 1,
+      "reasoning_type": "deductive",
+      "thought": "Let me analyze this step by step...",
+      "confidence": 0.85,
+      "should_continue": true,
+      "tool_calls_count": 2,
+      "validation_scores": {
+        "relevance": 0.9,
+        "progress": 0.8,
+        "correctness": 0.85
+      }
+    },
+    "execution_id": "execution_uuid"
+  }
+]
+```
+
+#### GET /logs/agents/{agent_id}
+Obtenir les logs d'un agent spécifique.
+
+**Path Parameters:**
+- `agent_id`: string - ID de l'agent
+
+**Query Parameters:**
+- `execution_id`: string (optionnel) - ID d'exécution spécifique
+- `level`: LogLevel (optionnel) - Niveau de log
+- `search`: string (optionnel) - Terme de recherche
+- `start_time`: datetime (optionnel) - Date/heure de début
+- `end_time`: datetime (optionnel) - Date/heure de fin
+- `limit`: int (default: 100, max: 1000)
+- `skip`: int (default: 0)
+
+**Response:**
+```json
+[
+  {
+    "id": "log_id",
+    "timestamp": "2024-01-01T00:00:00Z",
+    "service_id": "agent_abc123",
+    "service_name": "Agent: My Assistant",
+    "level": "INFO",
+    "message": "Agent execution started",
+    "details": {
+      "agent_id": "abc123",
+      "agent_name": "My Assistant",
+      "execution_type": "standard",
+      "input_preview": "What is the weather?",
+      "conversation_id": "conv_123"
+    },
+    "execution_id": "execution_uuid"
+  }
+]
+```
+
 ### 📚 Documentation (/docs)
 
 #### GET /docs/

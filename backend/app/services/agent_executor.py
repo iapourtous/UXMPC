@@ -1,5 +1,4 @@
 import json
-import httpx
 import logging
 import uuid
 import asyncio
@@ -12,15 +11,17 @@ from app.models.agent import (
     AgentExecutionProgress, ExecutionStep
 )
 from app.services.llm_crud import llm_crud
-from app.services.service_crud import service_crud
 from app.core.database import get_database
-from app.core.mongodb_logger import ServiceLogger
+from app.services.unified_logger import UnifiedLogger
 from app.services.conversation_crud import conversation_crud
 from app.models.conversation import MessageCreate, ConversationCreate
+from app.services.conversation_manager import ConversationManager
+from app.services.message_builder import MessageBuilder
+from app.services.tool_manager import ToolManager
 from app.services.conversation_compactor import conversation_compactor
 from app.services.settings_crud import settings_crud
 from app.core.llm_client import llm_client
-from app.core.json_extractor import extract_json_from_text, create_json_instruction
+from app.core.json_extractor import extract_json_from_text
 
 logger = logging.getLogger(__name__)
 
@@ -29,8 +30,14 @@ class AgentExecutor:
     """Executes agents by orchestrating LLM and MCP services"""
     
     def __init__(self):
-        """Initialize the agent executor and load markdown capabilities"""
-        self.markdown_capabilities = self._load_markdown_capabilities()
+        """Initialize the agent executor, message builder and tool manager"""
+        self.message_builder = MessageBuilder()
+        self.tool_manager = ToolManager()
+    
+    def _create_logger(self, agent: Agent, execution_id: str) -> UnifiedLogger:
+        """Create a unified logger for agent execution"""
+        db = get_database()
+        return UnifiedLogger(f"agent_{agent.id}", f"Agent: {agent.name}", execution_id, db=db)
     
     async def execute(
         self, 
@@ -39,63 +46,44 @@ class AgentExecutor:
     ) -> AgentExecutionResponse:
         """Execute an agent with the given input"""
         execution_id = str(uuid.uuid4())
-        db = get_database()
         
-        # Create logger for this execution
-        agent_logger = ServiceLogger(db, f"agent_{agent.id}", f"Agent: {agent.name}", execution_id)
+        # Create unified logger for this execution
+        logger = self._create_logger(agent, execution_id)
         
         # Handle conversation persistence
+        conversation_manager = ConversationManager(logger)
         conversation_id = None
-        conversation = None
         
         if execution_request.save_conversation:
-            # Get or create conversation
-            if execution_request.conversation_id:
-                conversation = await conversation_crud.get(execution_request.conversation_id)
-                if conversation:
-                    conversation_id = conversation.id
-                else:
-                    logger.warning(f"Conversation {execution_request.conversation_id} not found, creating new one")
-            
-            if not conversation:
-                # Get latest conversation or create new one
-                conversation = await conversation_crud.get_latest_conversation()
-                if not conversation:
-                    # Create new conversation
-                    conversation = await conversation_crud.create(
-                        ConversationCreate(
-                            user_id=None,  # TODO: Add user support
-                            title=f"New Conversation - {datetime.utcnow().strftime('%Y-%m-%d %H:%M')}",
-                            metadata={"execution_id": execution_id}
-                        )
-                    )
-                conversation_id = conversation.id
+            conversation = await conversation_manager.get_or_create_conversation(
+                execution_id=execution_id,
+                conversation_id=execution_request.conversation_id,
+                create_new=False
+            )
+            conversation_id = conversation.id if conversation else None
         
         try:
-            await agent_logger.info(
-                f"Agent execution started",
-                agent=agent.name,
-                input_type=type(execution_request.input).__name__,
+            # Log execution start
+            await logger.log_agent_execution(
+                agent_id=agent.id,
+                agent_name=agent.name,
+                input_data=execution_request.input,
+                execution_type="standard",
                 conversation_id=conversation_id
             )
             
             # Save user message to conversation
             if conversation_id and execution_request.save_conversation:
-                user_content = execution_request.input if isinstance(execution_request.input, str) else json.dumps(execution_request.input)
-                await conversation_crud.add_message(
-                    conversation_id,
-                    MessageCreate(
-                        role="user",
-                        content=user_content,
-                        metadata={"execution_id": execution_id},
-                        agent_id=None  # User messages don't have agent_id
-                    )
+                await conversation_manager.save_user_message(
+                    conversation_id=conversation_id,
+                    content=execution_request.input,
+                    execution_id=execution_id
                 )
             
             # Validate input against schema
             if not self._validate_input(execution_request.input, agent.input_schema):
                 error = "Input does not match agent's input schema"
-                await agent_logger.error(error)
+                await logger.error(error)
                 return AgentExecutionResponse(
                     success=False,
                     error=error,
@@ -107,7 +95,7 @@ class AgentExecutor:
             llm_profile = await llm_crud.get_by_name(agent.llm_profile)
             if not llm_profile or not llm_profile.active:
                 error = f"LLM profile '{agent.llm_profile}' not found or inactive"
-                await agent_logger.error(error)
+                await logger.error(error)
                 return AgentExecutionResponse(
                     success=False,
                     error=error,
@@ -121,31 +109,23 @@ class AgentExecutor:
                 memory_context = await self._load_memory_context(
                     agent=agent,
                     query=execution_request.input if isinstance(execution_request.input, str) else json.dumps(execution_request.input),
-                    agent_logger=agent_logger
+                    logger=logger
                 )
             
             # Load conversation history if conversation_id is provided
             loaded_history = []
             if conversation_id:
-                # Load messages from conversation
-                loaded_conversation = await conversation_crud.get(conversation_id)
-                if loaded_conversation and loaded_conversation.messages:
-                    # Convert stored messages to the format expected by LLM
-                    for msg in loaded_conversation.messages:
-                        loaded_history.append({
-                            "role": msg.role,
-                            "content": msg.content
-                        })
+                loaded_history = await conversation_manager.load_conversation_history(conversation_id)
             
             # If no history was provided but we loaded from conversation, use that
             if loaded_history and not execution_request.conversation_history:
                 execution_request.conversation_history = loaded_history
             
             # Prepare tools from MCP services (BEFORE building messages)
-            tools = await self._prepare_tools(agent.mcp_services, agent_logger, agent)
+            tools = await self.tool_manager.prepare_tools(agent.mcp_services, agent, logger)
             
             # Build messages with tools context
-            messages = self._build_messages(agent, execution_request, memory_context, tools)
+            messages = self.message_builder.build_messages(agent, execution_request, memory_context, tools)
             
             # Apply conversation compaction if enabled
             messages_for_agent = messages
@@ -155,12 +135,8 @@ class AgentExecutor:
             global_settings = await settings_crud.get_or_create()
             
             # Check if we should compact the conversation
-            await agent_logger.info(
-                "Compaction check",
-                compaction_enabled=global_settings.compaction_settings.enabled,
-                has_conversation_history=bool(execution_request.conversation_history),
-                history_length=len(execution_request.conversation_history) if execution_request.conversation_history else 0
-            )
+            # Check compaction quietly
+            await logger.debug("Checking conversation compaction")
             
             if global_settings.compaction_settings.enabled and execution_request.conversation_history:
                 # Prepare full message list including history for compaction check
@@ -188,19 +164,10 @@ class AgentExecutor:
                     messages_for_agent = agent_system_messages + compacted_messages
                     compaction_applied = True
                     
-                    await agent_logger.info(
-                        "Applied conversation compaction",
-                        original_message_count=len(full_messages),
-                        compacted_message_count=len(compacted_messages),
-                        agent_system_messages_count=len(agent_system_messages),
-                        final_messages_count=len(messages_for_agent)
-                    )
+                    # Log compaction quietly
+                    await logger.debug(f"Compacted: {len(full_messages)} -> {len(messages_for_agent)} messages")
                     
-                    # Log the structure for debugging
-                    for i, msg in enumerate(messages_for_agent):
-                        role = msg["role"]
-                        content_preview = msg["content"][:100] + "..." if len(msg["content"]) > 100 else msg["content"]
-                        await agent_logger.debug(f"Message {i}: {role} - {content_preview}")
+                    # Message structure logging removed for cleaner output
                 elif global_settings.user_context:
                     # No compaction but add user context if available
                     user_context_msg = {
@@ -224,7 +191,13 @@ class AgentExecutor:
             if (hasattr(agent, 'reasoning_strategy') and 
                 agent.reasoning_strategy == "chain-of-thought"):
                 
-                await agent_logger.info("Using Adaptive Chain of Thought reasoning")
+                # Log CoT usage quietly
+                await logger.debug("Using Adaptive Chain of Thought reasoning")
+                await logger.info(
+                    "COT mode activated for agent",
+                    agent_id=agent.id,
+                    conversation_length=len(messages)
+                )
                 
                 # Import adaptive CoT engine
                 from app.services.cot_adaptive_engine import adaptive_cot_engine
@@ -314,14 +287,19 @@ class AgentExecutor:
                     conversation_history=messages_for_agent,
                     agent_config=agent_config,
                     tools=tools,  # Pass the tools
-                    tool_executor=cot_tool_executor  # Pass the executor
+                    tool_executor=cot_tool_executor,  # Pass the executor
+                    execution_id=execution_id
                 )
                 
                 if cot_result.success:
-                    # Log CoT iterations
-                    await agent_logger.info(
-                        f"CoT completed with {cot_result.total_iterations} iterations",
-                        complexity=cot_result.complexity_profile.cluster.value if cot_result.complexity_profile else "unknown",
+                    # Log CoT completion quietly
+                    await logger.debug(f"CoT completed: {cot_result.total_iterations} iterations")
+                    
+                    await logger.info(
+                        "COT execution completed",
+                        iterations=cot_result.total_iterations,
+                        tool_calls=len(cot_result.all_tool_results),
+                        success=cot_result.success,
                         convergence_reason=cot_result.convergence_reason
                     )
                     
@@ -360,13 +338,13 @@ class AgentExecutor:
                     }
                 else:
                     # Fallback to standard execution if CoT fails
-                    await agent_logger.warning("CoT failed, falling back to standard execution")
+                    await logger.warning("CoT failed, falling back to standard execution")
                     result = await self._call_llm_with_tools(
                         llm_profile=llm_profile,
                         agent=agent,
                         messages=messages_for_agent,
                         tools=tools,
-                        agent_logger=agent_logger,
+                        logger=logger,
                         max_iterations=agent.max_iterations
                     )
             else:
@@ -376,14 +354,14 @@ class AgentExecutor:
                     agent=agent,
                     messages=messages_for_agent,
                     tools=tools,
-                    agent_logger=agent_logger,
+                    logger=logger,
                     max_iterations=agent.max_iterations
                 )
             
             # Validate output against schema
             if not self._validate_output(result["output"], agent.output_schema):
                 error = "Output does not match agent's output schema"
-                await agent_logger.error(error, output=result["output"])
+                await logger.error(error, output=result["output"])
                 return AgentExecutionResponse(
                     success=False,
                     error=error,
@@ -391,28 +369,16 @@ class AgentExecutor:
                     conversation_id=conversation_id
                 )
             
-            await agent_logger.info(
-                "Agent execution completed",
-                tool_calls_count=len(result.get("tool_calls", [])),
-                iterations=result.get("iterations", 1)
-            )
+            # Log completion quietly
+            await logger.debug("Agent execution completed")
             
             # Save assistant response to conversation
             if conversation_id and execution_request.save_conversation:
-                assistant_content = result["output"] if isinstance(result["output"], str) else json.dumps(result["output"])
-                await conversation_crud.add_message(
-                    conversation_id,
-                    MessageCreate(
-                        role="assistant",
-                        content=assistant_content,
-                        metadata={
-                            "execution_id": execution_id,
-                            "tool_calls_count": len(result.get("tool_calls", [])),
-                            "iterations": result.get("iterations", 1)
-                        },
-                        tool_calls=result.get("tool_calls", []),
-                        agent_id=agent.id  # Include agent ID
-                    )
+                await conversation_manager.save_assistant_message(
+                    conversation_id=conversation_id,
+                    content=result["output"],
+                    agent_id=agent.id,
+                    execution_id=execution_id
                 )
             
             # Save conversation to memory if enabled
@@ -423,7 +389,7 @@ class AgentExecutor:
                     input_data=execution_request.input,
                     output_data=result["output"],
                     messages=messages,
-                    agent_logger=agent_logger
+                    logger=logger
                 )
             
             # Update usage history for agent selection
@@ -431,7 +397,7 @@ class AgentExecutor:
                 agent=agent,
                 query=execution_request.input if isinstance(execution_request.input, str) else json.dumps(execution_request.input),
                 response=result["output"] if isinstance(result["output"], str) else json.dumps(result["output"]),
-                agent_logger=agent_logger
+                logger=logger
             )
             
             return AgentExecutionResponse(
@@ -447,19 +413,16 @@ class AgentExecutor:
             
         except Exception as e:
             error_msg = f"Agent execution failed: {str(e)}"
-            await agent_logger.error(error_msg, error=str(e))
+            await logger.error(error_msg, error=str(e))
             logger.error(error_msg, exc_info=True)
             
             # Save error to conversation if applicable
             if conversation_id and execution_request.save_conversation:
-                await conversation_crud.add_message(
-                    conversation_id,
-                    MessageCreate(
-                        role="assistant",
-                        content="I encountered an error while processing your request.",
-                        metadata={"execution_id": execution_id, "error": error_msg},
-                        agent_id=agent.id
-                    )
+                await conversation_manager.save_assistant_message(
+                    conversation_id=conversation_id,
+                    content="I encountered an error while processing your request.",
+                    agent_id=agent.id,
+                    execution_id=execution_id
                 )
             
             return AgentExecutionResponse(
@@ -493,294 +456,7 @@ class AgentExecutor:
             return True
         return True
     
-    async def _prepare_tools(self, service_names: List[str], agent_logger: ServiceLogger, agent: Agent) -> List[Dict[str, Any]]:
-        """Prepare tool definitions from MCP services"""
-        tools = []
-        
-        for service_name in service_names:
-            service = await service_crud.get_by_name(service_name)
-            if not service:
-                await agent_logger.warning(f"Service '{service_name}' not found")
-                continue
-            
-            if not service.active:
-                await agent_logger.warning(f"Service '{service_name}' is not active")
-                continue
-            
-            # Convert service to OpenAI tool format
-            tool = {
-                "type": "function",
-                "function": {
-                    "name": service.name,
-                    "description": service.description or f"MCP service: {service.name}",
-                    "parameters": {
-                        "type": "object",
-                        "properties": {},
-                        "required": []
-                    }
-                }
-            }
-            
-            # Add parameters
-            for param in service.params:
-                tool["function"]["parameters"]["properties"][param.name] = {
-                    "type": param.type,
-                    "description": param.description or param.name
-                }
-                if param.required:
-                    tool["function"]["parameters"]["required"].append(param.name)
-            
-            tools.append(tool)
-            await agent_logger.debug(f"Prepared tool: {service.name}")
-        
-        # Add memory tools if memory is enabled
-        if hasattr(agent, 'memory_enabled') and agent.memory_enabled:
-            memory_config = getattr(agent, 'memory_config', {})
-            if memory_config.get('active_memory', True):
-                await agent_logger.info("Adding memory tools to agent")
-                memory_tools = await self._create_memory_tools(agent)
-                tools.extend(memory_tools)
-        
-        # Add external MCP tools from connections
-        if hasattr(agent, 'mcp_connections') and agent.mcp_connections:
-            from app.services.mcp_client_service import mcp_client_service
-            await agent_logger.info(f"Adding external MCP tools from {len(agent.mcp_connections)} connections")
-            
-            for connection_id in agent.mcp_connections:
-                try:
-                    # Get tools from MCP connection
-                    mcp_tools = await mcp_client_service.get_available_tools(connection_id)
-                    await agent_logger.debug(f"Retrieved {len(mcp_tools)} tools from connection {connection_id}")
-                    
-                    # Convert MCP tools to OpenAI function format
-                    for mcp_tool in mcp_tools:
-                        tool = {
-                            "type": "function",
-                            "function": {
-                                "name": f"mcp_{connection_id}_{mcp_tool['name']}",  # Prefix to avoid conflicts
-                                "description": mcp_tool.get('description', f"MCP tool: {mcp_tool['name']}"),
-                                "parameters": mcp_tool.get('inputSchema', {
-                                    "type": "object",
-                                    "properties": {},
-                                    "required": []
-                                })
-                            }
-                        }
-                        tools.append(tool)
-                        await agent_logger.debug(f"Prepared external MCP tool: {mcp_tool['name']} from connection {connection_id}")
-                        
-                except Exception as e:
-                    await agent_logger.error(f"Failed to load tools from MCP connection {connection_id}: {e}")
-        
-        return tools
     
-    def _format_tools_for_context(self, tools: List[Dict[str, Any]]) -> str:
-        """Format tool definitions for inclusion in system context"""
-        if not tools:
-            return ""
-        
-        formatted = "## Available Tools and Their Capabilities\n\n"
-        formatted += "You have access to the following tools. Use them when needed to gather information or perform actions:\n\n"
-        
-        for i, tool in enumerate(tools, 1):
-            if tool.get("type") != "function":
-                continue
-                
-            func = tool.get("function", {})
-            name = func.get("name", "unknown")
-            description = func.get("description", "No description available")
-            params = func.get("parameters", {})
-            
-            # Tool header
-            formatted += f"### {i}. {name}\n"
-            formatted += f"{description}\n"
-            
-            # Parameters
-            properties = params.get("properties", {})
-            required = params.get("required", [])
-            
-            if properties:
-                formatted += "**Parameters:**\n"
-                for param_name, param_info in properties.items():
-                    param_type = param_info.get("type", "any")
-                    param_desc = param_info.get("description", "No description")
-                    is_required = param_name in required
-                    req_text = "required" if is_required else "optional"
-                    
-                    formatted += f"  - `{param_name}` ({param_type}, {req_text}): {param_desc}\n"
-            else:
-                formatted += "**Parameters:** None\n"
-            
-            formatted += "\n"
-        
-        formatted += "💡 **How to use tools:**\n"
-        formatted += "- Call tools when you need specific information or to perform actions\n"
-        formatted += "- Provide all required parameters\n"
-        formatted += "- You can call multiple tools in sequence if needed\n"
-        formatted += "- Once you have gathered all necessary information, provide your final answer\n\n"
-        
-        return formatted
-    
-    def _load_markdown_capabilities(self) -> str:
-        """Load markdown capabilities instructions from file"""
-        try:
-            # Try to load from the prompts directory
-            prompt_file = os.path.join(
-                os.path.dirname(os.path.dirname(__file__)),
-                'prompts',
-                'markdown_capabilities.txt'
-            )
-            
-            if os.path.exists(prompt_file):
-                with open(prompt_file, 'r', encoding='utf-8') as f:
-                    return f.read()
-            else:
-                logger.warning(f"Markdown capabilities file not found at {prompt_file}")
-                return ""
-        except Exception as e:
-            logger.error(f"Error loading markdown capabilities: {e}")
-            return ""
-    
-    def _build_messages(self, agent: Agent, execution_request: AgentExecution, memory_context: Optional[str] = None, tools: Optional[List[Dict[str, Any]]] = None) -> List[Dict[str, str]]:
-        """Build message list for LLM"""
-        messages = []
-        
-        # Build enhanced system prompt with agent's identity
-        # Add current date at the beginning of every prompt
-        current_date = datetime.utcnow().strftime('%d/%m/%Y')
-        system_content = f"Date d'aujourd'hui : {current_date}\n\n"
-        
-        # Add backstory if available
-        if hasattr(agent, 'backstory') and agent.backstory:
-            system_content += f"# Your Identity and Background\n{agent.backstory}\n\n"
-        
-        # Add objectives
-        if hasattr(agent, 'objectives') and agent.objectives:
-            system_content += "# Your Objectives\n"
-            for obj in agent.objectives:
-                system_content += f"- {obj}\n"
-            system_content += "\n"
-        
-        # Add constraints
-        if hasattr(agent, 'constraints') and agent.constraints:
-            system_content += "# Your Constraints\n"
-            for constraint in agent.constraints:
-                system_content += f"- {constraint}\n"
-            system_content += "\n"
-        
-        # Add reasoning strategy
-        if hasattr(agent, 'reasoning_strategy') and agent.reasoning_strategy != "standard":
-            if agent.reasoning_strategy == "chain-of-thought":
-                system_content += "# Reasoning Approach\nUse chain-of-thought reasoning. Think step by step before providing your final answer.\n\n"
-            elif agent.reasoning_strategy == "tree-of-thought":
-                system_content += "# Reasoning Approach\nUse tree-of-thought reasoning. Consider multiple paths and evaluate them before choosing the best approach.\n\n"
-        
-        # Add personality traits
-        if hasattr(agent, 'personality_traits') and agent.personality_traits:
-            traits = agent.personality_traits
-            if traits.get('tone') == 'professional':
-                system_content += "Maintain a professional tone. "
-            elif traits.get('tone') == 'friendly':
-                system_content += "Be friendly and approachable. "
-            
-            if traits.get('verbosity') == 'concise':
-                system_content += "Be concise and to the point. "
-            elif traits.get('verbosity') == 'detailed':
-                system_content += "Provide detailed and comprehensive responses. "
-            
-            if traits.get('empathy') == 'high':
-                system_content += "Show empathy and understanding. "
-            
-            if traits.get('humor') == 'subtle':
-                system_content += "You may use subtle humor when appropriate. "
-            
-            if system_content.endswith(". "):
-                system_content += "\n\n"
-        
-        # Add markdown rendering capabilities instructions
-        if self.markdown_capabilities:
-            system_content += self.markdown_capabilities + "\n\n"
-        
-        # Add memory context if available
-        if memory_context:
-            system_content += f"# Relevant Context from Memory\n{memory_context}\n\n"
-        
-        # Add available tools to context
-        if tools:
-            tools_description = self._format_tools_for_context(tools)
-            if tools_description:
-                system_content += tools_description
-        
-        # Add memory tools instructions if enabled
-        if hasattr(agent, 'memory_enabled') and agent.memory_enabled:
-            memory_config = getattr(agent, 'memory_config', {})
-            if memory_config.get('active_memory', True):
-                system_content += """# Your Memory System
-You have a persistent memory that remembers past conversations, user preferences, and important information. You can interact with it naturally:
-
-## Memory Tools Available:
-- **memory_search**: Ask natural questions like "What did the user tell me about their programming preferences?" or "Do I know anything about Python frameworks?"
-- **memory_store**: Save discoveries like "User prefers detailed technical explanations" or "Client works in healthcare industry"
-- **memory_analyze**: Get insights about conversation patterns and user preferences
-
-## How to Use Your Memory:
-✅ **Search naturally**: ALWAYS start by asking your memory first, even for general questions. Ask things like "What do I know about X?" or "Have we discussed Y before?"
-✅ **Be conversational**: "What do I remember about X?" "Did we discuss Y before?" "What are their preferences?"
-✅ **Store insights**: After learning something important, save it for future conversations
-✅ **Check understanding**: Use memory_analyze to understand conversation patterns and knowledge gaps
-
-💡 **Remember**: Your memory understands context and semantics - you can ask questions just like you would ask a human!
-
-"""
-        
-        # Add original system prompt if provided
-        if agent.system_prompt:
-            system_content += agent.system_prompt
-        
-        # Add JSON formatting instructions if structured output is expected
-        if agent.output_schema and agent.output_schema != "text":
-            system_content += f"\n\n{create_json_instruction(agent.output_schema)}\n"
-        
-        # Add critical constraints about links and web access
-        system_content += """
-
-# CRITICAL CONSTRAINTS
-- You do NOT have access to the internet, search engines, or web browsing capabilities
-- You CANNOT generate, invent, or hallucinate URL links
-- You CANNOT claim to have performed web searches or accessed websites
-- If you don't have a specific tool to access information, clearly state this limitation
-- Use ONLY the tools that are explicitly provided to you
-- Base your responses ONLY on your training knowledge and stored memory
-
-IMPORTANT: When you have gathered enough information to answer the user's question completely, provide your final answer WITHOUT making any more tool calls. The absence of tool calls in your response indicates that you have completed your task."""
-        
-        # Only add system message if there's content
-        if system_content.strip():
-            messages.append({
-                "role": "system",
-                "content": system_content.strip()
-            })
-        
-        # Add conversation history if provided
-        if execution_request.conversation_history:
-            messages.extend(execution_request.conversation_history)
-        
-        # Build user message
-        user_content = ""
-        if agent.pre_prompt:
-            user_content = agent.pre_prompt + "\n\n"
-        
-        if isinstance(execution_request.input, str):
-            user_content += execution_request.input
-        else:
-            user_content += json.dumps(execution_request.input)
-        
-        messages.append({
-            "role": "user",
-            "content": user_content
-        })
-        
-        return messages
     
     async def _call_llm_with_tools(
         self,
@@ -788,7 +464,7 @@ IMPORTANT: When you have gathered enough information to answer the user's questi
         agent: Agent,
         messages: List[Dict[str, str]],
         tools: List[Dict[str, Any]],
-        agent_logger: ServiceLogger,
+        logger: UnifiedLogger,
         max_iterations: int
     ) -> Dict[str, Any]:
         """Call LLM with tools using centralized client"""
@@ -802,7 +478,7 @@ IMPORTANT: When you have gathered enough information to answer the user's questi
         
         while iterations < max_iterations:
             iterations += 1
-            await agent_logger.debug(f"LLM iteration {iterations}")
+            await logger.debug(f"LLM iteration {iterations}")
             
             try:
                 # Use centralized client for LLM call with text mode profile
@@ -817,15 +493,25 @@ IMPORTANT: When you have gathered enough information to answer the user's questi
                 )
                 
                 # Log the response for debugging
-                await agent_logger.debug("LLM response structure", response_keys=list(response.keys()) if isinstance(response, dict) else type(response).__name__)
+                await logger.debug("LLM response structure", response_keys=list(response.keys()) if isinstance(response, dict) else type(response).__name__)
                 
                 # Check if response has expected structure
                 if "choices" not in response:
-                    await agent_logger.error("Unexpected LLM response format", response=response)
+                    await logger.error("Unexpected LLM response format", response=response)
                     raise ValueError(f"LLM response missing 'choices' field. Keys: {list(response.keys()) if isinstance(response, dict) else 'Not a dict'}")
                 
                 choice = response["choices"][0]
                 message = choice["message"]
+                
+                # Handle case where model returns only tool_calls without content (like in CoT)
+                if not message.get("content") and message.get("tool_calls"):
+                    await logger.info("Model returned tool_calls without content, creating minimal content")
+                    # Create a minimal content to indicate tool usage
+                    message["content"] = "I'm using tools to gather the information needed to answer your question."
+                elif not message.get("content") and not message.get("tool_calls"):
+                    await logger.warning("Model returned neither content nor tool_calls, creating default response")
+                    # Create a default response to continue
+                    message["content"] = "Let me process your request."
                 
                 # Update usage
                 if "usage" in response:
@@ -840,9 +526,9 @@ IMPORTANT: When you have gathered enough information to answer the user's questi
                 # Check for tool calls
                 if "tool_calls" in message and message["tool_calls"]:
                     # Execute tools
-                    tool_results = await self._execute_tool_calls(
+                    tool_results = await self.tool_manager.execute_tool_calls(
                         message["tool_calls"],
-                        agent_logger,
+                        logger,
                         agent
                     )
                     
@@ -865,7 +551,7 @@ IMPORTANT: When you have gathered enough information to answer the user's questi
                         continue
                     else:
                         # Max iterations reached with tool calls pending
-                        await agent_logger.warning(f"Max iterations ({max_iterations}) reached while still making tool calls")
+                        await logger.warning(f"Max iterations ({max_iterations}) reached while still making tool calls")
                 
                 # No tool calls means the agent has its final answer
                 output = message["content"]
@@ -876,14 +562,14 @@ IMPORTANT: When you have gathered enough information to answer the user's questi
                     extracted = extract_json_from_text(output)
                     if extracted:
                         output = extracted
-                        await agent_logger.debug("Successfully extracted JSON from text response")
+                        await logger.debug("Successfully extracted JSON from text response")
                     else:
                         # Fallback to direct parsing
                         try:
                             output = json.loads(output)
                         except:
                             # Keep as text if parsing fails
-                            await agent_logger.warning(
+                            await logger.warning(
                                 "Could not parse output as JSON despite non-text schema",
                                 schema=agent.output_schema
                             )
@@ -897,7 +583,7 @@ IMPORTANT: When you have gathered enough information to answer the user's questi
                 }
                 
             except Exception as e:
-                await agent_logger.error(f"Error in LLM iteration {iterations}: {str(e)}")
+                await logger.error(f"Error in LLM iteration {iterations}: {str(e)}")
                 # If we have partial results, return them
                 if iterations > 1 and tool_calls_history:
                     return {
@@ -909,7 +595,7 @@ IMPORTANT: When you have gathered enough information to answer the user's questi
                 raise
         
         # Max iterations reached
-        await agent_logger.warning(f"Max iterations ({max_iterations}) reached")
+        await logger.warning(f"Max iterations ({max_iterations}) reached")
         return {
             "output": "Max iterations reached without completion",
             "tool_calls": tool_calls_history,
@@ -917,103 +603,12 @@ IMPORTANT: When you have gathered enough information to answer the user's questi
             "usage": total_usage
         }
     
-    async def _execute_tool_calls(
-        self,
-        tool_calls: List[Dict[str, Any]],
-        agent_logger: ServiceLogger,
-        agent: Optional[Agent] = None
-    ) -> List[Dict[str, Any]]:
-        """Execute tool calls by calling MCP services or memory tools"""
-        results = []
-        
-        for tool_call in tool_calls:
-            tool_name = tool_call["function"]["name"]
-            tool_args = json.loads(tool_call["function"]["arguments"])
-            
-            await agent_logger.info(f"Executing tool: {tool_name}", arguments=tool_args)
-            
-            try:
-                # Check if it's a memory tool
-                if tool_name in ["memory_search", "memory_store", "memory_analyze"] and agent:
-                    from app.core.agent_memory_tools import memory_search, memory_store, memory_analyze
-                    
-                    # Inject agent_id
-                    tool_args["agent_id"] = agent.id
-                    
-                    # Call the appropriate memory tool
-                    if tool_name == "memory_search":
-                        result = await memory_search(**tool_args)
-                    elif tool_name == "memory_store":
-                        result = await memory_store(**tool_args)
-                    elif tool_name == "memory_analyze":
-                        result = await memory_analyze(**tool_args)
-                    
-                    results.append(result)
-                    continue
-                
-                # Check if it's an external MCP tool
-                if tool_name.startswith("mcp_") and agent and hasattr(agent, 'mcp_connections'):
-                    from app.services.mcp_client_service import mcp_client_service
-                    
-                    # Parse connection_id and tool name from prefixed name
-                    # Format: mcp_{connection_id}_{tool_name}
-                    parts = tool_name.split("_", 2)  # Split into mcp, connection_id, tool_name
-                    if len(parts) >= 3:
-                        connection_id = parts[1]
-                        actual_tool_name = parts[2]
-                        
-                        # Execute external MCP tool
-                        mcp_result = await mcp_client_service.execute_tool(connection_id, actual_tool_name, tool_args)
-                        
-                        if mcp_result.success:
-                            result = mcp_result.result
-                        else:
-                            result = {"error": f"MCP tool execution failed: {mcp_result.error}"}
-                        
-                        results.append(result)
-                        continue
-                
-                # Otherwise, call the internal MCP service
-                service = await service_crud.get_by_name(tool_name)
-                if not service:
-                    result = {"error": f"Service '{tool_name}' not found"}
-                else:
-                    # Build URL
-                    url = f"http://localhost:8000{service.route}"
-                    
-                    # Replace path parameters
-                    for param_name, param_value in tool_args.items():
-                        url = url.replace(f"{{{param_name}}}", str(param_value))
-                    
-                    # Make HTTP request with extended timeout for agent tools
-                    async with httpx.AsyncClient(timeout=180.0) as client:  # 3 minutes timeout
-                        if service.method == "GET":
-                            query_params = {k: v for k, v in tool_args.items() if f"{{{k}}}" not in service.route}
-                            response = await client.get(url, params=query_params)
-                        elif service.method == "POST":
-                            response = await client.post(url, json=tool_args)
-                        else:
-                            response = await client.request(service.method, url, json=tool_args)
-                    
-                    if response.status_code == 200:
-                        result = response.json()
-                    else:
-                        result = {"error": f"Service returned {response.status_code}: {response.text}"}
-                
-            except Exception as e:
-                error_msg = f"Tool execution failed: {str(e)}"
-                await agent_logger.error(error_msg, tool=tool_name)
-                result = {"error": error_msg}
-            
-            results.append(result)
-        
-        return results
     
     async def _load_memory_context(
         self,
         agent: Agent,
         query: str,
-        agent_logger: Optional[ServiceLogger]
+        logger: Optional[UnifiedLogger]
     ) -> Optional[str]:
         """Load relevant context from agent's memory"""
         try:
@@ -1037,61 +632,17 @@ IMPORTANT: When you have gathered enough information to answer the user's questi
             
             if context_parts:
                 context = "\n\n".join(context_parts)
-                if agent_logger:
-                    await agent_logger.info(f"Loaded {len(context_parts)} relevant memories")
+                if logger:
+                    await logger.info(f"Loaded {len(context_parts)} memories")
                 return context
             
             return None
             
         except Exception as e:
-            if agent_logger:
-                await agent_logger.error(f"Failed to load memory context: {str(e)}")
+            if logger:
+                await logger.error(f"Failed to load memory context: {str(e)}")
             return None
     
-    async def _create_memory_tools(self, agent: Agent) -> List[Dict[str, Any]]:
-        """Create memory management tools for the agent"""
-        from app.core.agent_memory_tools import MEMORY_TOOLS
-        
-        tools = []
-        for tool_def in MEMORY_TOOLS:
-            tool = {
-                "type": "function",
-                "function": {
-                    "name": tool_def["name"],
-                    "description": tool_def["description"],
-                    "parameters": {
-                        "type": "object",
-                        "properties": {},
-                        "required": []
-                    }
-                }
-            }
-            
-            # Add parameters (skip agent_id as it will be injected)
-            for param_name, param_config in tool_def["parameters"].items():
-                if param_name != "agent_id":
-                    prop = {
-                        "type": param_config["type"],
-                        "description": param_config.get("description", "")
-                    }
-                    
-                    # Add enum if specified
-                    if "enum" in param_config:
-                        prop["enum"] = param_config["enum"]
-                    
-                    # Add default if specified
-                    if "default" in param_config:
-                        prop["default"] = param_config["default"]
-                    
-                    tool["function"]["parameters"]["properties"][param_name] = prop
-                    
-                    # Add to required if needed
-                    if param_config.get("required", False):
-                        tool["function"]["parameters"]["required"].append(param_name)
-            
-            tools.append(tool)
-        
-        return tools
     
     async def _save_to_memory(
         self,
@@ -1100,7 +651,7 @@ IMPORTANT: When you have gathered enough information to answer the user's questi
         input_data: Union[str, Dict[str, Any]],
         output_data: Union[str, Dict[str, Any]],
         messages: List[Dict[str, str]],
-        agent_logger: ServiceLogger
+        logger: UnifiedLogger
     ):
         """Save conversation to agent's memory"""
         try:
@@ -1136,7 +687,7 @@ IMPORTANT: When you have gathered enough information to answer the user's questi
                 }
             )
             
-            await agent_logger.info("Conversation saved to memory")
+            await logger.debug("Conversation saved")
             
             # Extract preferences from the new messages only
             await agent_memory_service.extract_preferences(
@@ -1145,7 +696,7 @@ IMPORTANT: When you have gathered enough information to answer the user's questi
             )
             
         except Exception as e:
-            await agent_logger.error(f"Failed to save to memory: {str(e)}")
+            await logger.error(f"Failed to save to memory: {str(e)}")
             # Don't fail the execution if memory save fails
     
     async def _update_usage_history(
@@ -1153,7 +704,7 @@ IMPORTANT: When you have gathered enough information to answer the user's questi
         agent: Agent,
         query: str,
         response: str,
-        agent_logger: ServiceLogger
+        logger: UnifiedLogger
     ):
         """Update agent's usage history with the latest query/response"""
         try:
@@ -1188,10 +739,10 @@ IMPORTANT: When you have gathered enough information to answer the user's questi
             )
             await agent_crud.update(agent.id, update_data)
             
-            await agent_logger.info(f"Updated usage history ({len(agent.usage_history)} entries) and response embedding")
+            await logger.debug("Updated usage history")
             
         except Exception as e:
-            await agent_logger.error(f"Failed to update usage history: {str(e)}")
+            await logger.error(f"Failed to update usage history: {str(e)}")
             # Don't fail the execution if usage history update fails
     
     async def execute_with_progress(
@@ -1202,7 +753,7 @@ IMPORTANT: When you have gathered enough information to answer the user's questi
         """Execute an agent with streaming progress updates"""
         execution_id = str(uuid.uuid4())
         db = get_database()
-        agent_logger = ServiceLogger(db, f"agent_{agent.id}", f"Agent: {agent.name}", execution_id)
+        logger = self._create_logger(agent, execution_id)
         
         try:
             # Initial progress
@@ -1212,7 +763,7 @@ IMPORTANT: When you have gathered enough information to answer the user's questi
                 progress=5
             )
             
-            await agent_logger.info(
+            await logger.info(
                 f"Agent execution started (streaming)",
                 agent=agent.name,
                 input_type=type(execution_request.input).__name__
@@ -1227,7 +778,7 @@ IMPORTANT: When you have gathered enough information to answer the user's questi
             
             if not self._validate_input(execution_request.input, agent.input_schema):
                 error = "Input does not match agent's input schema"
-                await agent_logger.error(error)
+                await logger.error(error)
                 yield AgentExecutionProgress(
                     step=ExecutionStep.ERROR,
                     message="Validation failed",
@@ -1240,7 +791,7 @@ IMPORTANT: When you have gathered enough information to answer the user's questi
             llm_profile = await llm_crud.get_by_name(agent.llm_profile)
             if not llm_profile or not llm_profile.active:
                 error = f"LLM profile '{agent.llm_profile}' not found or inactive"
-                await agent_logger.error(error)
+                await logger.error(error)
                 yield AgentExecutionProgress(
                     step=ExecutionStep.ERROR,
                     message="LLM profile error",
@@ -1256,7 +807,7 @@ IMPORTANT: When you have gathered enough information to answer the user's questi
                 progress=20
             )
             
-            tools = await self._prepare_tools(agent.mcp_services, agent_logger, agent)
+            tools = await self.tool_manager.prepare_tools(agent.mcp_services, agent, logger)
             
             # Load memory context
             memory_context = None
@@ -1269,11 +820,11 @@ IMPORTANT: When you have gathered enough information to answer the user's questi
                 memory_context = await self._load_memory_context(
                     agent=agent,
                     query=execution_request.input if isinstance(execution_request.input, str) else json.dumps(execution_request.input),
-                    agent_logger=agent_logger
+                    logger=logger
                 )
             
             # Build messages with tools context
-            messages = self._build_messages(agent, execution_request, memory_context, tools)
+            messages = self.message_builder.build_messages(agent, execution_request, memory_context, tools)
             
             # Execute with LLM iterations
             total_usage = {"prompt_tokens": 0, "completion_tokens": 0, "total_tokens": 0}
@@ -1303,7 +854,7 @@ IMPORTANT: When you have gathered enough information to answer the user's questi
                     agent=agent,
                     messages=messages,
                     tools=tools,
-                    agent_logger=agent_logger,
+                    logger=logger,
                     current_iteration=iterations,
                     progress_callback=lambda p: self._create_progress_update(p, current_progress, progress_per_iteration)
                 )
@@ -1327,8 +878,8 @@ IMPORTANT: When you have gathered enough information to answer the user's questi
                         )
                         
                         # Execute tool calls
-                        tool_results = await self._execute_tool_calls(
-                            [tool_call], agent_logger, agent
+                        tool_results = await self.tool_manager.execute_tool_calls(
+                            [tool_call], logger, agent
                         )
                         
                         tool_calls_history.extend(result["tool_calls"])
@@ -1367,13 +918,13 @@ IMPORTANT: When you have gathered enough information to answer the user's questi
                         )
                         await self._save_to_memory(
                             agent, execution_id, execution_request.input,
-                            output, messages, agent_logger
+                            output, messages, logger
                         )
                     
                     # Validate output
                     if not self._validate_output(output, agent.output_schema):
                         error = "Output does not match agent's output schema"
-                        await agent_logger.error(error, output=output)
+                        await logger.error(error, output=output)
                         yield AgentExecutionProgress(
                             step=ExecutionStep.ERROR,
                             message="Output validation failed",
@@ -1382,7 +933,7 @@ IMPORTANT: When you have gathered enough information to answer the user's questi
                         )
                         return
                     
-                    await agent_logger.info(
+                    await logger.info(
                         "Agent execution completed",
                         tool_calls_count=len(tool_calls_history),
                         iterations=iterations
@@ -1409,7 +960,7 @@ IMPORTANT: When you have gathered enough information to answer the user's questi
                 )
             
             # Max iterations reached
-            await agent_logger.warning(
+            await logger.warning(
                 "Max iterations reached without final answer",
                 iterations=iterations
             )
@@ -1424,7 +975,7 @@ IMPORTANT: When you have gathered enough information to answer the user's questi
             )
             
         except Exception as e:
-            await agent_logger.error(f"Agent execution failed: {str(e)}")
+            await logger.error(f"Agent execution failed: {str(e)}")
             yield AgentExecutionProgress(
                 step=ExecutionStep.ERROR,
                 message="Execution failed",
@@ -1443,7 +994,7 @@ IMPORTANT: When you have gathered enough information to answer the user's questi
         agent: Agent,
         messages: List[Dict[str, str]],
         tools: List[Dict[str, Any]],
-        agent_logger: ServiceLogger
+        logger: UnifiedLogger
     ) -> Dict[str, Any]:
         """Call LLM with tools (wrapper for existing method)"""
         # For now, we'll use the existing method
@@ -1453,7 +1004,7 @@ IMPORTANT: When you have gathered enough information to answer the user's questi
             agent=agent,
             messages=messages,
             tools=tools,
-            agent_logger=agent_logger
+            logger=logger
         )
 
 

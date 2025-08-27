@@ -52,4 +52,6 @@ Create a comprehensive, well-structured response that:
 4. Never shows raw JSON or unformatted data
 5. Provides a complete and satisfying answer to the user
 
+IMPORTANT: Do NOT include a links/references section - URLs will be added automatically after your response.
+
 Begin your response below:

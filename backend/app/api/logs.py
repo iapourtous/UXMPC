@@ -258,3 +258,101 @@ async def search_logs(
         logs.append(ServiceLog(**doc))
     
     return logs
+
+
+@router.get("/cot", response_model=List[ServiceLog])
+async def get_cot_logs(
+    execution_id: Optional[str] = None,
+    level: Optional[LogLevel] = None,
+    search: Optional[str] = None,
+    start_time: Optional[datetime] = None,
+    end_time: Optional[datetime] = None,
+    limit: int = Query(100, ge=1, le=1000),
+    skip: int = Query(0, ge=0)
+):
+    """Get Chain of Thought engine logs"""
+    db = get_database()
+    collection = db["service_logs"]
+    
+    # Build query for COT logs
+    query = {"service_id": "cot_engine"}
+    
+    if execution_id:
+        query["execution_id"] = execution_id
+    if level:
+        query["level"] = level
+    if search:
+        query["$or"] = [
+            {"message": {"$regex": search, "$options": "i"}},
+            {"details.thought": {"$regex": search, "$options": "i"}},
+            {"details.reasoning_type": {"$regex": search, "$options": "i"}}
+        ]
+    
+    # Time range filtering
+    if start_time or end_time:
+        time_query = {}
+        if start_time:
+            time_query["$gte"] = start_time
+        if end_time:
+            time_query["$lte"] = end_time
+        query["timestamp"] = time_query
+    
+    # Execute query
+    cursor = collection.find(query).sort("timestamp", -1).skip(skip).limit(limit)
+    logs = []
+    
+    async for doc in cursor:
+        doc["id"] = str(doc["_id"])
+        del doc["_id"]
+        logs.append(ServiceLog(**doc))
+    
+    return logs
+
+
+@router.get("/agents/{agent_id}", response_model=List[ServiceLog])
+async def get_agent_logs(
+    agent_id: str,
+    execution_id: Optional[str] = None,
+    level: Optional[LogLevel] = None,
+    search: Optional[str] = None,
+    start_time: Optional[datetime] = None,
+    end_time: Optional[datetime] = None,
+    limit: int = Query(100, ge=1, le=1000),
+    skip: int = Query(0, ge=0)
+):
+    """Get logs for a specific agent"""
+    db = get_database()
+    collection = db["service_logs"]
+    
+    # Build query for agent logs
+    query = {"service_id": f"agent_{agent_id}"}
+    
+    if execution_id:
+        query["execution_id"] = execution_id
+    if level:
+        query["level"] = level
+    if search:
+        query["$or"] = [
+            {"message": {"$regex": search, "$options": "i"}},
+            {"details": {"$regex": search, "$options": "i"}}
+        ]
+    
+    # Time range filtering
+    if start_time or end_time:
+        time_query = {}
+        if start_time:
+            time_query["$gte"] = start_time
+        if end_time:
+            time_query["$lte"] = end_time
+        query["timestamp"] = time_query
+    
+    # Execute query
+    cursor = collection.find(query).sort("timestamp", -1).skip(skip).limit(limit)
+    logs = []
+    
+    async for doc in cursor:
+        doc["id"] = str(doc["_id"])
+        del doc["_id"]
+        logs.append(ServiceLog(**doc))
+    
+    return logs

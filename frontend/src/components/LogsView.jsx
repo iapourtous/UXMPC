@@ -29,10 +29,13 @@ import {
   FireOutlined,
   BugOutlined,
   BarChartOutlined,
-  SearchOutlined
+  SearchOutlined,
+  RobotOutlined,
+  BulbOutlined,
+  ToolOutlined
 } from '@ant-design/icons';
 import { format } from 'date-fns';
-import { servicesApi } from '../services/api';
+import { servicesApi, agentsApi } from '../services/api';
 
 const { Option } = Select;
 const { Search } = Input;
@@ -46,40 +49,49 @@ const LOG_LEVELS = {
 };
 
 const LogsView = () => {
+  const [logType, setLogType] = useState('service'); // 'service', 'agent', or 'cot'
   const [services, setServices] = useState([]);
+  const [agents, setAgents] = useState([]);
   const [selectedService, setSelectedService] = useState(null);
+  const [selectedAgent, setSelectedAgent] = useState(null);
   const [logs, setLogs] = useState([]);
   const [loading, setLoading] = useState(false);
   const [stats, setStats] = useState(null);
   const [filters, setFilters] = useState({
     level: 'ALL',
     search: '',
-    limit: 100
+    limit: 100,
+    executionId: null
   });
   const [autoRefresh, setAutoRefresh] = useState(false);
   const [expandedRows, setExpandedRows] = useState([]);
 
   useEffect(() => {
     fetchServices();
+    fetchAgents();
   }, []);
 
   useEffect(() => {
-    if (selectedService) {
+    if ((logType === 'service' && selectedService) || 
+        (logType === 'agent' && selectedAgent) || 
+        logType === 'cot') {
       fetchLogs();
       fetchStats();
     }
-  }, [selectedService, filters]);
+  }, [selectedService, selectedAgent, logType, filters]);
 
   useEffect(() => {
     let interval;
-    if (autoRefresh && selectedService) {
+    if (autoRefresh && ((logType === 'service' && selectedService) || 
+                        (logType === 'agent' && selectedAgent) || 
+                        logType === 'cot')) {
       interval = setInterval(() => {
         fetchLogs();
         fetchStats();
       }, 5000);
     }
     return () => clearInterval(interval);
-  }, [autoRefresh, selectedService]);
+  }, [autoRefresh, selectedService, selectedAgent, logType]);
 
   const fetchServices = async () => {
     try {
@@ -90,8 +102,18 @@ const LogsView = () => {
     }
   };
 
+  const fetchAgents = async () => {
+    try {
+      const response = await agentsApi.list(true);
+      setAgents(response.data);
+    } catch (error) {
+      message.error('Failed to fetch agents');
+    }
+  };
+
   const fetchLogs = async () => {
-    if (!selectedService) return;
+    if (logType === 'service' && !selectedService) return;
+    if (logType === 'agent' && !selectedAgent) return;
     
     setLoading(true);
     try {
@@ -107,7 +129,20 @@ const LogsView = () => {
         params.append('search', filters.search);
       }
 
-      const response = await fetch(`http://localhost:8000/logs/services/${selectedService}?${params}`);
+      if (filters.executionId) {
+        params.append('execution_id', filters.executionId);
+      }
+
+      let url;
+      if (logType === 'service') {
+        url = `http://localhost:8000/logs/services/${selectedService}?${params}`;
+      } else if (logType === 'agent') {
+        url = `http://localhost:8000/logs/agents/${selectedAgent}?${params}`;
+      } else if (logType === 'cot') {
+        url = `http://localhost:8000/logs/cot?${params}`;
+      }
+
+      const response = await fetch(url);
       if (!response.ok) throw new Error('Failed to fetch logs');
       
       const data = await response.json();
@@ -120,10 +155,19 @@ const LogsView = () => {
   };
 
   const fetchStats = async () => {
-    if (!selectedService) return;
+    if (logType === 'service' && !selectedService) return;
+    if (logType === 'agent' && !selectedAgent) return;
     
     try {
-      const response = await fetch(`http://localhost:8000/logs/services/stats/${selectedService}?hours=24`);
+      let url;
+      if (logType === 'service') {
+        url = `http://localhost:8000/logs/services/stats/${selectedService}?hours=24`;
+      } else {
+        // For agent and COT, we'll calculate stats from the fetched logs
+        return;
+      }
+      
+      const response = await fetch(url);
       if (!response.ok) throw new Error('Failed to fetch stats');
       
       const data = await response.json();
@@ -267,28 +311,79 @@ const LogsView = () => {
       <Card
         title={
           <Space>
-            <FileSearchOutlined style={{ fontSize: '24px' }} />
-            <span>Service Logs</span>
+            {logType === 'service' && <FileSearchOutlined style={{ fontSize: '24px' }} />}
+            {logType === 'agent' && <RobotOutlined style={{ fontSize: '24px' }} />}
+            {logType === 'cot' && <BulbOutlined style={{ fontSize: '24px' }} />}
+            <span>
+              {logType === 'service' && 'Service Logs'}
+              {logType === 'agent' && 'Agent Logs'}
+              {logType === 'cot' && 'Chain of Thought Logs'}
+            </span>
           </Space>
         }
       >
         <Row gutter={[16, 16]}>
           <Col span={24}>
             <Space size="large" style={{ width: '100%', justifyContent: 'space-between' }} wrap>
-              <Select
-                placeholder="Select a service"
-                style={{ width: 300 }}
-                onChange={handleServiceChange}
-                value={selectedService}
-                showSearch
-                optionFilterProp="children"
-              >
-                {services.map(service => (
-                  <Option key={service.id} value={service.id}>
-                    {service.name} {service.active && <Tag color="green">Active</Tag>}
+              <Space>
+                <Select
+                  value={logType}
+                  onChange={(value) => {
+                    setLogType(value);
+                    setLogs([]);
+                    setStats(null);
+                  }}
+                  style={{ width: 150 }}
+                >
+                  <Option value="service">
+                    <FileSearchOutlined /> Services
                   </Option>
-                ))}
-              </Select>
+                  <Option value="agent">
+                    <RobotOutlined /> Agents
+                  </Option>
+                  <Option value="cot">
+                    <BulbOutlined /> COT Engine
+                  </Option>
+                </Select>
+
+                {logType === 'service' && (
+                  <Select
+                    placeholder="Select a service"
+                    style={{ width: 250 }}
+                    onChange={handleServiceChange}
+                    value={selectedService}
+                    showSearch
+                    optionFilterProp="children"
+                  >
+                    {services.map(service => (
+                      <Option key={service.id} value={service.id}>
+                        {service.name} {service.active && <Tag color="green">Active</Tag>}
+                      </Option>
+                    ))}
+                  </Select>
+                )}
+
+                {logType === 'agent' && (
+                  <Select
+                    placeholder="Select an agent"
+                    style={{ width: 250 }}
+                    onChange={(agentId) => {
+                      setSelectedAgent(agentId);
+                      setLogs([]);
+                      setStats(null);
+                    }}
+                    value={selectedAgent}
+                    showSearch
+                    optionFilterProp="children"
+                  >
+                    {agents.map(agent => (
+                      <Option key={agent.id} value={agent.id}>
+                        {agent.name} {agent.active && <Tag color="green">Active</Tag>}
+                      </Option>
+                    ))}
+                  </Select>
+                )}
+              </Space>
 
               <Space>
                 <Switch
@@ -302,7 +397,9 @@ const LogsView = () => {
             </Space>
           </Col>
 
-          {selectedService && (
+          {((logType === 'service' && selectedService) || 
+            (logType === 'agent' && selectedAgent) || 
+            logType === 'cot') && (
             <>
               {stats && (
                 <Col span={24}>
@@ -376,9 +473,19 @@ const LogsView = () => {
                       placeholder="Search logs..."
                       value={filters.search}
                       onChange={(e) => setFilters({ ...filters, search: e.target.value })}
-                      style={{ width: 300 }}
+                      style={{ width: 250 }}
                       enterButton={<SearchOutlined />}
                     />
+
+                    {(logType === 'agent' || logType === 'cot') && (
+                      <Input
+                        placeholder="Execution ID (optional)"
+                        value={filters.executionId}
+                        onChange={(e) => setFilters({ ...filters, executionId: e.target.value || null })}
+                        style={{ width: 150 }}
+                        allowClear
+                      />
+                    )}
 
                     <Select
                       value={filters.limit}
