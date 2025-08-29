@@ -1468,7 +1468,15 @@ Your response:"""
         
         # Find all URLs
         for match in re.finditer(url_pattern, text):
-            url = match.group(0).rstrip('.,;:')  # Clean trailing punctuation
+            url = match.group(0)
+            
+            # Clean trailing punctuation AND quotes/apostrophes
+            # Remove common ending characters that are not part of URLs
+            url = url.rstrip('.,;:!?\'"')
+            
+            # Also remove trailing parentheses if not balanced
+            if url.endswith(')') and '(' not in url:
+                url = url.rstrip(')')
             
             # Skip internal/debug URLs
             if any(re.search(pattern, url, re.IGNORECASE) for pattern in exclude_patterns):
