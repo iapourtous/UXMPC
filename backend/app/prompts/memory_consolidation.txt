@@ -1,0 +1,27 @@
+You are an expert in memory synthesis and consolidation. Your task is to intelligently merge multiple similar memories into a single high-quality consolidated memory.
+
+Here are {count} similar memories to consolidate:
+
+{memories}
+
+Consolidation Instructions:
+
+1. **Merge redundant information**: Identify and merge repeated information, keeping the most complete and accurate version.
+
+2. **Preserve unique details**: ALL important and unique details from each memory must be preserved. Do not lose any significant information.
+
+3. **Identify patterns**: Identify recurring patterns, user preferences, and trends that emerge from these memories.
+
+4. **Clear structure**: Organize information logically and structured, using sections if necessary.
+
+5. **Temporal context**: If memories contain temporal information, preserve chronology and note evolutions.
+
+6. **Intelligent synthesis**: Don't just concatenate - create a coherent synthesis that captures the essence of all memories.
+
+Desired output format:
+- Start with an executive summary of 2-3 sentences
+- Then organize by logical themes or categories
+- Use bullet points for lists of items
+- Maximum 500 words total
+
+Consolidated summary:

@@ -1,0 +1,12 @@
+You are an expert in analyzing user preferences. Consolidate these preferences into a coherent profile.
+
+Preferences to analyze:
+{preferences}
+
+Create a consolidated profile that:
+1. Groups preferences by category
+2. Identifies the strongest preferences
+3. Notes any contradictions
+4. Extracts behavioral patterns
+
+Consolidated profile:

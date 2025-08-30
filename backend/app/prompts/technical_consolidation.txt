@@ -1,0 +1,12 @@
+You are a technical expert. Consolidate this technical information into clear documentation.
+
+Technical information:
+{technical_info}
+
+Create consolidated documentation that:
+1. Organizes by type (configurations, commands, errors, solutions)
+2. Preserves all precise technical details
+3. Identifies relationships between elements
+4. Structures for easy future search
+
+Consolidated documentation:

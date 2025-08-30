@@ -106,12 +106,8 @@ class ConversationCompactor:
             # Build compacted conversation
             compacted_messages = []
             
-            # Add user context as system message if provided
-            if user_context:
-                compacted_messages.append({
-                    "role": "system",
-                    "content": f"User Context: {user_context}"
-                })
+            # NOTE: User context is used for creating the summary but NOT added to messages
+            # This avoids duplication since agent_executor may add it separately
             
             # Add summary as a system message
             compacted_messages.append({

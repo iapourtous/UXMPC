@@ -161,11 +161,19 @@ class MemoryConsolidationService:
         memories_text = "\n\n".join(memory_texts)
         
         # Prepare consolidation prompt
-        from app.prompts.memory_consolidation import CONSOLIDATION_PROMPT
-        prompt = CONSOLIDATION_PROMPT.format(
-            count=len(memories),
-            memories=memories_text
-        )
+        from app.core.prompt_loader import PromptLoader
+        prompt_loader = PromptLoader()
+        
+        try:
+            consolidation_template = prompt_loader.load_prompt('memory_consolidation.txt')
+            prompt = consolidation_template.format(
+                count=len(memories),
+                memories=memories_text
+            )
+        except Exception as e:
+            logger.error(f"Failed to load memory consolidation prompt: {e}")
+            # Fallback prompt
+            prompt = f"Consolidate these {len(memories)} similar memories into one:\n\n{memories_text}"
         
         # Use the exact same LLM profile as conversation_compactor.py
         from app.services.settings_crud import settings_crud

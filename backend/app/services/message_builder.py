@@ -142,16 +142,16 @@ class MessageBuilder:
         if personality_section:
             sections.append(personality_section)
         
-        # Add markdown capabilities
-        if self.markdown_capabilities:
-            sections.append(self.markdown_capabilities)
+        # NOTE: Markdown capabilities removed from here - only added during synthesis in COT
+        # This avoids duplication and keeps them for final presentation only
         
         # Add memory context
         if memory_context:
             sections.append(f"# Relevant Context from Memory\n{memory_context}")
         
-        # Add tools context
-        if tools:
+        # Add tools context ONLY if not already in system prompt
+        # Check if agent's system_prompt already contains tool descriptions
+        if tools and (not agent.system_prompt or 'Available Tools' not in agent.system_prompt):
             tools_section = self.format_tools_for_context(tools)
             if tools_section:
                 sections.append(tools_section)

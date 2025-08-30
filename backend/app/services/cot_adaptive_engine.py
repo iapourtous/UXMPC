@@ -775,7 +775,6 @@ Important:
                             args = func.get("arguments", "{}")
                             # Parse arguments if they're a JSON string
                             try:
-                                import json
                                 args_dict = json.loads(args) if isinstance(args, str) else args
                                 # Build arguments string with proper formatting
                                 arg_parts = []
@@ -1293,33 +1292,63 @@ Your response:"""
             # Build messages with full context for synthesis
             synthesis_messages = []
             
-            # Add all context messages (agent config, user context, memory, etc.)
-            if context.get('full_context_messages'):
-                synthesis_messages.extend(context.get('full_context_messages'))
-                # Context messages count logged to MongoDB only
+            # Collect all system messages to merge them
+            system_contents = []
+            other_messages = []
             
-            # Add synthesis system message with markdown capabilities
-            # Load markdown capabilities for enhanced formatting
+            # Process existing context messages
+            if context.get('full_context_messages'):
+                for msg in context['full_context_messages']:
+                    if msg['role'] == 'system':
+                        # Collect system message content
+                        system_contents.append(msg['content'])
+                    else:
+                        # Keep non-system messages as-is
+                        other_messages.append(msg)
+            
+            # Add synthesis-specific system content with markdown capabilities
+            # Markdown capabilities are ONLY added here for the final synthesis
             try:
                 markdown_capabilities = self.prompt_loader.load_prompt('markdown_capabilities.txt')
-                system_content = """You are creating the final answer. Transform all data into natural language. Never return JSON, always return prose.
+                synthesis_system_content = """You are creating the final answer. Transform all data into natural language. Never return JSON, always return prose.
 
 ## Enhanced Markdown Capabilities Available:
 """ + markdown_capabilities
             except Exception:
                 # Fallback if markdown capabilities file not found
-                system_content = "You are creating the final answer. Transform all data into natural language. Never return JSON, always return prose."
+                synthesis_system_content = "You are creating the final answer. Transform all data into natural language. Never return JSON, always return prose."
             
-            synthesis_messages.append({
-                "role": "system",
-                "content": system_content
-            })
+            system_contents.append(synthesis_system_content)
+            
+            # Create a single merged system message
+            if system_contents:
+                merged_system_content = "\n\n---\n\n".join(system_contents)
+                synthesis_messages.append({
+                    "role": "system",
+                    "content": merged_system_content
+                })
+            
+            # Add all non-system messages after the merged system message
+            synthesis_messages.extend(other_messages)
             
             # Add the synthesis prompt as user message
             synthesis_messages.append({
                 "role": "user",
                 "content": synthesis_prompt
             })
+            
+            # Save synthesis_messages to /tmp/prompt.txt for debugging
+            try:
+                import os
+                tmp_dir = "/tmp"
+                if os.path.exists(tmp_dir):
+                    prompt_file_path = os.path.join(tmp_dir, "prompt.txt")
+                    with open(prompt_file_path, "w", encoding="utf-8") as f:
+                        # Write synthesis_messages as formatted JSON for readability
+                        json.dump(synthesis_messages, f, indent=2, ensure_ascii=False)
+                    logger.info(f"Synthesis messages saved to {prompt_file_path}")
+            except Exception as e:
+                logger.warning(f"Could not save synthesis messages to /tmp/prompt.txt: {e}")
             
             # Use call_advanced with full context
             response = await llm_client.call_advanced(
@@ -1720,7 +1749,7 @@ URLs sélectionnées (numéros uniquement):"""
             # Build list of URLs to force inclusion
             urls_list = "\n".join([f"- {url['url']}" for url in extracted_urls]) if extracted_urls else "Aucune URL trouvée"
             
-            summary_prompt = f"""Summarize this tool result, keeping ONLY information relevant to answering the user's question.
+            summary_prompt = f"""Summarize this tool result, keeping information relevant to answering the user's question.
 
 USER'S QUESTION: {problem}
 
@@ -1728,23 +1757,20 @@ REASONING CONTEXT: {iteration_thought}
 
 TOOL NAME: {tool_name}
 
-URLs FOUND IN RESULT (MUST BE PRESERVED):
-{urls_list}
-
 FULL TOOL RESULT TO SUMMARIZE (length: {len(result)} characters):
-{result}
+{result[:30000] if len(result) > 30000 else result}
 
 INSTRUCTIONS:
-- Extract ONLY data relevant to the user's question
-- Keep ALL specific numbers, dates, names, facts, and data points
-- MANDATORY: Include ALL URLs listed above in your summary
-- Keep important references and citations
+- Extract data relevant to the user's question
+- Keep specific numbers, dates, names, facts, and key data points
+- DO NOT include URLs in your summary (they are extracted separately)
 - Remove redundant or irrelevant information
-- Maintain the original data structure when possible (lists, key-value pairs)
-- If the data contains search results, keep the most relevant ones
-- Target output: ~5000 characters maximum
+- Keep the data structure when possible (lists, key-value pairs)
+- If the data contains search results, keep the most relevant 5-10
+- Target output: 2000-3000 characters maximum
+- Focus on factual information that helps answer the question
 
-CONCISE SUMMARY (with all URLs preserved):"""
+CONCISE SUMMARY (without URLs):"""
 
             from app.core.llm_client import LLMClient
             llm_client = LLMClient()
