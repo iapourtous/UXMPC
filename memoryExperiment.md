@@ -754,7 +754,7 @@ graph TD
         LEARN_I[Apprentissage: 100 interactions]
         LEARN_C[Apprentissage: 10 interactions<br/>Bénéficie du collectif]
         
-        ACCURACY_I[Précision: 85%]
+        ACCURACY_I[Précision: 90%]
         ACCURACY_C[Précision: 97%<br/>Validation croisée]
         
         DISCOVERY_I[Découverte: Limitée]

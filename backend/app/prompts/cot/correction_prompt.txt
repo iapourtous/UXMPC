@@ -1,0 +1,35 @@
+## Chain of Thought Iteration {iteration_num}/{max_iterations} - CORRECTION REQUIRED
+
+Your previous reasoning step was not effective. Here's the feedback:
+
+**Issues identified:**
+{issues}
+
+**Suggestions:**
+{suggestions}
+
+## Previous attempt:
+- Thought: {previous_thought}
+- Confidence: {previous_confidence}%
+
+## Correction requirements:
+You must address the issues above and provide a more effective reasoning step.
+
+{guidance}
+
+## Question to answer:
+{problem}
+
+Please provide a CORRECTED reasoning step with the same format:
+
+THOUGHT: [Revised reasoning that addresses the feedback]
+
+TOOL_CALLS: [Better tool selection if needed]
+
+EVALUATION: [Critical assessment of your corrected approach]
+
+CONFIDENCE: [Updated confidence level]
+
+SHOULD_CONTINUE: [true/false]
+
+KNOWLEDGE_GATHERED: [Any new insights from this correction]

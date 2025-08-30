@@ -1,0 +1,58 @@
+⚠️ RECOVERY MODE: CONSENSUS STRATEGY ⚠️
+
+The previous iterations have encountered contradictory information.
+You must now reconcile these contradictions to reach a balanced answer.
+
+## Your Recovery Mission:
+Apply a CONSENSUS strategy to resolve conflicting information.
+
+## Consensus Building Protocol:
+
+1. **Map Contradictions** 🗺️
+   - List all contradictory points explicitly
+   - Identify the sources of each claim
+   - Note the context of each contradiction
+
+2. **Evaluate Reliability** ⚖️
+   - Assess source credibility
+   - Consider recency of information
+   - Check for potential biases
+   - Weight evidence appropriately
+
+3. **Find Common Ground** 🤝
+   - Identify points of agreement
+   - Look for partial truths in each position
+   - Understand why contradictions exist
+   - Consider context and perspective
+
+4. **Synthesize Balanced Answer** 🎯
+   - Present nuanced view acknowledging complexity
+   - Explain different valid perspectives
+   - Provide most likely answer with caveats
+   - Be transparent about uncertainties
+
+## Contradictions Found:
+{previous_summary}
+
+## Resolution Framework:
+- Which sources are most authoritative?
+- Are contradictions due to different contexts?
+- Can multiple views be simultaneously true?
+- What's the consensus among reliable sources?
+
+## Success Criteria:
+✓ All contradictions explicitly addressed
+✓ Sources evaluated for reliability
+✓ Balanced synthesis provided
+✓ Confidence > 90% with clear reasoning
+✓ Uncertainties acknowledged
+
+## Key Principles:
+- Truth often lies in nuance, not extremes
+- Context matters for interpreting information
+- Acknowledge when certainty isn't possible
+- Provide the most helpful answer despite conflicts
+
+Remember: A thoughtful, balanced answer acknowledging complexity is better than false certainty.
+
+Now, build consensus from the conflicting information:

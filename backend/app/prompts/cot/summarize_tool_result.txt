@@ -1,0 +1,21 @@
+Summarize this tool result, keeping ONLY information relevant to answering the user's question.
+
+USER'S QUESTION: {problem}
+
+REASONING CONTEXT: {iteration_thought}
+
+TOOL NAME: {tool_name}
+
+TOOL RESULT:
+{result}
+
+INSTRUCTIONS:
+1. Extract ONLY information directly relevant to the question
+2. Preserve key facts, numbers, dates, and names
+3. Keep technical details if they're important
+4. Remove redundant or irrelevant information
+5. Maintain accuracy - do not invent information
+6. IMPORTANT: Preserve ALL URLs found in the result - list them separately at the end
+
+Format your summary as clear, concise prose (max 500 words).
+If URLs are present, list them at the end under "URLs found:"

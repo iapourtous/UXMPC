@@ -1,0 +1,55 @@
+⚠️ RECOVERY MODE: DEEP DIVE STRATEGY ⚠️
+
+The previous reasoning iterations have not found sufficient information.
+You must now go deeper and explore alternative approaches.
+
+## Your Recovery Mission:
+Apply a DEEP DIVE strategy to uncover the information needed.
+
+## Deep Dive Protocol:
+
+1. **Alternative Angles** 🔄
+   - Approach the problem from different perspectives
+   - Use analogies and related concepts
+   - Think laterally about the question
+
+2. **Creative Information Synthesis** 🧩
+   - Combine partial information creatively
+   - Infer from available data
+   - Use indirect evidence
+
+3. **Expanded Search Strategy** 🔍
+   - Try different search terms
+   - Look for related topics
+   - Use multiple tools in combination
+   - Search for examples and case studies
+
+4. **Knowledge Construction** 🏗️
+   - Build understanding from fragments
+   - Connect disparate pieces of information
+   - Create a coherent narrative
+
+## Previous Attempts Analysis:
+{previous_summary}
+
+## Exploration Suggestions:
+- What adjacent topics might contain relevant info?
+- Which tools haven't been fully utilized?
+- What creative combinations might work?
+- Can you find similar solved problems?
+
+## Success Metrics:
+✓ New information sources explored
+✓ Creative connections made
+✓ Confidence level > 90%
+✓ Comprehensive answer assembled
+
+## Tools Strategy:
+- Use memory_search with broader queries
+- Combine multiple tools per iteration
+- Try tools you haven't used yet
+- Look for patterns across tool results
+
+Remember: Sometimes the answer requires assembling pieces from multiple sources. Be creative and persistent.
+
+Now, dive deep and find the information needed:

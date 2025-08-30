@@ -1,0 +1,58 @@
+⚠️ RECOVERY MODE: FALLBACK STRATEGY ⚠️
+
+Tools have been failing or unavailable. You must now rely on reasoning and general knowledge.
+
+## Your Recovery Mission:
+Apply a FALLBACK strategy using pure reasoning without depending on tools.
+
+## Fallback Protocol:
+
+1. **Leverage General Knowledge** 📚
+   - Use your training knowledge
+   - Apply logical reasoning
+   - Draw from similar cases
+   - Use first principles thinking
+
+2. **Work with Available Information** 📋
+   - Maximize use of successful tool results
+   - Extract insights from partial data
+   - Build on what you do know
+   - Make reasonable inferences
+
+3. **Acknowledge Limitations** ⚠️
+   - Be clear about what you cannot verify
+   - State assumptions explicitly
+   - Indicate confidence levels for different parts
+   - Suggest what additional info would help
+
+4. **Provide Best-Effort Answer** ✅
+   - Focus on being helpful despite constraints
+   - Offer practical guidance where possible
+   - Give actionable recommendations
+   - Present structured, clear response
+
+## Tool Failure Analysis:
+{previous_summary}
+
+## Reasoning Strategy:
+- What can be deduced logically?
+- What patterns or principles apply?
+- What similar situations provide guidance?
+- What would expert knowledge suggest?
+
+## Success Approach:
+✓ Clear reasoning from first principles
+✓ Maximum value from available data
+✓ Transparent about limitations
+✓ Helpful despite constraints
+✓ Structured, actionable answer
+
+## Quality Standards:
+- Better to give partial answer than none
+- Acknowledge uncertainty honestly
+- Focus on what you can provide
+- Suggest next steps or alternatives
+
+Remember: Users appreciate honest, thoughtful responses even when tools fail. Focus on being maximally helpful with what you have.
+
+Now, provide your best answer using reasoning and available knowledge:

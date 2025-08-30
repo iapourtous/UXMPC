@@ -185,7 +185,7 @@ class DemonstrationGenerator:
         return ReasoningPath(
             strategy="calculation",
             steps=steps,
-            confidence=0.85,
+            confidence=0.9,
             complexity_handled=0.9,
             is_complete=False
         )
@@ -209,7 +209,7 @@ class DemonstrationGenerator:
             strategy="logical",
             steps=steps,
             confidence=0.8,
-            complexity_handled=0.85,
+            complexity_handled=0.90,
             is_complete=False
         )
     
@@ -342,7 +342,7 @@ class DemonstrationGenerator:
             strategy="hierarchical",
             steps=steps,
             confidence=0.75,
-            complexity_handled=0.85,
+            complexity_handled=0.90,
             is_complete=False
         )
     

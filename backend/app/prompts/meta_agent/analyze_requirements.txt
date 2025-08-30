@@ -1,36 +1,58 @@
-You are an expert AI agent architect. Analyze these requirements and create a comprehensive plan for building an autonomous agent.
+Analyze this agent requirement and create a comprehensive plan.
 
-## Requirements
-Name: {name}
-Description: {description}
+User Request: {description}
+Suggested Name: {name}
+Examples: {examples}
+Constraints: {constraints}
 
-## Your Task
+Analyze and provide:
+1. What you understand the agent should do (clear purpose statement)
+2. The domain/category (weather, travel, research, etc.)
+3. Core use cases (2-3 MAIN examples only)
+4. MINIMAL required capabilities (focus on essential functions only)
+5. Complexity assessment (simple/moderate/complex/advanced)
+6. Suggested agent profile
 
-Analyze these requirements and determine:
+IMPORTANT: Keep it minimal! For example:
+- Weather agent: just needs weather data fetching
+- Search agent: just needs web search
+- Calculator: just needs calculation capability
 
-1. **Domain**: What specific area of expertise this agent needs (weather, news, calculations, etc.)
+For the agent profile, consider:
+- Appropriate personality for the task
+- Backstory that gives context
+- Clear objectives
+- Necessary constraints
+- Whether memory is needed
+- Reasoning strategy
+- Decision policies
 
-2. **Complexity**: Rate from 1-10 based on:
-   - Number of different tasks needed
-   - Integration requirements
-   - Decision-making complexity
-
-3. **Agent Profile**: Design a complete agent with:
-   - Backstory: Who is this agent? What's their background?
-   - Personality traits: 3-5 characteristics that guide behavior
-   - Objectives: 3-5 specific goals the agent should achieve
-   - Constraints: Any limitations or rules to follow
-
-4. **Reasoning Strategy**: How should the agent approach problems?
-   - Step-by-step analysis?
-   - Quick heuristics?
-   - Deep research?
-   - Creative problem-solving?
-
-5. **Required Capabilities**: What tools/services does the agent need?
-
-6. **Input/Output Format**: How should the agent communicate?
-
-Return a comprehensive JSON object with your complete analysis and agent design.
-
-Remember: Create agents with personality and purpose, not just functional tools!
+Return a comprehensive JSON response following this structure:
+{{
+    "understood_purpose": "Clear statement of what the agent should do",
+    "domain": "Category like travel, research, etc.",
+    "use_cases": ["Use case 1", "Use case 2", ...],
+    "complexity": "simple/moderate/complex/advanced",
+    "required_capabilities": ["capability 1", "capability 2", ...],
+    "suggested_name": "agent_name",
+    "suggested_endpoint": "/api/agent/name",
+    "suggested_profile": {{
+        "backstory": "Agent identity and background",
+        "objectives": ["Objective 1", "Objective 2"],
+        "constraints": ["Constraint 1", "Constraint 2"],
+        "memory_enabled": true/false,
+        "reasoning_strategy": "standard/chain-of-thought/tree-of-thought",
+        "personality_traits": {{
+            "tone": "professional/friendly/casual",
+            "verbosity": "concise/balanced/detailed",
+            "empathy": "low/moderate/high",
+            "humor": "none/subtle/moderate"
+        }},
+        "decision_policies": {{
+            "confidence_threshold": 0.8,
+            "require_confirmation": ["critical_actions"],
+            "auto_correct_errors": true,
+            "explain_decisions": false
+        }}
+    }}
+}}

@@ -1,0 +1,47 @@
+⚠️ RECOVERY MODE: CLARIFICATION STRATEGY ⚠️
+
+The previous reasoning iterations have not reached sufficient confidence (< 90%).
+Analysis suggests the question may be ambiguous or unclear.
+
+## Your Recovery Mission:
+You must now apply a CLARIFICATION strategy to achieve breakthrough.
+
+## Clarification Protocol:
+
+1. **Identify Ambiguities** 🔍
+   - What specific parts of the question are unclear?
+   - Are there multiple valid interpretations?
+   - What key terms need definition?
+
+2. **Make Explicit Assumptions** 📝
+   - State clearly what you're assuming
+   - Explain why these assumptions are reasonable
+   - Consider alternative assumptions
+
+3. **Reformulate the Question** 🎯
+   - Break down into clear sub-questions
+   - Rephrase in unambiguous terms
+   - Focus on answerable components
+
+4. **Systematic Resolution** ✅
+   - Answer each clarified sub-question
+   - Build toward comprehensive response
+   - Aim for >90% confidence
+
+## Context from Previous Attempts:
+{previous_summary}
+
+## Key Insights to Consider:
+- What patterns emerged in previous iterations?
+- Which interpretations led to higher confidence?
+- What information gaps remain?
+
+## Success Criteria:
+✓ Question ambiguities explicitly addressed
+✓ Clear assumptions stated
+✓ Confidence level > 90%
+✓ Comprehensive answer provided
+
+Remember: It's better to make reasonable assumptions and answer clearly than to remain stuck in ambiguity.
+
+Now, apply this clarification strategy systematically:

@@ -1,0 +1,20 @@
+Summarize these Chain of Thought iterations for the next reasoning step.
+
+USER'S QUESTION: {problem}
+
+ITERATIONS TO SUMMARIZE:
+{iterations_text}
+
+Create a CONCISE summary that preserves:
+1. Key findings and facts discovered
+2. Important tool results
+3. Progress made toward answering the question
+4. Any contradictions or issues identified
+
+Format your summary as:
+- Main discoveries: [2-3 key points]
+- Tools used: [list of tools and their outcomes]
+- Current understanding: [1-2 sentences on where we are]
+- Next steps needed: [what remains to be done]
+
+Keep the summary under 500 words while preserving all critical information.

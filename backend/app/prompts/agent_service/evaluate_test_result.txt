@@ -1,30 +1,36 @@
-Evaluate if this test result is acceptable.
+Evaluate this test result:
 
-Test Case:
-{test_case}
+Test Case: {test_description}
+Input Parameters: {params}
+Expected Output: {expected_output}
 
 Actual Result:
-{actual_result}
+- Success: {success}
+- Response: {response}
+- Error: {error}
 
-Expected Output:
-{expected_output}
+Does the actual result match the expected output? Be LENIENT in your evaluation:
 
-BE VERY LENIENT in your evaluation. The test passes if:
-1. The service returned a successful response (no errors)
-2. The basic structure matches (e.g., has 'success' field if expected)
-3. The service performed its intended function
-4. For external APIs: ANY valid response is acceptable
+IMPORTANT EVALUATION RULES:
+1. If the service returned success=true and has data, consider it PASSED
+2. For external API services (like NewsAPI), accept ANY valid response format
+3. Don't fail tests for minor differences like:
+   - Different number of results than expected
+   - Additional fields in the response
+   - Different content in articles (for news APIs)
+   - Timestamps or dynamic values
+4. ONLY fail if:
+   - The service returns an error (success=false)
+   - The service crashes or times out
+   - Required fields are completely missing
+   - The response structure is completely wrong
 
-DO NOT FAIL if:
-- Exact values differ (counts, specific data)
-- Timestamps vary
-- External API returns different but valid data
-- Field order is different
-- Extra fields are present
+BE LENIENT - if the service works and returns data, it should PASS!
 
-Return JSON:
+Return ONLY a JSON object:
 {{
     "passed": true/false,
-    "reason": "why it passed or failed",
-    "suggestions": "how to fix if failed"
+    "reason": "Why it passed or failed",
+    "issues": ["list", "of", "specific", "issues"],
+    "suggestions": ["list", "of", "fixes", "to", "try"]
 }}

@@ -1,28 +1,21 @@
-Match required tools with existing services in the system.
+Match the required tools with existing services. Be flexible with naming but strict with functionality.
 
 Required Tools:
 {required_tools}
 
-Available Services:
+Available Services (including inactive ones that can be activated):
 {available_services}
 
-For each required tool:
-1. Find the BEST matching existing service (if any)
-2. Consider partial matches and similar functionality
-3. Assess compatibility (0-100%)
-4. Note any missing features
+For each required tool, determine if any existing service can fulfill its purpose.
+Consider:
+1. Functional equivalence (does it do what we need?)
+2. Parameter compatibility (can we provide required inputs?)
+3. Output compatibility (does it return useful data?)
+4. Inactive services can be activated if they match
 
-Be generous in matching - if a service can potentially fulfill the need with minor adaptation, match it!
-
-Return JSON with matches and analysis:
+Return ONLY a JSON object mapping required tool names to service IDs (or null if no match):
 {{
-    "matches": [
-        {{
-            "required_tool": "tool_name",
-            "matched_service": "service_name",
-            "compatibility": 85,
-            "notes": "why it matches or what's missing"
-        }}
-    ],
-    "unmatched_tools": ["list of tools with no good matches"]
+    "tool_name_1": "service_id_or_null",
+    "tool_name_2": "service_id_or_null",
+    ...
 }}

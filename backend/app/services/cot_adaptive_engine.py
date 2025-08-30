@@ -12,6 +12,11 @@ from app.core.llm_client import llm_client
 
 from app.services.cot_complexity_analyzer import ComplexityAnalyzer, ComplexityProfile
 from app.services.cot_demonstration_generator import DemonstrationGenerator, ReasoningPath
+from app.services.cot_convergence_analyzer import ConvergenceAnalyzer
+from app.services.cot_convergence_detector import ConvergenceDetector
+from app.services.cot_recovery_manager import RecoveryManager
+from app.services.cot_prompt_builder import PromptBuilder
+from app.services.cot_tool_executor import ToolExecutor
 from app.services.llm_crud import llm_crud
 from app.services.settings_crud import settings_crud
 from app.services.intrinsic_llm_tools import (
@@ -20,6 +25,7 @@ from app.services.intrinsic_llm_tools import (
     intrinsic_tools_executor
 )
 from app.services.unified_logger import UnifiedLogger
+from app.core.prompt_loader import PromptLoader
 import uuid
 
 logger = logging.getLogger(__name__)
@@ -74,66 +80,6 @@ class ChainOfThoughtResult:
     all_tool_results: List[ToolResult]  # All tools results accumulated
 
 
-class ConvergenceDetector:
-    """Detects when reasoning has converged to a stable answer"""
-    
-    def __init__(self):
-        self.confidence_threshold = 0.85
-        self.min_iterations_with_tools = 3  # At least 3 iterations if tools are available
-        
-    def check_convergence(
-        self,
-        iterations: List[ReasoningIteration],
-        max_iterations: int,
-        has_tools: bool
-    ) -> Tuple[bool, str]:
-        """
-        Check if reasoning has converged
-        
-        Returns:
-            Tuple of (has_converged, reason)
-        """
-        if not iterations:
-            return False, "No iterations yet"
-        
-        current_iteration = iterations[-1]
-        
-        # Check max iterations
-        if len(iterations) >= max_iterations:
-            return True, f"Reached maximum iterations ({max_iterations})"
-        
-        # PRIORITY CHECK: Stop immediately if confidence > 90% (regardless of iteration count)
-        if current_iteration.confidence >= 0.90:
-            return True, f"Very high confidence reached ({current_iteration.confidence:.0%})"
-        
-        # If tools are available, ensure they've been used
-        if has_tools:
-            tool_calls_made = sum(len(it.tool_calls) for it in iterations)
-            if tool_calls_made == 0 and len(iterations) < self.min_iterations_with_tools:
-                return False, "Tools available but not yet used"
-            
-            # Check if we have enough information from tools
-            # But require at least 3 iterations for moderate confidence
-            if current_iteration.tool_results and len(iterations) >= 3:
-                # If we got good results and high confidence
-                if current_iteration.confidence >= self.confidence_threshold:
-                    return True, "High confidence with tool results after multiple iterations"
-        
-        # Check if agent decided to stop (but require at least 3 iterations for moderate confidence)
-        if not current_iteration.should_continue and len(iterations) >= 3:
-            return True, "Agent determined answer is complete with sufficient iterations"
-        
-        # Check confidence threshold (only after minimum iterations for moderate confidence)
-        if current_iteration.confidence >= self.confidence_threshold and len(iterations) >= 4:
-            return True, f"High confidence reached ({current_iteration.confidence:.2f})"
-        
-        # Don't converge too early - require at least 3 iterations for complex problems (unless confidence > 90%)
-        if len(iterations) < 3 and current_iteration.confidence < 0.90:
-            return False, "Need more iterations for comprehensive analysis"
-        
-        return False, "Continue reasoning"
-
-
 class AdaptiveChainOfThought:
     """
     Main adaptive Chain of Thought engine with tool support
@@ -144,7 +90,12 @@ class AdaptiveChainOfThought:
         self.complexity_analyzer = ComplexityAnalyzer()
         self.demonstration_generator = DemonstrationGenerator()
         self.convergence_detector = ConvergenceDetector()
+        self.convergence_analyzer = ConvergenceAnalyzer()
+        self.recovery_manager = RecoveryManager()
+        self.prompt_builder = PromptBuilder()
+        self.tool_executor = ToolExecutor()
         self.intrinsic_executor = intrinsic_tools_executor
+        self.prompt_loader = PromptLoader()
     
     async def execute(
         self,
@@ -262,6 +213,9 @@ class AdaptiveChainOfThought:
                 # Max iterations logged to MongoDB only
             
             # Main reasoning loop
+            converged = False  # Initialize converged flag
+            reason = "Not started"
+            
             for iteration_num in range(1, adjusted_max_iterations + 1):
                 # Execute one reasoning iteration
                 iteration = await self._execute_iteration(
@@ -295,6 +249,56 @@ class AdaptiveChainOfThought:
                 current_context = self._update_context(
                     current_context,
                     iteration
+                )
+            
+            # Log the final convergence status for debugging
+            await unified_logger.info(
+                f"Main loop completed - Converged: {converged}, Reason: {reason}",
+                iterations_count=len(iterations),
+                max_iterations=adjusted_max_iterations
+            )
+            
+            # Check if we need recovery iterations
+            # Use cumulative confidence instead of just the last iteration
+            cumulative_confidence = self.convergence_detector._calculate_cumulative_confidence(iterations)
+            if not converged and cumulative_confidence < 0.90:
+                # Analyze why convergence failed
+                failure_analysis = await self.convergence_analyzer.analyze_failure(
+                    iterations, problem, llm_profile
+                )
+                
+                await unified_logger.warning(
+                    f"Convergence failed, attempting recovery strategy: {failure_analysis['suggested_strategy']}",
+                    failure_type=failure_analysis['failure_type'],
+                    cumulative_confidence=cumulative_confidence
+                )
+                
+                # Execute recovery iterations using RecoveryManager
+                recovery_iterations = await self.recovery_manager.execute_recovery_iterations(
+                    failure_analysis['suggested_strategy'],
+                    iterations,
+                    problem,
+                    current_context,
+                    complexity,
+                    llm_profile,
+                    agent_config,
+                    combined_tools,
+                    tool_executor,
+                    unified_logger,
+                    self._execute_iteration  # Pass the iteration execution method as callback
+                )
+                
+                # Add recovery iterations to main chain
+                iterations.extend(recovery_iterations)
+                all_tool_results.extend(
+                    tr for it in recovery_iterations for tr in it.tool_results
+                )
+                
+                # Update convergence status after recovery
+                converged, reason = self.convergence_detector.check_convergence(
+                    iterations,
+                    adjusted_max_iterations + 5,  # Allow 5 more iterations
+                    has_tools=bool(combined_tools)
                 )
             
             # Synthesize final answer from all iterations and tool results
@@ -334,6 +338,7 @@ class AdaptiveChainOfThought:
                 success=False,
                 all_tool_results=[]
             )
+    
     
     async def _execute_iteration(
         self,
@@ -386,7 +391,7 @@ class AdaptiveChainOfThought:
             
             # Parse response
             thought, tool_calls, evaluation, confidence, should_continue, knowledge = \
-                self._parse_iteration_response(response, iteration_num, complexity.reasoning_strategy)
+                await self._parse_iteration_response(response, iteration_num, complexity.reasoning_strategy, tools)
             
             # Execute tools if requested
             tool_results = []
@@ -534,25 +539,38 @@ class AdaptiveChainOfThought:
     ) -> str:
         """Build prompt for a reasoning iteration with tool support"""
         
+        # Check if we're in recovery mode
+        if context.get('recovery_mode') and context.get('recovery_prompt'):
+            # Return recovery-specific prompt directly
+            return context['recovery_prompt']
+        
         # The full context (agent identity, memory, user context, etc.) is already in the base messages
         # We just need to add the iteration-specific instructions
         
-        prompt = f"""## Chain of Thought Iteration {iteration_num}/{complexity.max_iterations}
-
-You are now performing systematic reasoning to answer the user's question.
-Remember all the context about the user (their name, preferences, etc.) from the system messages above.
-
-💡 **Tool Usage Strategy**:
-- You can and SHOULD use MULTIPLE tools per iteration when needed
-- Start with memory_search() if relevant, then use other tools as needed
-- Example of multiple tools in one iteration:
-  memory_search(query="user preferences")
-  exa_property_finder(city="Paris", rent_or_buy="rent", price_max=1500)
-  web_search(query="Paris 11e neighborhood information")
-
-"""
+        # Build previous context
+        previous_context = await self._build_previous_context(previous_iterations, problem)
         
-        # Add previous iterations - use summary for older iterations to save context
+        # Build additional guidance
+        additional_guidance = self._build_iteration_guidance(context, tools, complexity, agent_config)
+        
+        # Load and format the prompt
+        prompt = self.prompt_loader.load_prompt('cot/iteration_prompt.txt', {
+            'iteration_num': iteration_num,
+            'max_iterations': complexity.max_iterations,
+            'problem': problem,
+            'previous_context': previous_context,
+            'additional_guidance': additional_guidance
+        })
+        
+        return prompt
+    
+    async def _build_previous_context(self, previous_iterations: List[ReasoningIteration], problem: str) -> str:
+        """Build context from previous iterations"""
+        if not previous_iterations:
+            return ""
+        
+        context_parts = []
+        
         if previous_iterations:
             # Strategy: Keep last 2 iterations complete, summarize the rest
             if len(previous_iterations) > 2:
@@ -562,50 +580,55 @@ Remember all the context about the user (their name, preferences, etc.) from the
                 
                 # Get summary of older iterations
                 summary = await self._summarize_previous_iterations(older_iterations, problem)
-                prompt += "## Previous iterations context:\n"
-                prompt += summary + "\n\n"
+                context_parts.append("## Previous iterations context:")
+                context_parts.append(summary)
                 
                 # Add recent iterations in full detail
-                prompt += "## Recent iterations (detailed):\n"
+                context_parts.append("## Recent iterations (detailed):")
                 for prev in recent_iterations:
-                    prompt += f"\n- Iteration {prev.iteration_number}:\n"
-                    prompt += f"  Thought: {prev.thought}\n"
+                    context_parts.append(f"\n- Iteration {prev.iteration_number}:")
+                    context_parts.append(f"  Thought: {prev.thought}")
                     if prev.tool_results:
-                        prompt += f"  Tools used: {', '.join([tr.tool_name for tr in prev.tool_results])}\n"
+                        context_parts.append(f"  Tools used: {', '.join([tr.tool_name for tr in prev.tool_results])}")
                         # Show actual results but limited to avoid context explosion
                         for tr in prev.tool_results:
                             if tr.success and tr.result:
                                 result_str = str(tr.result)
                                 if len(result_str) > 1000:
                                     result_str = result_str[:1000] + "... [see full in synthesis]"
-                                prompt += f"    → {tr.tool_name} found: {result_str}\n"
+                                context_parts.append(f"    → {tr.tool_name} found: {result_str}")
                             else:
-                                prompt += f"    → {tr.tool_name} FAILED: {tr.error}\n"
+                                context_parts.append(f"    → {tr.tool_name} FAILED: {tr.error}")
                     if prev.knowledge_gathered:
-                        prompt += f"  Learned: {prev.knowledge_gathered}\n"
+                        context_parts.append(f"  Learned: {prev.knowledge_gathered}")
                     if hasattr(prev, 'validation_feedback') and prev.validation_feedback:
-                        prompt += f"  Validation: {prev.validation_feedback}\n"
+                        context_parts.append(f"  Validation: {prev.validation_feedback}")
             else:
                 # For first iterations, keep everything
-                prompt += "Previous reasoning and findings:\n"
+                context_parts.append("Previous reasoning and findings:")
                 for prev in previous_iterations:
-                    prompt += f"\n- Iteration {prev.iteration_number}:\n"
-                    prompt += f"  Thought: {prev.thought}\n"
+                    context_parts.append(f"\n- Iteration {prev.iteration_number}:")
+                    context_parts.append(f"  Thought: {prev.thought}")
                     if prev.tool_results:
-                        prompt += f"  Tools used: {', '.join([tr.tool_name for tr in prev.tool_results])}\n"
+                        context_parts.append(f"  Tools used: {', '.join([tr.tool_name for tr in prev.tool_results])}")
                         for tr in prev.tool_results:
                             if tr.success and tr.result:
                                 result_str = str(tr.result)
                                 if len(result_str) > 2000:
                                     result_str = result_str[:2000] + "... [truncated]"
-                                prompt += f"    → {tr.tool_name} found: {result_str}\n"
+                                context_parts.append(f"    → {tr.tool_name} found: {result_str}")
                     if prev.knowledge_gathered:
-                        prompt += f"  Learned: {prev.knowledge_gathered}\n"
-            prompt += "\n"
+                        context_parts.append(f"  Learned: {prev.knowledge_gathered}")
+        
+        return "\n".join(context_parts)
+    
+    def _build_iteration_guidance(self, context: Dict[str, Any], tools: List[Dict[str, Any]], complexity: ComplexityProfile, agent_config: Dict[str, Any]) -> str:
+        """Build additional guidance for iteration"""
+        guidance_parts = []
         
         # Add available tools - NO LIMIT, show ALL tools
         if tools and isinstance(tools, list):
-            prompt += "Available tools:\n"
+            guidance_parts.append("Available tools:")
             
             # Prioritize memory tools - show them FIRST
             memory_tools = []
@@ -621,38 +644,41 @@ Remember all the context about the user (their name, preferences, etc.) from the
             
             # Show memory tools first but not too aggressively
             if memory_tools:
-                prompt += "🧠 **Memory Tools (check existing knowledge):**\n"
+                guidance_parts.append("🧠 **Memory Tools (check existing knowledge):**")
                 for tool in memory_tools:
                     func = tool.get('function', {})
-                    prompt += f"- {func.get('name')}: {func.get('description', '')}\n"
-                prompt += "\n"
+                    guidance_parts.append(f"- {func.get('name')}: {func.get('description', '')}")
+                guidance_parts.append("")
             
             # Then show other tools with equal importance
             if other_tools:
-                prompt += "🔧 **Action Tools (gather new information):**\n"
+                guidance_parts.append("🔧 **Action Tools (gather new information):**")
                 for tool in other_tools:
                     func = tool.get('function', {})
-                    prompt += f"- {func.get('name')}: {func.get('description', '')}\n"
+                    guidance_parts.append(f"- {func.get('name')}: {func.get('description', '')}")
             
-            prompt += "\n"
+            guidance_parts.append("")
         
         # Add context if available - NO TRUNCATION
         if context.get('memory_context'):
-            prompt += f"Relevant memory: {context['memory_context']}\n\n"
+            guidance_parts.append(f"Relevant memory: {context['memory_context']}")
+            guidance_parts.append("")
         
         # Add accumulated facts to avoid repetition
         if context.get('accumulated_facts'):
-            prompt += "📊 **Key facts discovered so far:**\n"
+            guidance_parts.append("📊 **Key facts discovered so far:**")
             # Show unique facts, avoiding duplicates
             seen_facts = set()
             for fact in context['accumulated_facts'][-10:]:  # Last 10 facts
                 if fact not in seen_facts:
-                    prompt += f"  • {fact}\n"
+                    guidance_parts.append(f"  • {fact}")
                     seen_facts.add(fact)
-            prompt += "\n⚠️ Build on these facts, don't repeat the same searches!\n\n"
+            guidance_parts.append("")
+            guidance_parts.append("⚠️ Build on these facts, don't repeat the same searches!")
+            guidance_parts.append("")
         
         # Request structured response
-        prompt += """Perform the next reasoning step. You MUST provide your response in this EXACT format:
+        guidance_parts.append("""Perform the next reasoning step. You MUST provide your response in this EXACT format:
 
 THOUGHT: [Your detailed reasoning for this step - what do you need to figure out?]
 
@@ -683,9 +709,9 @@ Important:
 - Focus on gathering ALL necessary information to answer the question
 - Only set SHOULD_CONTINUE to false when you have all necessary information
 - QUALITY MATTERS: Each step should directly contribute to solving the problem
-- Your reasoning will be validated for relevance, progress, and correctness"""
+- Your reasoning will be validated for relevance, progress, and correctness""")
         
-        return prompt
+        return "\n".join(guidance_parts)
     
     async def _call_llm(self, prompt: str, llm_profile: Any, base_messages: List[Dict[str, Any]] = None, tools: List[Dict[str, Any]] = None) -> str:
         """Make a call to the LLM with optional tools support"""
@@ -751,9 +777,28 @@ Important:
                             try:
                                 import json
                                 args_dict = json.loads(args) if isinstance(args, str) else args
-                                args_str = ", ".join([f'{k}="{v}"' for k, v in args_dict.items()])
+                                # Build arguments string with proper formatting
+                                arg_parts = []
+                                for k, v in args_dict.items():
+                                    if isinstance(v, str):
+                                        # Escape quotes in string values
+                                        v_escaped = v.replace('"', '\\"')
+                                        arg_parts.append(f'{k}="{v_escaped}"')
+                                    elif isinstance(v, (list, dict)):
+                                        # Serialize complex types to JSON
+                                        v_json = json.dumps(v)
+                                        arg_parts.append(f'{k}={v_json}')
+                                    elif isinstance(v, bool):
+                                        arg_parts.append(f'{k}={str(v).lower()}')
+                                    elif v is None:
+                                        arg_parts.append(f'{k}=null')
+                                    else:
+                                        # Numbers and other simple types
+                                        arg_parts.append(f'{k}={v}')
+                                args_str = ", ".join(arg_parts)
                                 tool_calls_text += f"{name}({args_str})\n"
-                            except:
+                            except Exception as e:
+                                logger.debug(f"Error formatting tool call {name}: {e}")
                                 tool_calls_text += f"{name}({args})\n"
                         
                         # If we have tool calls but no content, create a minimal valid response
@@ -804,11 +849,12 @@ Important:
             
             raise
     
-    def _parse_iteration_response(
+    async def _parse_iteration_response(
         self,
         response: str,
         iteration_num: int,
-        reasoning_type: str
+        reasoning_type: str,
+        tools: List[Dict[str, Any]] = None
     ) -> Tuple[str, List[ToolCall], str, float, bool, str]:
         """Parse LLM response into structured components"""
         
@@ -871,7 +917,11 @@ Important:
             thought = sections['THOUGHT'].strip()
         
         if 'TOOL_CALLS' in sections:
-            tool_calls = self._parse_tool_calls(sections['TOOL_CALLS'])
+            # Use the tool executor to parse tool calls
+            tool_calls = await self.tool_executor.parse_tool_calls(
+                sections['TOOL_CALLS'], 
+                tools if tools else []
+            )
         
         if 'EVALUATION' in sections:
             evaluation = sections['EVALUATION'].strip()
@@ -901,48 +951,6 @@ Important:
                 knowledge = evaluation
         
         return thought, tool_calls, evaluation, confidence, should_continue, knowledge
-    
-    def _parse_tool_calls(self, tool_calls_str: str) -> List[ToolCall]:
-        """Parse tool calls from string format"""
-        tool_calls = []
-        
-        if not tool_calls_str or tool_calls_str.strip() == '':
-            return tool_calls
-        
-        # Parse lines like: tool_name(arg1="value1", arg2="value2")
-        lines = tool_calls_str.strip().split('\n')
-        for line in lines:
-            line = line.strip()
-            if not line or line.startswith('['):
-                continue
-                
-            # Match tool_name(args) - allow underscores in tool names
-            match = re.match(r'([\w_]+)\((.*)\)', line)
-            if match:
-                tool_name = match.group(1)
-                args_str = match.group(2)
-                
-                # Parse arguments
-                arguments = {}
-                if args_str:
-                    # Try to handle different formats
-                    # Format 1: key="value", key2="value2"
-                    arg_matches = re.findall(r'(\w+)="([^"]*)"', args_str)
-                    if arg_matches:
-                        for key, value in arg_matches:
-                            arguments[key] = value
-                    # Format 2: Just a query string without key (for memory_search)
-                    elif not '=' in args_str and args_str.strip():
-                        # If it's just a string without key=value, assume it's the main parameter
-                        # For memory_search, the parameter is "query"
-                        if tool_name == "memory_search":
-                            arguments["query"] = args_str.strip().strip('"\'')
-                        else:
-                            arguments["input"] = args_str.strip().strip('"\'')
-                
-                tool_calls.append(ToolCall(tool_name=tool_name, arguments=arguments))
-        
-        return tool_calls
     
     async def _validate_iteration(
         self,
@@ -1156,16 +1164,9 @@ Now, try again with a better approach. Focus on:
         # Initialize URL collection
         all_urls = []
         
-        # Load synthesis prompt template
-        import os
-        prompt_path = os.path.join(
-            os.path.dirname(os.path.dirname(__file__)),
-            "prompts", "cot", "synthesize_answer.txt"
-        )
-        
+        # Load synthesis prompt template using PromptLoader
         try:
-            with open(prompt_path, 'r') as f:
-                prompt_template = f.read()
+            prompt_template = self.prompt_loader.load_prompt('cot/synthesize_answer.txt')
         except Exception as e:
             logger.error(f"Failed to load synthesis prompt: {str(e)}")
             # Fallback to inline prompt if file not found
@@ -1297,10 +1298,21 @@ Your response:"""
                 synthesis_messages.extend(context.get('full_context_messages'))
                 # Context messages count logged to MongoDB only
             
-            # Add synthesis system message
+            # Add synthesis system message with markdown capabilities
+            # Load markdown capabilities for enhanced formatting
+            try:
+                markdown_capabilities = self.prompt_loader.load_prompt('markdown_capabilities.txt')
+                system_content = """You are creating the final answer. Transform all data into natural language. Never return JSON, always return prose.
+
+## Enhanced Markdown Capabilities Available:
+""" + markdown_capabilities
+            except Exception:
+                # Fallback if markdown capabilities file not found
+                system_content = "You are creating the final answer. Transform all data into natural language. Never return JSON, always return prose."
+            
             synthesis_messages.append({
                 "role": "system",
-                "content": "You are creating the final answer. Transform all data into natural language. Never return JSON, always return prose."
+                "content": system_content
             })
             
             # Add the synthesis prompt as user message
@@ -1808,25 +1820,11 @@ CONCISE SUMMARY (with all URLs preserved):"""
                 
                 iterations_text += f"- Confidence: {iteration.confidence}%\n"
             
-            # Create summary prompt
-            summary_prompt = f"""Summarize these Chain of Thought iterations for the next reasoning step.
-
-USER'S QUESTION: {problem}
-
-ITERATIONS TO SUMMARIZE:
-{iterations_text}
-
-CREATE A FUNCTIONAL SUMMARY that includes:
-1. KEY FINDINGS: Most important facts and data discovered
-2. FAILED ATTEMPTS: Tools that failed (to avoid repetition)  
-3. ESTABLISHED FACTS: Confirmed information with specific data
-4. CURRENT UNDERSTANDING: What we know so far about the question
-
-Keep ONLY information useful for continuing the reasoning.
-Remove redundancies and intermediate steps.
-Preserve all important numbers, dates, names, and facts.
-
-FUNCTIONAL SUMMARY:"""
+            # Create summary using prompt template
+            summary_prompt = self.prompt_loader.load_prompt('cot/summarize_iterations.txt', {
+                'problem': problem,
+                'iterations_text': iterations_text
+            })
 
             # Force text mode
             import copy

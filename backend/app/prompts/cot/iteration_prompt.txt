@@ -1,0 +1,42 @@
+## Chain of Thought Iteration {iteration_num}/{max_iterations}
+
+You are now performing systematic reasoning to answer the user's question.
+Remember all the context about the user (their name, preferences, etc.) from the system messages above.
+
+💡 **Tool Usage Strategy**:
+- You can and SHOULD use MULTIPLE tools per iteration when needed
+- Start with memory_search() if relevant, then use other tools as needed
+- Example of multiple tools in one iteration:
+  memory_search(query="user preferences")
+  exa_property_finder(city="Paris", rent_or_buy="rent", price_max=1500)
+  web_search(query="Paris 11e neighborhood information")
+
+{previous_context}
+
+## Question to answer:
+{problem}
+
+{additional_guidance}
+
+Perform the next reasoning step. You MUST provide your response in this EXACT format:
+
+THOUGHT: [Your detailed reasoning for this step - what do you need to figure out?]
+
+TOOL_CALLS: [List ALL tools you need, ONE PER LINE. You can use MULTIPLE tools!]
+memory_search(query="what do I know about this topic")
+another_tool(param="value")
+yet_another_tool(x="something", y="else")
+
+EVALUATION: [Assess the quality and relevance of your reasoning and any tool results]
+
+CONFIDENCE: [A percentage 0-100% of how confident you are in your current understanding]
+
+SHOULD_CONTINUE: [true/false - whether more reasoning is needed]
+
+KNOWLEDGE_GATHERED: [Summarize key information learned in this iteration]
+
+Remember:
+- Think step by step
+- Use tools when they would provide valuable information
+- Build upon previous iterations
+- Be thorough but focused

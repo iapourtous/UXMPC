@@ -35,7 +35,7 @@ class ComplexityProfile:
     diversity_factor: float
     
     # Enhanced fields for LLM-based analysis
-    confidence_threshold: float = 0.85
+    confidence_threshold: float = 0.90  # Changed from 0.85 to trigger recovery below 90%
     needs_tools: bool = False
     tool_intensive: bool = False
     key_challenges: list = field(default_factory=list)
@@ -154,6 +154,18 @@ diversity_factor, confidence_threshold, needs_tools, tool_intensive, key_challen
                     logger.error(f"Could not extract JSON from response: {response[:500]}")
                     return self._get_default_profile()
             
+            # Handle both dict and list responses
+            if isinstance(analysis, list):
+                # If it's a list, take the first item or create a default
+                if analysis and isinstance(analysis[0], dict):
+                    analysis = analysis[0]
+                else:
+                    logger.error(f"Unexpected list format in analysis: {analysis}")
+                    return self._get_default_profile()
+            elif not isinstance(analysis, dict):
+                logger.error(f"Unexpected analysis type: {type(analysis)}")
+                return self._get_default_profile()
+            
             # Convert cluster string to enum
             cluster_str = analysis.get("cluster", "multi_step")
             # Normalize cluster string
@@ -179,7 +191,7 @@ diversity_factor, confidence_threshold, needs_tools, tool_intensive, key_challen
                 max_iterations=int(analysis.get("max_iterations", 7)),
                 reasoning_strategy=str(analysis.get("reasoning_strategy", "decomposition")),
                 diversity_factor=float(analysis.get("diversity_factor", 1.5)),
-                confidence_threshold=float(analysis.get("confidence_threshold", 0.85)),
+                confidence_threshold=float(analysis.get("confidence_threshold", 0.90)),
                 needs_tools=bool(analysis.get("needs_tools", False)),
                 tool_intensive=bool(analysis.get("tool_intensive", False)),
                 key_challenges=list(analysis.get("key_challenges", [])),
@@ -232,7 +244,7 @@ Please respond with a JSON object in the following format:
     "max_iterations": 7,
     "reasoning_strategy": "decomposition",
     "diversity_factor": 1.5,
-    "confidence_threshold": 0.85,
+    "confidence_threshold": 0.90,
     "needs_tools": false,
     "tool_intensive": false,
     "key_challenges": [],
@@ -273,7 +285,7 @@ IMPORTANT: Wrap your JSON response in a markdown code block as shown above."""
             max_iterations=7,
             reasoning_strategy="decomposition",
             diversity_factor=1.5,
-            confidence_threshold=0.85,
+            confidence_threshold=0.90,
             needs_tools=True,
             tool_intensive=False,
             key_challenges=["Unknown problem complexity - using defaults"],

@@ -1,0 +1,16 @@
+Question de l'utilisateur: {problem}
+
+URLs trouvées dans les résultats:
+{urls_list}
+
+Sélectionne les {max_urls} URLs les PLUS PERTINENTES et UTILES pour répondre à la question.
+Critères de sélection:
+- Pertinence directe avec la question
+- Sources officielles ou de référence
+- Informations complémentaires utiles
+- Éviter les doublons de contenu
+
+Retourne UNIQUEMENT les numéros des URLs sélectionnées, séparés par des virgules.
+Exemple de format: 1,3,5,7,9
+
+URLs sélectionnées (numéros uniquement):

@@ -1,0 +1,10 @@
+Pour chaque URL suivante, génère une description courte (1 phrase) basée sur le contexte fourni:
+
+{urls_context}
+
+Format de réponse attendu (une ligne par URL):
+1. [Description courte et claire]
+2. [Description courte et claire]
+etc.
+
+Descriptions (une par ligne):
