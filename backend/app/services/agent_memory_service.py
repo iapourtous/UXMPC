@@ -29,6 +29,130 @@ class AgentMemoryService:
         self.vector_store = get_vector_store()
         self.collection_name = "agent_memories"
     
+    async def save_tool_synthesis(
+        self,
+        agent_id: str,
+        tool_name: str,
+        original_result: str,
+        synthesis: str,
+        problem_context: str,
+        iteration_number: Optional[int] = None,
+        urls: Optional[List[str]] = None,
+        metadata: Optional[Dict[str, Any]] = None
+    ) -> AgentMemory:
+        """
+        Save a tool result synthesis to memory
+        
+        Args:
+            agent_id: The agent's ID
+            tool_name: Name of the tool that was called
+            original_result: Original tool result (for size tracking)
+            synthesis: Synthesized/summarized version of the result
+            problem_context: The user's original question/problem
+            iteration_number: COT iteration number where this tool was used
+            urls: List of URLs extracted from the result
+            metadata: Additional metadata
+            
+        Returns:
+            Created memory entry
+        """
+        db = get_database()
+        
+        # Check for duplicate synthesis to avoid saving the same content
+        existing = await db[self.collection_name].find_one({
+            "agent_id": agent_id,
+            "content_type": "tool_synthesis",
+            "metadata.tool_name": tool_name,
+            "content": synthesis
+        })
+        
+        if existing:
+            logger.info(f"Skipping duplicate tool synthesis for {tool_name}")
+            existing['id'] = str(existing['_id'])
+            return AgentMemory(**existing)
+        
+        # Create memory entry for tool synthesis
+        memory_data = AgentMemoryCreate(
+            agent_id=agent_id,
+            user_id=None,
+            conversation_id=f"tool_synthesis_{tool_name}_{datetime.utcnow().isoformat()}",
+            content=synthesis,
+            content_type="tool_synthesis",
+            metadata={
+                **(metadata or {}),
+                "tool_name": tool_name,
+                "original_size": len(original_result),
+                "summarized_size": len(synthesis),
+                "compression_ratio": round(len(synthesis) / len(original_result), 2) if original_result else 1,
+                "problem_context": problem_context[:500],  # Keep first 500 chars of context
+                "iteration_number": iteration_number,
+                "urls": urls or [],
+                "timestamp": datetime.utcnow().isoformat()
+            },
+            importance=0.8  # High importance for tool syntheses
+        )
+        
+        # Save to MongoDB
+        memory_dict = memory_data.dict()
+        memory_dict['created_at'] = datetime.utcnow()
+        memory_dict['updated_at'] = datetime.utcnow()
+        
+        result = await db[self.collection_name].insert_one(memory_dict)
+        memory_dict['id'] = str(result.inserted_id)
+        
+        # Save to vector store with enriched content for better retrieval
+        enriched_content = f"Tool: {tool_name}\nProblem: {problem_context}\nSynthesis: {synthesis}"
+        self.vector_store.add_memory(
+            agent_id=agent_id,
+            memory_id=memory_dict['id'],
+            content=enriched_content,
+            metadata=memory_dict['metadata']
+        )
+        
+        logger.info(f"Saved tool synthesis for {tool_name} (compressed {memory_dict['metadata']['compression_ratio']}x)")
+        
+        # Clean up old tool syntheses for this specific tool
+        await self._cleanup_old_tool_syntheses(agent_id, tool_name)
+        
+        return AgentMemory(**memory_dict)
+    
+    async def _cleanup_old_tool_syntheses(self, agent_id: str, tool_name: str, max_entries: int = 10):
+        """
+        Clean up old tool synthesis entries, keeping only the most recent ones
+        
+        Args:
+            agent_id: The agent's ID
+            tool_name: Name of the tool
+            max_entries: Maximum number of syntheses to keep per tool
+        """
+        db = get_database()
+        
+        # Find all syntheses for this tool, sorted by creation date
+        syntheses = await db[self.collection_name].find({
+            "agent_id": agent_id,
+            "content_type": "tool_synthesis",
+            "metadata.tool_name": tool_name
+        }).sort("created_at", -1).to_list(None)
+        
+        # Delete old entries if we have more than max_entries
+        if len(syntheses) > max_entries:
+            to_delete = syntheses[max_entries:]
+            delete_ids = [s['_id'] for s in to_delete]
+            
+            # Delete from MongoDB
+            await db[self.collection_name].delete_many({
+                "_id": {"$in": delete_ids}
+            })
+            
+            # Delete from vector store
+            for s in to_delete:
+                try:
+                    self.vector_store.delete_memory(agent_id, str(s['_id']))
+                except:
+                    pass  # Vector store deletion is best-effort
+            
+            logger.info(f"Cleaned up {len(to_delete)} old syntheses for tool {tool_name}")
+    
     async def save_conversation(
         self, 
         agent_id: str,

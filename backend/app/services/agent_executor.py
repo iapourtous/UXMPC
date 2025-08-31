@@ -269,14 +269,14 @@ class AgentExecutor:
                         # Otherwise find and execute as service
                         service = await service_crud.get_by_name(tool_name)
                         if not service:
-                            logger.warning(f"Tool {tool_name} not found in any category")
+                            await logger.warning(f"Tool {tool_name} not found in any category")
                             return f"Tool {tool_name} not found"
                         
                         # Execute the service directly
                         result = await mcp_manager._execute_service(service, arguments)
                         return result
                     except Exception as e:
-                        logger.error(f"Tool execution error for {tool_name}: {str(e)}", exc_info=True)
+                        await logger.error(f"Tool execution error for {tool_name}: {str(e)}", exc_info=True)
                         return f"Error executing {tool_name}: {str(e)}"
                 
                 # Execute adaptive CoT with tools
@@ -413,8 +413,7 @@ class AgentExecutor:
             
         except Exception as e:
             error_msg = f"Agent execution failed: {str(e)}"
-            await logger.error(error_msg, error=str(e))
-            logger.error(error_msg, exc_info=True)
+            await logger.error(error_msg, error=str(e), exc_info=True)
             
             # Save error to conversation if applicable
             if conversation_id and execution_request.save_conversation:

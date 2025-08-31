@@ -57,6 +57,14 @@ class ConvergenceDetector:
         # Calculate cumulative confidence based on all iterations
         cumulative_confidence = self._calculate_cumulative_confidence(iterations)
         
+        # PRIORITY 1: Check if current iteration confidence >= 90% - STOP IMMEDIATELY!
+        if current_iteration.confidence >= 0.90:
+            return True, f"High confidence reached ({current_iteration.confidence:.0%})"
+        
+        # PRIORITY 2: Check cumulative confidence
+        if cumulative_confidence >= 0.90:
+            return True, f"High cumulative confidence reached ({cumulative_confidence:.0%})"
+        
         # Check max iterations - BUT check confidence first!
         if len(iterations) >= max_iterations:
             # Don't automatically converge - check if we actually have good CUMULATIVE confidence
@@ -66,9 +74,7 @@ class ConvergenceDetector:
                 # Return False to trigger recovery!
                 return False, f"Reached maximum iterations ({max_iterations}) but low cumulative confidence ({cumulative_confidence:.0%})"
         
-        # PRIORITY CHECK: Stop immediately if cumulative confidence > 90% (regardless of iteration count)
-        if cumulative_confidence >= 0.90:
-            return True, f"Very high cumulative confidence reached ({cumulative_confidence:.0%})"
+        # Already checked above - remove duplicate check
         
         # If tools are available, ensure they've been used
         if has_tools:
@@ -83,11 +89,15 @@ class ConvergenceDetector:
                 if cumulative_confidence >= self.confidence_threshold:
                     return True, f"High cumulative confidence with tool results ({cumulative_confidence:.0%})"
         
-        # Check if agent decided to stop (but require at least 3 iterations for moderate confidence)
-        if not current_iteration.should_continue and len(iterations) >= 3:
-            # Also check cumulative confidence
-            if cumulative_confidence >= 0.75:  # Slightly lower threshold when agent wants to stop
-                return True, f"Agent determined answer is complete with good cumulative confidence ({cumulative_confidence:.0%})"
+        # Check if agent decided to stop
+        if not current_iteration.should_continue:
+            # If confidence >= 90%, stop immediately
+            if current_iteration.confidence >= 0.90:
+                return True, f"Agent decided to stop with high confidence ({current_iteration.confidence:.0%})"
+            # Otherwise check cumulative
+            elif cumulative_confidence >= 0.90:
+                return True, f"Agent determined answer is complete with high cumulative confidence ({cumulative_confidence:.0%})"
+            # If confidence < 90%, don't converge even if agent wants to stop
         
         # Check confidence threshold (only after minimum iterations for moderate confidence)
         if cumulative_confidence >= self.confidence_threshold and len(iterations) >= 4:
@@ -101,76 +111,56 @@ class ConvergenceDetector:
     
     def _calculate_cumulative_confidence(self, iterations: List[ReasoningIteration]) -> float:
         """
-        Calculate cumulative confidence based on all iterations
-        Takes into account:
-        - Individual iteration confidences (weighted by recency)
-        - Knowledge accumulation
-        - Tool success rate
-        - Consistency between iterations
+        Evaluate overall confidence based on ALL work done
+        This is an EVALUATION, not an accumulation
+        
+        The confidence represents: "How confident are we that we have a good answer
+        based on everything we've explored?"
         """
         if not iterations:
             return 0.0
         
-        # 1. Weight recent iterations more heavily
-        weights = []
-        for i in range(len(iterations)):
-            # Exponential decay: more recent = higher weight
-            weight = 0.5 ** (len(iterations) - i - 1)
-            weights.append(weight)
+        # Get the most recent iteration's confidence as the base
+        # (it has the most complete view of all previous work)
+        latest_confidence = iterations[-1].confidence
         
-        # Normalize weights
-        total_weight = sum(weights)
-        weights = [w / total_weight for w in weights]
+        # Evaluate the quality of the overall exploration
+        quality_factors = []
         
-        # 2. Calculate weighted average of confidences
-        weighted_confidence = sum(
-            it.confidence * w 
-            for it, w in zip(iterations, weights)
+        # 1. Did we gather substantial information?
+        has_knowledge = any(
+            it.knowledge_gathered and it.knowledge_gathered != "None" 
+            for it in iterations
         )
+        quality_factors.append(1.0 if has_knowledge else 0.5)
         
-        # 3. Boost for knowledge accumulation
-        knowledge_boost = 0.0
-        unique_knowledge = set()
-        for it in iterations:
-            if it.knowledge_gathered and it.knowledge_gathered != "None":
-                unique_knowledge.add(it.knowledge_gathered[:100])  # Use first 100 chars as key
-        
-        # Each unique piece of knowledge adds a small boost
-        knowledge_boost = min(len(unique_knowledge) * 0.03, 0.15)  # Max 15% boost
-        
-        # 4. Boost for successful tool usage
-        tool_boost = 0.0
-        total_tools = sum(len(it.tool_results) for it in iterations)
+        # 2. Did tools provide useful results?
         successful_tools = sum(
             1 for it in iterations 
             for tr in it.tool_results 
             if tr.success
         )
+        has_tool_success = successful_tools > 0
+        quality_factors.append(1.0 if has_tool_success else 0.7)
         
-        if total_tools > 0:
-            tool_success_rate = successful_tools / total_tools
-            tool_boost = tool_success_rate * 0.1  # Max 10% boost
+        # 3. Is the reasoning consistent (not oscillating)?
+        if len(iterations) >= 3:
+            recent_confidences = [it.confidence for it in iterations[-3:]]
+            variance = max(recent_confidences) - min(recent_confidences)
+            is_stable = variance < 0.3  # Not oscillating wildly
+            quality_factors.append(1.0 if is_stable else 0.8)
+        else:
+            quality_factors.append(0.9)  # Neutral for few iterations
         
-        # 5. Penalty for contradictions or oscillations
-        consistency_penalty = 0.0
-        if len(iterations) > 2:
-            # Check for large confidence swings
-            confidences = [it.confidence for it in iterations]
-            for i in range(1, len(confidences)):
-                if abs(confidences[i] - confidences[i-1]) > 0.3:
-                    consistency_penalty += 0.02  # 2% penalty per large swing
+        # 4. Have we explored enough iterations?
+        exploration_completeness = min(len(iterations) / 5.0, 1.0)  # Up to 5 iterations is good
+        quality_factors.append(exploration_completeness)
         
-        consistency_penalty = min(consistency_penalty, 0.1)  # Max 10% penalty
+        # Calculate overall quality multiplier
+        quality_multiplier = sum(quality_factors) / len(quality_factors)
         
-        # 6. Combine all factors
-        cumulative_confidence = weighted_confidence + knowledge_boost + tool_boost - consistency_penalty
+        # Final confidence is the latest confidence adjusted by quality
+        overall_confidence = latest_confidence * quality_multiplier
         
-        # 7. Apply minimum based on last iteration (can't be too much higher than recent confidence)
-        # This prevents over-inflating confidence from old good iterations
-        if iterations:
-            recent_avg = sum(it.confidence for it in iterations[-3:]) / min(3, len(iterations))
-            # Cumulative can be at most 20% higher than recent average
-            cumulative_confidence = min(cumulative_confidence, recent_avg + 0.20)
-        
-        # Ensure in valid range [0, 1]
-        return max(0.0, min(1.0, cumulative_confidence))
+        # Ensure we stay within bounds [0, 1]
+        return min(max(overall_confidence, 0.0), 1.0)

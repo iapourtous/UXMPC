@@ -214,6 +214,16 @@ class RecoveryManager:
             
             # Add the original question
             prompt += f"\n\n## Original Question:\n{problem}\n\n"
+            
+            # Add what has already been tried to avoid repetition
+            prompt += "\n## ⚠️ IMPORTANT - Already Attempted (DO NOT REPEAT):\n"
+            for it in iterations[-5:]:  # Last 5 iterations
+                if it.tool_calls:
+                    for tc in it.tool_calls:
+                        args_str = ', '.join([f'{k}={v}' for k,v in tc.arguments.items()])
+                        prompt += f"- {tc.tool_name}({args_str})\n"
+            prompt += "\nYou MUST try different approaches or parameters.\n"
+            
             prompt += "Your response:"
             
             return prompt
@@ -249,6 +259,14 @@ class RecoveryManager:
         
         if tool_usage:
             summary_parts.append(f"\nTools used: {', '.join([f'{name}({count}x)' for name, count in tool_usage.items()])}")
+        
+        # Add failed attempts details
+        summary_parts.append("\n⚠️ Failed attempts (DO NOT repeat these exact calls):")
+        for it in iterations[-5:]:
+            if it.tool_calls:
+                for tc in it.tool_calls:
+                    args_str = ', '.join([f'{k}={v}' for k,v in tc.arguments.items()])
+                    summary_parts.append(f"  ❌ {tc.tool_name}({args_str})")
         
         return "\n".join(summary_parts)
     

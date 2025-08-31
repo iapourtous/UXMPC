@@ -1,7 +1,0 @@
-chain-of-thought: |
-  # Reasoning Approach
-  Use chain-of-thought reasoning. Think step by step before providing your final answer.
-
-tree-of-thought: |
-  # Reasoning Approach
-  Use tree-of-thought reasoning. Consider multiple paths and evaluate them before choosing the best approach.

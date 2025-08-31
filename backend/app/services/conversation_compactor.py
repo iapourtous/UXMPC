@@ -106,8 +106,18 @@ class ConversationCompactor:
             # Build compacted conversation
             compacted_messages = []
             
-            # NOTE: User context is used for creating the summary but NOT added to messages
-            # This avoids duplication since agent_executor may add it separately
+            # Add user context FIRST if provided and not already in preserved messages
+            # Check if User Context is already in the messages to avoid duplication
+            has_user_context = any(
+                msg.get("role") == "system" and "User Context:" in msg.get("content", "")
+                for msg in messages_to_preserve
+            )
+            
+            if user_context and not has_user_context:
+                compacted_messages.append({
+                    "role": "system",
+                    "content": f"User Context: {user_context}"
+                })
             
             # Add summary as a system message
             compacted_messages.append({

@@ -32,6 +32,13 @@ Apply a DEEP DIVE strategy to uncover the information needed.
 ## Previous Attempts Analysis:
 {previous_summary}
 
+## ⚠️ CRITICAL: You have already tried these - DO NOT repeat:
+The above summary shows failed attempts. You MUST:
+- Use DIFFERENT parameters if retrying the same tool
+- Try ALTERNATIVE tools you haven't used yet  
+- Combine tools in NEW ways
+- Change your search terms completely
+
 ## Exploration Suggestions:
 - What adjacent topics might contain relevant info?
 - Which tools haven't been fully utilized?

@@ -1,6 +1,6 @@
 ⚠️ SYNTHESIS TASK - CREATE FINAL ANSWER FROM CHAIN OF THOUGHT ⚠️
 
-You must synthesize a comprehensive answer based on the complete Chain of Thought reasoning process below.
+Based on the reasoning process and tool results below, provide a comprehensive answer to the user's question.
 
 ## USER'S QUESTION:
 {problem}
@@ -14,44 +14,32 @@ You must synthesize a comprehensive answer based on the complete Chain of Though
 ## KEY INSIGHTS:
 {insights}
 
-## SYNTHESIS INSTRUCTIONS:
+{markdown_capabilities}
 
-You are creating the FINAL ANSWER based on the entire reasoning process above.
+## IMPORTANT INSTRUCTIONS:
 
-### What to include:
-1. ✅ Direct answer to the user's question
-2. ✅ Key findings from the tool results (transform JSON/data to prose)
-3. ✅ Important insights from the reasoning iterations
-4. ✅ Relevant context that helps answer the question
-5. ✅ Clear markdown formatting with headers and structure
+### Personality and Style
+- **STRICTLY FOLLOW** the personality, tone, and style defined in your system prompt
+- Maintain the character, expertise level, and communication approach specified
+- Respect any constraints or guidelines from your system configuration
+- Use the communication style: {communication_style}
 
-### How to transform data:
-- If tool returns JSON/dictionaries → Convert to natural language sentences
-- If tool returns numbers → Describe them in context
-- If tool returns lists → Format as bullet points or paragraphs
-- If tool returns technical data → Explain in accessible language
+### Content Requirements
+- Directly address the user's question completely
+- Concise for simple questions
+- Thorough for complex questions
+- Prose paragraphs for reports (no bullets)
+- CommonMark standard for markdown
+- Bullet points minimum 1-2 sentences
+- Citations wrapped in  tags
+- Include relevant URLs and references found in the tool results
+- Ensure accuracy while maintaining your defined personality
 
-### Format requirements:
-- Use markdown headers (##, ###) for organization
-- Use **bold** for emphasis on key points
-- Use bullet points for lists
-- Use code blocks only for actual code (not for data)
-- Create a flowing narrative, not a technical report
+### Quality Standards
+- Be comprehensive yet concise according to your personality
+- Use visualization capabilities when they add genuine value
+- Structure the response for clarity and readability
+- Maintain consistency with your established identity throughout
 
-### Example transformation:
-RAW: {{"product": "citric acid", "production": 2000000, "use": "food additive"}}
-GOOD: "L'acide citrique, largement utilisé comme additif alimentaire, représente une production annuelle de 2 millions de tonnes..."
 
-## Communication style: {communication_style}
-
-## YOUR FINAL ANSWER:
-Create a comprehensive, well-structured response that:
-1. Directly answers: "{problem}"
-2. Synthesizes ALL the reasoning and tool results above
-3. Transforms data into natural, readable prose
-4. Never shows raw JSON or unformatted data
-5. Provides a complete and satisfying answer to the user
-
-IMPORTANT: Do NOT include a links/references section - URLs will be added automatically after your response.
-
-Begin your response below:
+Provide your comprehensive answer below, staying true to your defined personality and expertise:

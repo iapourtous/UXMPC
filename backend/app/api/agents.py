@@ -380,7 +380,7 @@ async def debug_agent_prompt(agent_id: str, execution_request: AgentExecution):
             memory_context = await executor._load_memory_context(
                 agent=agent,
                 query=execution_request.input if isinstance(execution_request.input, str) else json.dumps(execution_request.input),
-                agent_logger=None  # Skip logging for debug
+                logger=None  # Skip logging for debug
             )
         
         # Load conversation history if conversation_id is provided
@@ -398,8 +398,13 @@ async def debug_agent_prompt(agent_id: str, execution_request: AgentExecution):
         if loaded_history and not execution_request.conversation_history:
             execution_request.conversation_history = loaded_history
         
-        # Build initial messages
-        messages = executor._build_messages(agent, execution_request, memory_context)
+        # Build initial messages using MessageBuilder
+        messages = executor.message_builder.build_messages(
+            agent=agent,
+            execution_request=execution_request,
+            memory_context=memory_context,
+            tools=None  # We don't need tools for debugging the prompt
+        )
         
         # Apply conversation compaction if enabled (same logic as execute)
         messages_for_agent = messages

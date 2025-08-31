@@ -20,40 +20,6 @@ class MessageBuilder:
         # Use the correct path to prompts directory
         prompts_path = Path(__file__).parent.parent / "prompts"
         self.prompt_loader = PromptLoader(base_path=prompts_path)
-        self.markdown_capabilities = self._load_markdown_capabilities()
-        self._load_personality_traits()
-        self._load_reasoning_strategies()
-    
-    def _load_markdown_capabilities(self) -> str:
-        """Load markdown capabilities from file"""
-        try:
-            return self.prompt_loader.load_prompt('markdown_capabilities.txt')
-        except:
-            return ""
-    
-    def _load_personality_traits(self):
-        """Load personality traits from YAML file"""
-        try:
-            yaml_path = self.prompt_loader.base_path / 'agent' / 'personality_traits.yaml'
-            if yaml_path.exists():
-                with open(yaml_path, 'r') as f:
-                    self.personality_traits = yaml.safe_load(f)
-            else:
-                self.personality_traits = {}
-        except:
-            self.personality_traits = {}
-    
-    def _load_reasoning_strategies(self):
-        """Load reasoning strategies from YAML file"""
-        try:
-            yaml_path = self.prompt_loader.base_path / 'agent' / 'reasoning_strategies.yaml'
-            if yaml_path.exists():
-                with open(yaml_path, 'r') as f:
-                    self.reasoning_strategies = yaml.safe_load(f)
-            else:
-                self.reasoning_strategies = {}
-        except:
-            self.reasoning_strategies = {}
     
     def build_messages(
         self,
@@ -132,16 +98,6 @@ class MessageBuilder:
         if constraints_section:
             sections.append(constraints_section)
         
-        # Add reasoning strategy
-        reasoning_section = self._format_reasoning_strategy(agent)
-        if reasoning_section:
-            sections.append(reasoning_section)
-        
-        # Add personality traits
-        personality_section = self._format_personality_traits(agent)
-        if personality_section:
-            sections.append(personality_section)
-        
         # NOTE: Markdown capabilities removed from here - only added during synthesis in COT
         # This avoids duplication and keeps them for final presentation only
         
@@ -169,9 +125,6 @@ class MessageBuilder:
         if agent.output_schema and agent.output_schema != "text":
             sections.append(create_json_instruction(agent.output_schema))
         
-        # Add critical constraints
-        sections.append(self._get_critical_constraints())
-        
         return "\n\n".join(sections)
     
     def _format_objectives(self, agent: Agent) -> Optional[str]:
@@ -194,30 +147,7 @@ class MessageBuilder:
             content += f"- {constraint}\n"
         return content.rstrip()
     
-    def _format_reasoning_strategy(self, agent: Agent) -> Optional[str]:
-        """Format reasoning strategy instructions"""
-        if not hasattr(agent, 'reasoning_strategy') or agent.reasoning_strategy == "standard":
-            return None
-        
-        strategy_prompt = self.reasoning_strategies.get(agent.reasoning_strategy, "")
-        return strategy_prompt.strip() if strategy_prompt else None
     
-    def _format_personality_traits(self, agent: Agent) -> Optional[str]:
-        """Format personality traits instructions"""
-        if not hasattr(agent, 'personality_traits') or not agent.personality_traits:
-            return None
-        
-        traits = agent.personality_traits
-        instructions = []
-        
-        # Get instructions from loaded personality traits
-        for trait_type, trait_value in traits.items():
-            if trait_type in self.personality_traits:
-                trait_instruction = self.personality_traits[trait_type].get(trait_value)
-                if trait_instruction:
-                    instructions.append(trait_instruction)
-        
-        return " ".join(instructions) if instructions else None
     
     def _format_memory_instructions(self, agent: Agent) -> Optional[str]:
         """Format memory system instructions"""
@@ -232,13 +162,6 @@ class MessageBuilder:
             return self.prompt_loader.load_prompt('agent/memory_system.txt')
         except:
             return None
-    
-    def _get_critical_constraints(self) -> str:
-        """Get critical constraints for the agent"""
-        try:
-            return self.prompt_loader.load_prompt('agent/critical_constraints.txt')
-        except:
-            return ""
     
     def format_tools_for_context(self, tools: List[Dict[str, Any]]) -> str:
         """Format tool definitions for inclusion in system context
