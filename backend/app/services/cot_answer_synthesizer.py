@@ -65,28 +65,25 @@ Provide a comprehensive answer."""
                 reasoning_chain_text += f"**Tools used:**\n"
                 for tr in iteration.tool_results:
                     if tr.success:
-                        result_str = str(tr.result)
-                        if len(result_str) > 5000:
-                            # Summarize long results
-                            summary_result = await self.summarize_tool_result(
-                                tool_name=tr.tool_name,
-                                result=result_str,
-                                problem=problem,
-                                iteration_thought=iteration.thought
-                            )
-                            # Handle new format
-                            if isinstance(summary_result, dict):
-                                result_str = summary_result.get("summary", result_str[:10000])
-                                # Collect URLs for later
-                                all_urls.extend(summary_result.get("urls", []))
-                            else:
-                                result_str = summary_result  # Fallback for old format
-                            reasoning_chain_text += f"- {tr.tool_name} (summarized from {len(str(tr.result))} chars):\n```\n{result_str}\n```\n"
+                        # Check if result is already summarized (new format)
+                        if isinstance(tr.result, dict) and tr.result.get("was_summarized"):
+                            # Result was already summarized in parallel execution
+                            result_str = tr.result.get("summary", str(tr.result.get("original", ""))[:10000])
+                            all_urls.extend(tr.result.get("urls", []))
+                            original_length = len(str(tr.result.get("original", "")))
+                            reasoning_chain_text += f"- {tr.tool_name} (summarized from {original_length} chars):\n```\n{result_str}\n```\n"
                         else:
-                            reasoning_chain_text += f"- {tr.tool_name}:\n```\n{result_str}\n```\n"
-                            # Also extract URLs from non-summarized results
-                            extracted = self.url_extractor.extract_and_validate(result_str)
-                            all_urls.extend(extracted)
+                            # Handle regular results
+                            result_str = str(tr.result)
+                            if len(result_str) > 5000:
+                                # This shouldn't happen with new parallel execution, but keep as fallback
+                                result_str = result_str[:5000] + "..."
+                                reasoning_chain_text += f"- {tr.tool_name} (truncated):\n```\n{result_str}\n```\n"
+                            else:
+                                reasoning_chain_text += f"- {tr.tool_name}:\n```\n{result_str}\n```\n"
+                                # Extract URLs from non-summarized results
+                                extracted = self.url_extractor.extract_and_validate(result_str)
+                                all_urls.extend(extracted)
             
             if iteration.knowledge_gathered:
                 reasoning_chain_text += f"**Knowledge gathered:** {iteration.knowledge_gathered}\n"
@@ -97,33 +94,13 @@ Provide a comprehensive answer."""
         # Building synthesis - logged to MongoDB only
         for i, tool_result in enumerate(all_tool_results):
             if tool_result.success and tool_result.result:
-                result_str = str(tool_result.result)
-                original_length = len(result_str)
-                
-                # If result is too long, summarize it with Summary LLM
-                if len(result_str) > 10000:
-                    # Find the corresponding iteration for context
-                    iteration_thought = ""
-                    for iteration in iterations:
-                        if any(tr.tool_name == tool_result.tool_name for tr in iteration.tool_results):
-                            iteration_thought = iteration.thought
-                            break
-                    
-                    summary_result = await self.summarize_tool_result(
-                        tool_name=tool_result.tool_name,
-                        result=result_str,
-                        problem=problem,
-                        iteration_thought=iteration_thought
-                    )
-                    # Handle new format
-                    if isinstance(summary_result, dict):
-                        result_str = summary_result.get("summary", result_str[:10000])
-                        # Collect URLs for later
-                        extracted_urls = summary_result.get("urls", [])
-                        all_urls.extend(extracted_urls)
-                    else:
-                        result_str = summary_result  # Fallback for old format
-                        extracted_urls = []
+                # Check if result is already summarized (new format from parallel execution)
+                if isinstance(tool_result.result, dict) and tool_result.result.get("was_summarized"):
+                    # Already summarized in parallel execution
+                    result_str = tool_result.result.get("summary", str(tool_result.result.get("original", ""))[:10000])
+                    original_length = len(str(tool_result.result.get("original", "")))
+                    extracted_urls = tool_result.result.get("urls", [])
+                    all_urls.extend(extracted_urls)
                     
                     # Save synthesis to memory if enabled
                     if memory_enabled:
@@ -132,9 +109,11 @@ Provide a comprehensive answer."""
                             
                             # Find iteration number for this tool result
                             iteration_num = None
+                            iteration_thought = ""
                             for iteration in iterations:
                                 if any(tr.tool_name == tool_result.tool_name for tr in iteration.tool_results):
                                     iteration_num = iteration.iteration_number
+                                    iteration_thought = iteration.thought
                                     break
                             
                             await agent_memory_service.save_tool_synthesis(
@@ -151,9 +130,21 @@ Provide a comprehensive answer."""
                             logger.warning(f"Failed to save tool synthesis to memory: {str(e)}")
                     
                     tool_results_text += f"### {tool_result.tool_name} (summarized from {original_length} chars):\n```\n{result_str}\n```\n\n"
-                    logger.debug(f"Added summarized tool result from {tool_result.tool_name} ({original_length} -> {len(result_str)} chars)")
+                    logger.debug(f"Added pre-summarized tool result from {tool_result.tool_name} ({original_length} -> {len(result_str)} chars)")
                 else:
-                    # Save non-summarized results to memory if they contain important information
+                    # Handle regular results (not pre-summarized)
+                    result_str = str(tool_result.result)
+                    original_length = len(result_str)
+                    
+                    # This case should rarely happen with new parallel execution
+                    # but keep as fallback for backward compatibility
+                    if len(result_str) > 10000:
+                        result_str = result_str[:10000] + "..."
+                        tool_results_text += f"### {tool_result.tool_name} (truncated from {original_length} chars):\n```\n{result_str}\n```\n\n"
+                    else:
+                        tool_results_text += f"### {tool_result.tool_name}:\n```\n{result_str}\n```\n\n"
+                    
+                    # Extract URLs from non-summarized results
                     extracted = self.url_extractor.extract_and_validate(result_str)
                     all_urls.extend(extracted)
                     

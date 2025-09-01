@@ -6,6 +6,7 @@ from typing import List, Dict, Optional, Any, Tuple
 from dataclasses import dataclass
 import logging
 import re
+import asyncio
 from app.services.cot_tool_executor import ToolExecutor, ToolCall, ToolResult
 from app.services.unified_logger import UnifiedLogger
 from app.core.prompt_loader import PromptLoader
@@ -167,13 +168,15 @@ class IterationExecutor:
             tool_results = []
             if tool_calls:
                 await unified_logger.info(
-                    f"Executing {len(tool_calls)} tools in iteration {iteration_num}",
+                    f"Executing {len(tool_calls)} tools in parallel in iteration {iteration_num}",
                     tools=[tc.tool_name for tc in tool_calls]
                 )
                 
-                for tool_call in tool_calls:
+                # Create async tasks for parallel execution
+                async def execute_and_summarize_tool(tool_call: ToolCall) -> ToolResult:
+                    """Execute a single tool and optionally summarize its result"""
                     try:
-                        # Check if it's an intrinsic tool
+                        # First, execute the tool
                         if tool_call.tool_name in INTRINSIC_TOOL_NAMES:
                             result_dict = await self.intrinsic_executor.execute(
                                 tool_call.tool_name,
@@ -183,41 +186,103 @@ class IterationExecutor:
                             )
                             
                             if result_dict["success"]:
-                                tool_results.append(ToolResult(
-                                    tool_name=tool_call.tool_name,
-                                    result=result_dict["result"],
-                                    success=True
-                                ))
+                                raw_result = result_dict["result"]
                             else:
-                                tool_results.append(ToolResult(
+                                return ToolResult(
                                     tool_name=tool_call.tool_name,
                                     result=None,
                                     success=False,
                                     error=result_dict.get("error", "Unknown error")
-                                ))
+                                )
                         elif tool_executor:
                             # Execute external MCP tool
-                            result = await tool_executor(tool_call.tool_name, tool_call.arguments)
-                            tool_results.append(ToolResult(
-                                tool_name=tool_call.tool_name,
-                                result=result,
-                                success=True
-                            ))
+                            raw_result = await tool_executor(tool_call.tool_name, tool_call.arguments)
                         else:
-                            tool_results.append(ToolResult(
+                            return ToolResult(
                                 tool_name=tool_call.tool_name,
                                 result=None,
                                 success=False,
                                 error="No tool executor available for external tools"
-                            ))
+                            )
+                        
+                        # Check if result needs summarization (>10000 chars)
+                        result_str = str(raw_result)
+                        if len(result_str) > 10000:
+                            # Summarize long results immediately after execution
+                            try:
+                                from app.services.cot_answer_synthesizer import AnswerSynthesizer
+                                synthesizer = AnswerSynthesizer()
+                                
+                                summary_result = await synthesizer.summarize_tool_result(
+                                    tool_name=tool_call.tool_name,
+                                    result=result_str,
+                                    problem=problem,
+                                    iteration_thought=thought  # Use current iteration's thought
+                                )
+                                
+                                # Store both original and summary in the result
+                                if isinstance(summary_result, dict):
+                                    summarized_text = summary_result.get("summary", result_str[:10000])
+                                    urls = summary_result.get("urls", [])
+                                else:
+                                    summarized_text = summary_result
+                                    urls = []
+                                
+                                # Return enriched result with summary
+                                return ToolResult(
+                                    tool_name=tool_call.tool_name,
+                                    result={
+                                        "original": raw_result,
+                                        "summary": summarized_text,
+                                        "urls": urls,
+                                        "was_summarized": True
+                                    },
+                                    success=True
+                                )
+                            except Exception as e:
+                                logger.warning(f"Summarization failed for {tool_call.tool_name}: {e}")
+                                # Return original result if summarization fails
+                                return ToolResult(
+                                    tool_name=tool_call.tool_name,
+                                    result=raw_result,
+                                    success=True
+                                )
+                        else:
+                            # No summarization needed
+                            return ToolResult(
+                                tool_name=tool_call.tool_name,
+                                result=raw_result,
+                                success=True
+                            )
+                            
                     except Exception as e:
                         logger.error(f"Tool execution failed: {tool_call.tool_name} - {str(e)}")
-                        tool_results.append(ToolResult(
+                        return ToolResult(
                             tool_name=tool_call.tool_name,
                             result=None,
                             success=False,
                             error=str(e)
-                        ))
+                        )
+                
+                # Execute all tools in parallel (with summarization if needed)
+                tasks = [execute_and_summarize_tool(tool_call) for tool_call in tool_calls]
+                tool_results = await asyncio.gather(*tasks)
+                
+                # Log execution completion
+                successful_tools = [r.tool_name for r in tool_results if r.success]
+                failed_tools = [r.tool_name for r in tool_results if not r.success]
+                
+                if successful_tools:
+                    await unified_logger.debug(
+                        f"Successfully executed {len(successful_tools)} tools in parallel",
+                        tools=successful_tools
+                    )
+                
+                if failed_tools:
+                    await unified_logger.warning(
+                        f"Failed to execute {len(failed_tools)} tools",
+                        tools=failed_tools
+                    )
             
             # Create iteration object
             iteration = ReasoningIteration(
@@ -233,8 +298,12 @@ class IterationExecutor:
                 correction_attempts=correction_attempt
             )
             
-            # Validate the iteration (skip validation on very first iteration or if we're at max corrections)
-            if iteration_num > 1 and correction_attempt < max_correction_attempts:
+            # Check if auto_correct_errors is enabled in agent's decision policies
+            auto_correct_errors = agent_config.get('decision_policies', {}).get('auto_correct_errors', True)
+            
+            # Validate the iteration only if auto_correct_errors is True
+            # (skip validation on very first iteration or if we're at max corrections)
+            if auto_correct_errors and iteration_num > 1 and correction_attempt < max_correction_attempts:
                 validation_result = await self.validate_iteration(
                     iteration,
                     problem,
@@ -270,7 +339,9 @@ class IterationExecutor:
                     # Valid iteration, we're done
                     break
             else:
-                # No validation needed or max attempts reached
+                # No validation needed (auto_correct_errors=False) or max attempts reached
+                if not auto_correct_errors:
+                    logger.debug(f"Skipping iteration validation - auto_correct_errors is disabled")
                 break
         
         return iteration
