@@ -23,7 +23,7 @@ async def lifespan(app: FastAPI):
     # Startup
     logger.info("Starting up UXMCP...")
     await connect_to_mongo()
-    logger.info("Connected to MongoDB")
+    logger.info("Connected to MongoDB with connection pooling")
     
     # Setup MongoDB logging
     from app.core.database import get_database
@@ -31,6 +31,19 @@ async def lifespan(app: FastAPI):
     db = get_database()
     setup_mongodb_logging(db)
     logger.info("MongoDB logging initialized")
+    
+    # Initialize HTTP client pool
+    from app.core.http_client_pool import http_client_pool
+    await http_client_pool.get_client()
+    logger.info("HTTP client pool initialized")
+    
+    # Initialize cache service (optional, will work without Redis)
+    from app.core.cache import cache_service
+    await cache_service.connect()
+    if cache_service.enabled:
+        logger.info("Redis cache enabled")
+    else:
+        logger.info("Running without cache (Redis not available)")
     
     # Mount all active services
     await mount_all_active_services(app)
@@ -45,6 +58,15 @@ async def lifespan(app: FastAPI):
     
     # Shutdown
     logger.info("Shutting down UXMCP...")
+    
+    # Cleanup cache service
+    from app.core.cache import cache_service
+    await cache_service.disconnect()
+    
+    # Cleanup HTTP client pool
+    from app.core.http_client_pool import cleanup_http_client
+    await cleanup_http_client()
+    logger.info("HTTP client pool closed")
     
     # Cleanup MongoDB logging
     from app.core.mongodb_logger import cleanup_mongodb_logging

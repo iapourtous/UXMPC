@@ -35,6 +35,15 @@ shell-api: ## Open shell in API container
 shell-mongo: ## Open MongoDB shell
 	docker-compose exec mongo mongosh uxmcp
 
+shell-redis: ## Open Redis CLI
+	docker-compose exec redis redis-cli
+
 status: ## Show service status
 	@echo "Services status:"
 	@docker-compose ps
+
+restart: ## Restart all services
+	docker-compose restart
+
+restart-api: ## Restart API service only
+	docker-compose restart api

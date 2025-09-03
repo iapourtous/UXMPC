@@ -28,7 +28,7 @@ from app.core.tool_analyzer import ToolAnalyzer
 from app.core.dynamic_router import mount_service
 from app.core.prompt_manager import load_prompt
 from app.core.llm_client import llm_client
-import httpx
+from app.core.http_client_pool import http_client_pool
 
 logger = logging.getLogger(__name__)
 
@@ -108,8 +108,71 @@ class MetaAgentService:
                 }
             )
             
-            # Step 3: Create missing tools if allowed
-            if create_missing_tools and unmatched_tools:
+            # Step 3: Handle tools based on create_missing_tools setting
+            if not create_missing_tools:
+                # Use existing tools without creating new ones
+                if matched_tools:
+                    yield MetaAgentProgress(
+                        step="selecting_tools",
+                        message=f"Found and selected {len(matched_tools)} existing tools that match the agent's needs",
+                        progress=40,
+                        details={
+                            "selected_tools": [t.name for t in matched_tools],
+                            "existing_tools_count": len(matched_tools)
+                        }
+                    )
+                
+                # Check if all needs are met
+                if matched_tools and not unmatched_tools:
+                    yield MetaAgentProgress(
+                        step="tools_ready",
+                        message="Perfect! All required capabilities are available with existing tools",
+                        progress=50,
+                        details={
+                            "status": "All requirements met",
+                            "tools_count": len(matched_tools)
+                        }
+                    )
+                
+                if unmatched_tools:
+                    # Inform about capabilities that won't be available
+                    yield MetaAgentProgress(
+                        step="adapting_agent",
+                        message=f"Adapting agent to work with available tools",
+                        progress=45,
+                        details={
+                            "existing_tools": len(matched_tools),
+                            "unmatched_capabilities": len(unmatched_tools),
+                            "strategy": "Agent will use existing tools to best match requirements"
+                        }
+                    )
+                
+                # Update analysis to reflect adaptation if needed
+                if unmatched_tools:
+                    adaptation_msg = (
+                        f"Some capabilities ({len(unmatched_tools)}) don't have exact matching tools. "
+                        f"The agent will creatively use the {len(matched_tools)} available tools to achieve similar results."
+                    )
+                    yield MetaAgentProgress(
+                        step="adaptation_notice",
+                        message=adaptation_msg,
+                        progress=50,
+                        details={
+                            "available_tools": [t.name for t in matched_tools][:10],
+                            "missing_capabilities": [t.name for t in unmatched_tools[:5]],
+                            "note": "Agent will be creative with existing tools"
+                        }
+                    )
+                    
+                    # Enhance the agent profile to be creative with available tools
+                    analysis.agent_profile.system_prompt += (
+                        f"\n\nYou have access to {len(matched_tools)} tools. "
+                        f"Use them creatively to fulfill user requests, even if they don't exactly match the ideal tool. "
+                        f"Be transparent when a specific capability is not directly available, but offer alternatives using your existing tools."
+                    )
+                    
+            elif create_missing_tools and unmatched_tools:
+                # Original tool creation logic
                 tools_to_create = unmatched_tools[:max_tools_to_create]
                 
                 for i, tool in enumerate(tools_to_create):
@@ -150,8 +213,12 @@ class MetaAgentService:
                             details={"error": created_tool.error}
                         )
             
-            # Step 4: Prepare final tool list
-            all_tools = matched_tools + [t for t in unmatched_tools if t.exists]
+            # Step 4: Prepare final tool list (only include existing/created tools)
+            if create_missing_tools:
+                all_tools = matched_tools + [t for t in unmatched_tools if t.exists]
+            else:
+                # When not creating tools, only use matched existing tools
+                all_tools = matched_tools
             tool_service_names = []
             
             # Activate inactive services if needed
@@ -431,27 +498,27 @@ Error Handling: {specification.get('error_handling', 'Return clear error message
             # Simple test based on agent type
             test_input = "Hello, can you introduce yourself and explain what you can help me with?"
             
-            async with httpx.AsyncClient(timeout=30.0) as client:
-                response = await client.post(
-                    f"{self.base_url}/agents/{agent.id}/execute",
-                    json={
-                        "input": test_input,
-                        "execution_options": {}
-                    }
-                )
-                
-                if response.status_code == 200:
-                    result = response.json()
-                    return {
-                        "success": result.get("success", False),
-                        "output": result.get("output"),
-                        "error": result.get("error")
-                    }
-                else:
-                    return {
-                        "success": False,
-                        "error": f"Test failed with status {response.status_code}"
-                    }
+            response = await http_client_pool.post(
+                f"{self.base_url}/agents/{agent.id}/execute",
+                json={
+                    "input": test_input,
+                    "execution_options": {}
+                },
+                timeout=30.0
+            )
+            
+            if response.status_code == 200:
+                result = response.json()
+                return {
+                    "success": result.get("success", False),
+                    "output": result.get("output"),
+                    "error": result.get("error")
+                }
+            else:
+                return {
+                    "success": False,
+                    "error": f"Test failed with status {response.status_code}"
+                }
                     
         except Exception as e:
             logger.error(f"Failed to test agent: {str(e)}")

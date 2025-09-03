@@ -3,6 +3,7 @@ from datetime import datetime
 from bson import ObjectId
 from pymongo.errors import DuplicateKeyError
 from app.core.database import get_database
+from app.core.cache import cache_service
 from app.models.llm import LLMProfileCreate, LLMProfileUpdate, LLMProfile
 
 
@@ -42,10 +43,19 @@ class LLMProfileCRUD:
         return None
     
     async def get_by_name(self, name: str) -> Optional[LLMProfile]:
+        # Try to get from cache first
+        cached = await cache_service.get_llm_profile(name)
+        if cached:
+            return LLMProfile(**cached)
+        
+        # Get from database
         db = get_database()
         profile = await db[self.collection_name].find_one({"name": name})
         if profile:
-            return LLMProfile(**self._prepare_document(profile))
+            prepared = self._prepare_document(profile)
+            # Cache the profile
+            await cache_service.set_llm_profile(name, prepared)
+            return LLMProfile(**prepared)
         return None
     
     async def list(self, skip: int = 0, limit: int = 100, active_only: bool = False) -> List[LLMProfile]:
@@ -75,7 +85,11 @@ class LLMProfileCRUD:
                 
                 if result.modified_count == 1:
                     updated_profile = await db[self.collection_name].find_one({"_id": ObjectId(profile_id)})
-                    return LLMProfile(**self._prepare_document(updated_profile))
+                    prepared = self._prepare_document(updated_profile)
+                    # Invalidate cache if name exists
+                    if prepared and "name" in prepared:
+                        await cache_service.invalidate_llm_profile(prepared["name"])
+                    return LLMProfile(**prepared) if prepared else None
             except DuplicateKeyError:
                 raise ValueError(f"LLM profile with name already exists")
         

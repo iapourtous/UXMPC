@@ -392,15 +392,72 @@ const MetaAgentCreator = () => {
                     />
                   </Form.Item>
 
+                  <Form.Item 
+                    name="create_missing_tools" 
+                    label={
+                      <Space>
+                        <ToolOutlined />
+                        <span style={{ fontWeight: 'bold' }}>Tool Creation Strategy</span>
+                      </Space>
+                    }
+                  >
+                    <Select 
+                      style={{ width: '100%' }}
+                      placeholder="Choose how to handle tools"
+                    >
+                      <Option value={true}>
+                        <Space>
+                          <ThunderboltOutlined style={{ color: '#52c41a' }} />
+                          <div>
+                            <div style={{ fontWeight: 'bold' }}>Create custom tools if needed</div>
+                            <div style={{ fontSize: '12px', color: '#666' }}>
+                              The AI will create new tools specifically tailored for your agent
+                            </div>
+                          </div>
+                        </Space>
+                      </Option>
+                      <Option value={false}>
+                        <Space>
+                          <ApiOutlined style={{ color: '#1890ff' }} />
+                          <div>
+                            <div style={{ fontWeight: 'bold' }}>Use existing tools only</div>
+                            <div style={{ fontSize: '12px', color: '#666' }}>
+                              The AI will adapt the agent to work with available tools
+                            </div>
+                          </div>
+                        </Space>
+                      </Option>
+                    </Select>
+                  </Form.Item>
+
+                  {form.getFieldValue('create_missing_tools') === false && (
+                    <Alert
+                      message="Existing Tools Mode"
+                      description="The agent will be configured to use only existing tools. The AI will adapt the agent's capabilities to match what's available."
+                      type="info"
+                      showIcon
+                      icon={<SafetyCertificateOutlined />}
+                      style={{ marginBottom: 16 }}
+                    />
+                  )}
+
+                  {form.getFieldValue('create_missing_tools') === true && (
+                    <Form.Item 
+                      name="max_tools_to_create" 
+                      label="Maximum tools to create"
+                    >
+                      <Select style={{ width: '100%' }}>
+                        <Option value={3}>Up to 3 tools</Option>
+                        <Option value={5}>Up to 5 tools (default)</Option>
+                        <Option value={10}>Up to 10 tools</Option>
+                      </Select>
+                    </Form.Item>
+                  )}
+
                   <Space>
                     <Form.Item name="auto_activate" valuePropName="checked">
                       <Button type={form.getFieldValue('auto_activate') ? 'primary' : 'default'}>
-                        Auto-activate
-                      </Button>
-                    </Form.Item>
-                    <Form.Item name="create_missing_tools" valuePropName="checked">
-                      <Button type={form.getFieldValue('create_missing_tools') ? 'primary' : 'default'}>
-                        Create missing tools
+                        Auto-activate when ready
                       </Button>
                     </Form.Item>
                     <Form.Item name="test_agent" valuePropName="checked">

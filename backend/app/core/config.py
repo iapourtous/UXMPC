@@ -6,6 +6,7 @@ class Settings(BaseSettings):
     mongodb_url: str = "mongodb://localhost:27017"
     database_name: str = "uxmcp"
     mcp_server_url: str = "http://localhost:8000/mcp"
+    redis_url: str = "redis://localhost:6379"
     log_level: str = "INFO"
     
     class Config:

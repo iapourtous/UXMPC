@@ -10,7 +10,7 @@ from app.services.service_crud import service_crud
 from app.models.service import ServiceCreate, ServiceUpdate, ServiceParam
 from app.core.dynamic_router import mount_service, unmount_service
 from fastapi import FastAPI
-import httpx
+from app.core.http_client_pool import http_client_pool
 import json
 import logging
 import urllib.parse
@@ -263,27 +263,26 @@ class AgentTools:
             for param_name, param_value in path_params.items():
                 url = url.replace(f"{{{param_name}}}", str(param_value))
             
-            # Make the request
-            async with httpx.AsyncClient(timeout=30.0) as client:
-                if service.method == "GET":
-                    # For GET, non-path params go as query params
-                    query_params = {}
-                    for k, v in other_params.items():
-                        # Convert complex objects to JSON strings for query params
-                        if isinstance(v, (dict, list)):
-                            query_params[k] = json.dumps(v)
-                        else:
-                            query_params[k] = v
-                    response = await client.get(url, params=query_params)
-                elif service.method == "POST":
-                    # For POST, send all non-path params in body
-                    response = await client.post(url, json=other_params)
-                elif service.method == "PUT":
-                    response = await client.put(url, json=params)
-                elif service.method == "DELETE":
-                    response = await client.delete(url)
-                else:
-                    response = await client.request(service.method, url, json=params)
+            # Make the request using pooled client
+            if service.method == "GET":
+                # For GET, non-path params go as query params
+                query_params = {}
+                for k, v in other_params.items():
+                    # Convert complex objects to JSON strings for query params
+                    if isinstance(v, (dict, list)):
+                        query_params[k] = json.dumps(v)
+                    else:
+                        query_params[k] = v
+                response = await http_client_pool.get(url, params=query_params, timeout=30.0)
+            elif service.method == "POST":
+                # For POST, send all non-path params in body
+                response = await http_client_pool.post(url, json=other_params, timeout=30.0)
+            elif service.method == "PUT":
+                response = await http_client_pool.put(url, json=params, timeout=30.0)
+            elif service.method == "DELETE":
+                response = await http_client_pool.delete(url, timeout=30.0)
+            else:
+                response = await http_client_pool.request(service.method, url, json=params, timeout=30.0)
             
             # Parse response
             try:
@@ -334,39 +333,38 @@ class AgentTools:
             Dict with 'success', 'logs' array, and 'error' (if any)
         """
         try:
-            async with httpx.AsyncClient() as client:
-                params = {"limit": limit}
-                if level:
-                    params["level"] = level
-                    
-                response = await client.get(
-                    f"{self.base_url}/logs/services/{service_id}/latest",
-                    params=params
-                )
+            params = {"limit": limit}
+            if level:
+                params["level"] = level
                 
-                if response.status_code == 200:
-                    logs = response.json()
-                    
-                    # Simplify logs for agent
-                    simplified_logs = []
-                    for log in logs:
-                        simplified_logs.append({
-                            "timestamp": log.get("timestamp"),
-                            "level": log.get("level"),
-                            "message": log.get("message"),
-                            "details": log.get("details", {})
-                        })
-                    
-                    return {
-                        "success": True,
-                        "logs": simplified_logs,
-                        "count": len(simplified_logs)
-                    }
-                else:
-                    return {
-                        "success": False,
-                        "error": f"Failed to fetch logs: {response.status_code}"
-                    }
+            response = await http_client_pool.get(
+                f"{self.base_url}/logs/services/{service_id}/latest",
+                params=params
+            )
+            
+            if response.status_code == 200:
+                logs = response.json()
+                
+                # Simplify logs for agent
+                simplified_logs = []
+                for log in logs:
+                    simplified_logs.append({
+                        "timestamp": log.get("timestamp"),
+                        "level": log.get("level"),
+                        "message": log.get("message"),
+                        "details": log.get("details", {})
+                    })
+                
+                return {
+                    "success": True,
+                    "logs": simplified_logs,
+                    "count": len(simplified_logs)
+                }
+            else:
+                return {
+                    "success": False,
+                    "error": f"Failed to fetch logs: {response.status_code}"
+                }
                     
         except Exception as e:
             logger.error(f"Failed to get service logs: {str(e)}")
