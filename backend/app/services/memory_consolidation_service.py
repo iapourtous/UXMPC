@@ -284,7 +284,24 @@ class MemoryConsolidationService:
                 metadata=memory_dict['metadata']
             )
             
-            # 5. Delete original memories
+            # 5. Send to collective memory for N4L conversion
+            try:
+                from app.services.collective_memory_service import collective_memory_service
+                
+                collective_memory = await collective_memory_service.process_consolidated_memory(
+                    consolidated_content=consolidated_content,
+                    agent_id=agent_id,
+                    source_memory_ids=memory_ids
+                )
+                
+                if collective_memory:
+                    logger.info(f"Added {len(collective_memory.n4l_statements)} N4L statements to collective knowledge")
+                    
+            except Exception as e:
+                # Don't fail consolidation if collective memory fails
+                logger.warning(f"Failed to process collective memory: {e}")
+            
+            # 6. Delete original memories
             await self.delete_memories(agent_id, memory_ids)
             
             logger.info(f"Successfully consolidated {len(memory_ids)} memories into memory {new_memory_id}")

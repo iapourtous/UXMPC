@@ -1596,6 +1596,193 @@ Les endpoints d'exécution d'agents (`/agents/{agent_id}/execute`) acceptent mai
 }
 ```
 
+### 🧠 Mémoire Collective N4L (/collective-memory)
+
+#### POST /collective-memory/search
+Rechercher dans la base de connaissances collective au format N4L.
+
+**Request Body:**
+```json
+{
+  "query": "machine learning",  // Optionnel: recherche textuelle
+  "entity": "Python",           // Optionnel: entité à rechercher
+  "relation_type": 0,           // Optionnel: 0=Similarity, 1=Causality, 2=Containment, 3=Property
+  "contexts": ["technology"],   // Optionnel: filtrer par contextes/domaines
+  "min_confidence": 0.5,        // Seuil de confiance minimum (default: 0.5)
+  "limit": 10                   // Nombre max de résultats (default: 10)
+}
+```
+
+**Response:**
+```json
+[
+  {
+    "subject": "Python",
+    "predicate": "is excellent for",
+    "object": "machine learning",
+    "relation_type": 3,
+    "contexts": ["technology", "machine_learning"],
+    "spatial_context": "General application",
+    "temporal_context": "Current era",
+    "confidence": 0.8,
+    "contributing_agents": ["agent-123", "science-agent"],
+    "created_at": "2025-01-01T10:00:00Z"
+  }
+]
+```
+
+#### GET /collective-memory/entity/{entity}
+Obtenir le graphe de connaissances autour d'une entité spécifique.
+
+**Query Parameters:**
+- `depth`: int (default: 2, min: 1, max: 5) - Profondeur d'exploration
+
+**Response:** N4LGraph avec toutes les déclarations connectées
+
+#### POST /collective-memory/consensus
+Gérer le consensus sur les déclarations N4L.
+
+**Request Body:**
+```json
+{
+  "statement": {
+    "subject": "Docker",
+    "predicate": "is",
+    "object": "containerization platform",
+    "relation_type": 3,
+    "contexts": ["technology"]
+  },
+  "agent_id": "agent-456",
+  "action": "propose|validate|dispute",
+  "reason": "Optional reason for dispute"
+}
+```
+
+**Response:** N4LStatement mis à jour avec nouveau score de confiance
+
+#### GET /collective-memory/stats
+Obtenir les statistiques sur la base de connaissances collective.
+
+**Response:**
+```json
+{
+  "storage_mode": "N4L File",
+  "file_path": "/data/world_model.n4l",
+  "file_size_kb": 42.5,
+  "total_statements": 150,
+  "total_memories": 25,
+  "unique_entities": 87,
+  "unique_agents": 5,
+  "unique_contexts": 12,
+  "confidence_distribution": {
+    "high": 45,    // >= 0.8
+    "medium": 85,  // 0.5-0.8
+    "low": 20      // < 0.5
+  },
+  "last_updated": "2025-01-01T15:30:00Z"
+}
+```
+
+#### GET /collective-memory/export/n4l
+Exporter le graphe de connaissances au format N4L.
+
+**Query Parameters:**
+- `domain`: string (optionnel) - Filtrer par domaine
+
+**Response:**
+```json
+{
+  "content": "# Collective Knowledge Graph\n# Generated: 2025-01-01\n\n:: technology ::\n\nPython (is excellent for) machine learning\n# @confidence: 0.80\n# @sources: [agent-123]\n",
+  "format": "n4l"
+}
+```
+
+#### GET /collective-memory/domains
+Obtenir tous les domaines/contextes dans la base de connaissances.
+
+**Response:**
+```json
+{
+  "domains": [
+    "technology",
+    "machine_learning",
+    "business",
+    "science",
+    "knowledge_management"
+  ]
+}
+```
+
+#### GET /collective-memory/top-entities
+Obtenir les entités les plus connectées dans le graphe.
+
+**Query Parameters:**
+- `limit`: int (default: 20, max: 100)
+
+**Response:**
+```json
+{
+  "entities": [
+    {
+      "name": "Python",
+      "connection_count": 25
+    },
+    {
+      "name": "N4L",
+      "connection_count": 18
+    }
+  ]
+}
+```
+
+#### GET /collective-memory/recent-statements
+Obtenir les déclarations N4L les plus récentes.
+
+**Query Parameters:**
+- `limit`: int (default: 10, max: 50)
+
+**Response:** Liste de N4LStatement
+
+#### POST /collective-memory/test/text-to-n4l
+[TEST] Convertir un texte en déclarations N4L.
+
+**Request Body:**
+```json
+{
+  "text": "Python is a programming language excellent for machine learning and data science."
+}
+```
+
+**Response:**
+```json
+{
+  "input_text": "...",
+  "extracted_entities": ["Python", "machine learning", "data science"],
+  "n4l_statements": [...],
+  "n4l_syntax": "Python (is) programming language\n...",
+  "statement_count": 3
+}
+```
+
+#### GET /collective-memory/world-model/view
+Visualiser le fichier du modèle monde N4L.
+
+**Response:**
+```json
+{
+  "content": "# UXMCP Collective World Model\n# Last Updated: 2025-01-01\n...",
+  "filepath": "/data/world_model.n4l",
+  "size_bytes": 43520,
+  "last_modified": "2025-01-01T15:30:00Z",
+  "statement_count": 150
+}
+```
+
+#### GET /collective-memory/world-model/download
+Télécharger le fichier N4L du modèle monde.
+
+**Response:** Fichier N4L en téléchargement direct (Content-Type: text/plain)
+
 ### 🎨 Demos (/demos)
 
 #### POST /demos/
