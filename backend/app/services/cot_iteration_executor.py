@@ -48,6 +48,42 @@ class IterationExecutor:
         self.intrinsic_executor = intrinsic_tools_executor
         self.prompt_loader = PromptLoader()
     
+    async def _detect_stagnation(
+        self,
+        iterations: List[ReasoningIteration]
+    ) -> Tuple[bool, str]:
+        """Detect if reasoning is stagnating or regressing"""
+        if len(iterations) < 3:
+            return False, "not_enough_data"
+        
+        # Check if we already did a strategic pivot recently (within last 3 iterations)
+        recent_pivots = [it for it in iterations[-3:] if it.reasoning_type == "strategic_pivot"]
+        if recent_pivots:
+            return False, "recent_pivot_active"
+        
+        # Get last 3 iterations' confidence
+        recent_confidences = [it.confidence for it in iterations[-3:]]
+        
+        # Check for regression (confidence dropping)
+        if recent_confidences[0] > recent_confidences[-1] + 0.10:
+            return True, "regressing"
+        
+        # Check for stagnation (confidence not improving)
+        confidence_variance = max(recent_confidences) - min(recent_confidences)
+        avg_confidence = sum(recent_confidences) / len(recent_confidences)
+        
+        if confidence_variance < 0.05 and avg_confidence < 0.70:
+            return True, "stagnating_low"
+        
+        # Check for oscillation
+        if len(iterations) >= 4:
+            last_4 = [it.confidence for it in iterations[-4:]]
+            if (last_4[0] > last_4[1] < last_4[2] > last_4[3] or
+                last_4[0] < last_4[1] > last_4[2] < last_4[3]):
+                return True, "oscillating"
+        
+        return False, "progressing"
+    
     async def execute_iteration(
         self,
         iteration_num: int,
@@ -62,6 +98,30 @@ class IterationExecutor:
         unified_logger: UnifiedLogger
     ) -> ReasoningIteration:
         """Execute a single reasoning iteration with tool support"""
+        
+        # Check for stagnation/regression after 3+ iterations
+        # But avoid checking if we're already in recovery or strategic analysis mode
+        if (len(previous_iterations) >= 3 and 
+            not context.get('in_strategic_analysis', False) and
+            not context.get('recovery_mode', False)):
+            is_stagnant, stagnation_type = await self._detect_stagnation(previous_iterations)
+            
+            if is_stagnant:
+                # Execute strategic analysis iteration
+                unified_logger.info(f"Stagnation detected: {stagnation_type}. Triggering strategic analysis.")
+                return await self._execute_strategic_analysis(
+                    iteration_num,
+                    problem,
+                    context,
+                    previous_iterations,
+                    stagnation_type,
+                    complexity,
+                    llm_profile,
+                    agent_config,
+                    tools,
+                    tool_executor,
+                    unified_logger
+                )
         
         # Debug tools at entry
         await unified_logger.debug(
@@ -206,7 +266,12 @@ class IterationExecutor:
                             )
                         
                         # Check if result needs summarization (>10000 chars)
-                        result_str = str(raw_result)
+                        # Convert result to string properly
+                        import json
+                        if isinstance(raw_result, dict) or isinstance(raw_result, list):
+                            result_str = json.dumps(raw_result, indent=2, default=str)
+                        else:
+                            result_str = str(raw_result)
                         if len(result_str) > 10000:
                             # Summarize long results immediately after execution
                             try:
@@ -228,6 +293,35 @@ class IterationExecutor:
                                     summarized_text = summary_result
                                     urls = []
                                 
+                                # Store the summarized result in agent's memory
+                                if context and context.get('agent_id'):
+                                    try:
+                                        from app.core.agent_memory_tools import memory_store
+                                        
+                                        # Determine importance based on content length and tool type
+                                        importance = min(0.9, 0.7 + (len(result_str) / 50000))  # Higher importance for longer content
+                                        
+                                        # Convert everything to simple text
+                                        if isinstance(summarized_text, dict) or isinstance(summarized_text, list):
+                                            summarized_text = json.dumps(summarized_text, indent=2, default=str)
+                                        else:
+                                            summarized_text = str(summarized_text)
+                                        
+                                        # Simple text format for memory
+                                        memory_content = f"Tool: {tool_call.tool_name}\n\n{summarized_text}"
+                                        
+                                        await memory_store(
+                                            agent_id=context['agent_id'],
+                                            content=memory_content,
+                                            importance=importance,
+                                            tags=["tool_result", tool_call.tool_name, "summarized"],
+                                            conversation_id=context.get('conversation_id')
+                                        )
+                                        
+                                        logger.debug(f"Stored summarized result from {tool_call.tool_name} in agent memory")
+                                    except Exception as mem_error:
+                                        logger.warning(f"Failed to store result in memory: {mem_error}")
+                                
                                 # Return enriched result with summary
                                 return ToolResult(
                                     tool_name=tool_call.tool_name,
@@ -248,6 +342,35 @@ class IterationExecutor:
                                     success=True
                                 )
                         else:
+                            # No summarization needed but still store important results in memory
+                            if context and context.get('agent_id') and len(result_str) > 500:
+                                try:
+                                    from app.core.agent_memory_tools import memory_store
+                                    
+                                    # For shorter results, store them as-is (they're already manageable)
+                                    importance = min(0.7, 0.5 + (len(result_str) / 10000))
+                                    
+                                    # Simple text conversion
+                                    if isinstance(raw_result, dict) or isinstance(raw_result, list):
+                                        result_text = json.dumps(raw_result, indent=2, default=str)
+                                    else:
+                                        result_text = str(raw_result)
+                                    
+                                    # Simple text format for memory
+                                    memory_content = f"Tool: {tool_call.tool_name}\n\n{result_text}"
+                                    
+                                    await memory_store(
+                                        agent_id=context['agent_id'],
+                                        content=memory_content,
+                                        importance=importance,
+                                        tags=["tool_result", tool_call.tool_name],
+                                        conversation_id=context.get('conversation_id')
+                                    )
+                                    
+                                    logger.debug(f"Stored result from {tool_call.tool_name} in agent memory")
+                                except Exception as mem_error:
+                                    logger.warning(f"Failed to store result in memory: {mem_error}")
+                            
                             # No summarization needed
                             return ToolResult(
                                 tool_name=tool_call.tool_name,
@@ -364,6 +487,15 @@ class IterationExecutor:
         # Add recovery context if in recovery mode
         if context.get('recovery_mode'):
             prompt_parts.append(context.get('recovery_prompt', ''))
+        
+        # Add strategic pivot context if we just did a strategic analysis
+        if context.get('strategic_pivot'):
+            pivot = context['strategic_pivot']
+            prompt_parts.append(f"\\n## 🎯 STRATEGIC PIVOT ACTIVE:")
+            prompt_parts.append(f"Root cause of stagnation: {pivot.get('root_cause', 'Unknown')}")
+            prompt_parts.append(f"New strategy to follow: {pivot.get('new_strategy', 'Alternative approach')}")
+            prompt_parts.append(f"Key insight: {pivot.get('key_insight', 'Change approach')}")
+            prompt_parts.append("⚡ Apply this new strategy in your reasoning!\\n")
         
         # Add main problem
         prompt_parts.append(f"## Problem to Solve:\n{problem}\n")
@@ -671,3 +803,230 @@ class IterationExecutor:
                 result["feedback"] = "Low scores indicate issues with the iteration"
         
         return result
+    
+    async def _execute_strategic_analysis(
+        self,
+        iteration_num: int,
+        problem: str,
+        context: Dict[str, Any],
+        previous_iterations: List[ReasoningIteration],
+        stagnation_type: str,
+        complexity: Any,
+        llm_profile: Any,
+        agent_config: Dict[str, Any],
+        tools: List[Dict[str, Any]],
+        tool_executor: Any,
+        unified_logger: UnifiedLogger
+    ) -> ReasoningIteration:
+        """Execute a special strategic analysis iteration when stagnant"""
+        
+        # Mark that we're in strategic analysis to prevent recursion
+        context['in_strategic_analysis'] = True
+        
+        # Load strategic analysis prompt from file without variable substitution
+        import os
+        prompt_path = os.path.join(
+            os.path.dirname(os.path.dirname(__file__)),
+            "prompts", "cot", "strategic_analysis.txt"
+        )
+        
+        try:
+            with open(prompt_path, 'r') as f:
+                prompt_template = f.read()
+        except Exception as e:
+            unified_logger.error(f"Failed to load strategic analysis prompt: {e}")
+            # Fallback to embedded prompt if file fails
+            prompt_template = self._get_fallback_strategic_prompt()
+        
+        # Prepare variables for prompt
+        confidence_trend = ", ".join([f"{it.confidence:.0%}" for it in previous_iterations[-5:]])
+        tools_used = list(set(
+            tc.tool_name for it in previous_iterations 
+            for tc in it.tool_calls if it.tool_calls
+        ))
+        tools_used_str = ", ".join(tools_used) if tools_used else "None"
+        
+        key_facts = context.get('accumulated_facts', [])[-5:]
+        key_facts_str = "; ".join(key_facts) if key_facts else "None discovered yet"
+        
+        # Manually replace variables to avoid issues with JSON examples in prompt
+        strategic_prompt = prompt_template
+        strategic_prompt = strategic_prompt.replace("{iteration_count}", str(len(previous_iterations)))
+        strategic_prompt = strategic_prompt.replace("{problem}", problem)
+        strategic_prompt = strategic_prompt.replace("{confidence_trend}", confidence_trend)
+        strategic_prompt = strategic_prompt.replace("{tools_used}", tools_used_str)
+        strategic_prompt = strategic_prompt.replace("{key_facts}", key_facts_str)
+        strategic_prompt = strategic_prompt.replace("{stagnation_type}", stagnation_type)
+        
+        # Call LLM for strategic analysis
+        try:
+            from app.core.llm_client import llm_client
+            
+            await unified_logger.debug("Calling LLM for strategic analysis")
+            
+            # Use JSON mode to ensure we get valid JSON
+            import copy
+            json_mode_profile = copy.copy(llm_profile)
+            json_mode_profile.mode = "json"
+            
+            analysis_response = await llm_client.call_advanced(
+                llm_profile=json_mode_profile,
+                prompt=strategic_prompt,
+                temperature=0.7,
+                max_tokens=1500
+            )
+            
+            await unified_logger.debug(
+                "Strategic analysis response received",
+                response_preview=analysis_response[:500] if analysis_response else None
+            )
+            
+            # Parse the strategic analysis
+            import json
+            from app.core.json_extractor import extract_json_from_text
+            
+            analysis = extract_json_from_text(analysis_response)
+            
+            # Validate that we got a proper analysis
+            if not analysis or not isinstance(analysis, dict):
+                await unified_logger.warning("Strategic analysis returned invalid format, using defaults")
+                analysis = {
+                    'root_cause': 'Unable to determine - analysis format invalid',
+                    'failed_patterns': ['Previous approaches not working'],
+                    'new_strategy': 'Try simpler, more direct approach',
+                    'key_insight': 'Need to simplify the problem',
+                    'next_actions': [],
+                    'confidence_in_pivot': 0.6
+                }
+            
+            # Create a special iteration with the new strategy
+            strategic_thought = f"""STRATEGIC PIVOT ANALYSIS:
+
+Root Cause: {analysis.get('root_cause', 'Unknown')}
+
+New Strategy: {analysis.get('new_strategy', 'Trying different approach')}
+
+Key Insight: {analysis.get('key_insight', 'Need to change approach')}
+
+I will now execute this new strategy with the following actions:
+{json.dumps(analysis.get('next_actions', []), indent=2)}"""
+            
+            # For now, don't try to execute tools from strategic analysis
+            # Just use the analysis to guide the next iteration
+            tool_calls = []
+            tool_results = []
+            
+            # Create strategic iteration with new direction
+            # Reset context to allow normal iterations after this
+            context['in_strategic_analysis'] = False
+            
+            # Store the new strategy in context for next iterations
+            context['strategic_pivot'] = {
+                'new_strategy': analysis.get('new_strategy'),
+                'key_insight': analysis.get('key_insight'),
+                'root_cause': analysis.get('root_cause')
+            }
+            
+            iteration = ReasoningIteration(
+                iteration_number=iteration_num,
+                reasoning_type="strategic_pivot",
+                thought=strategic_thought,
+                tool_calls=tool_calls,
+                tool_results=tool_results,
+                evaluation=f"Strategic pivot: {analysis.get('new_strategy', 'alternative approach')}",
+                confidence=max(0.5, analysis.get('confidence_in_pivot', 0.5)),  # At least 50% confidence in pivot
+                should_continue=True,
+                knowledge_gathered=analysis.get('key_insight', '')
+            )
+            
+            await unified_logger.info(
+                f"Strategic pivot executed",
+                new_strategy=analysis.get('new_strategy'),
+                confidence_in_pivot=analysis.get('confidence_in_pivot', 0.5)
+            )
+            
+            return iteration
+            
+        except Exception as e:
+            import traceback
+            await unified_logger.error(
+                f"Strategic analysis failed: {e}",
+                error_type=type(e).__name__,
+                traceback=traceback.format_exc()
+            )
+            # Mark that we're no longer in strategic analysis
+            context['in_strategic_analysis'] = False
+            context['force_new_approach'] = True
+            
+            # Create a simple fallback iteration instead of recursing
+            return ReasoningIteration(
+                iteration_number=iteration_num,
+                reasoning_type="fallback_after_strategic_failure",
+                thought="Strategic analysis failed. Continuing with simplified approach to avoid getting stuck.",
+                tool_calls=[],
+                tool_results=[],
+                evaluation="Need to continue with available information",
+                confidence=0.4,
+                should_continue=True,
+                knowledge_gathered="Strategic analysis unavailable"
+            )
+    
+    def _get_fallback_strategic_prompt(self) -> str:
+        """Get fallback strategic prompt if file loading fails"""
+        return """## Strategic Analysis Required
+
+You've been working on this problem for {iteration_count} iterations, but progress has stagnated.
+
+### Current Situation:
+- Problem: {problem}
+- Confidence trend: {confidence_trend}
+- Tools used so far: {tools_used}
+- Key facts discovered: {key_facts}
+- Stagnation type: {stagnation_type}
+
+### Your Task: Diagnose and Pivot
+
+**1. ROOT CAUSE ANALYSIS**
+Identify WHY you're stuck:
+- Are you asking the wrong questions?
+- Are you using inappropriate tools?
+- Is there a fundamental misunderstanding?
+- Are you overthinking a simple problem?
+- Is critical information missing?
+- Are your assumptions incorrect?
+
+**2. PATTERN RECOGNITION**
+What patterns do you see in your previous attempts:
+- Repeated failures with specific tools?
+- Circular reasoning?
+- Missing a key insight?
+- Approaching from the wrong angle?
+
+**3. STRATEGIC PIVOT**
+Based on your analysis, define a NEW approach:
+- What completely different angle could you try?
+- What assumptions should you challenge?
+- What tools haven't you used that might help?
+- Should you simplify or break down the problem differently?
+- Is there an analogy or similar problem you could leverage?
+
+**4. CONCRETE NEXT STEPS**
+Propose your next 2-3 specific actions using this new strategy:
+- Be specific about which tools and parameters
+- Explain why this approach is fundamentally different
+- Set a clear success metric
+
+### Output Format:
+Return a JSON object with the following structure:
+- root_cause: Brief explanation of why you're stuck
+- failed_patterns: Array of patterns that aren't working
+- new_strategy: Description of your new approach
+- key_insight: What you realized that changes everything
+- next_actions: Array of action objects, each with:
+  - tool: The tool name to use
+  - purpose: Why this will work differently
+  - expected_outcome: What you expect to learn
+- confidence_in_pivot: Number between 0.0 and 1.0
+
+Remember: Einstein said "Insanity is doing the same thing over and over and expecting different results." 
+Time to try something genuinely different!"""

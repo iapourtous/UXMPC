@@ -240,10 +240,13 @@ class AgentMemoryService:
         query: str,
         k: int = 5,
         user_id: Optional[str] = None,
-        content_types: Optional[List[str]] = None
+        content_types: Optional[List[str]] = None,
+        use_hybrid_scoring: bool = True,
+        similarity_weight: float = 0.8,
+        utility_weight: float = 0.2
     ) -> List[MemorySearchResult]:
         """
-        Load relevant context for a query
+        Load relevant context for a query with hybrid scoring
         
         Args:
             agent_id: The agent's ID
@@ -251,9 +254,12 @@ class AgentMemoryService:
             k: Number of memories to retrieve
             user_id: Optional filter by user
             content_types: Optional filter by content types
+            use_hybrid_scoring: Whether to combine similarity and utility scores
+            similarity_weight: Weight for semantic similarity (default 0.8)
+            utility_weight: Weight for utility score (default 0.2)
             
         Returns:
-            List of relevant memories with scores
+            List of relevant memories with combined scores
         """
         # Build filter
         filter_dict = {}
@@ -262,19 +268,28 @@ class AgentMemoryService:
         if content_types:
             filter_dict['content_type'] = {"$in": content_types}
         
-        # Search in vector store
+        # Search in vector store - get more results for hybrid scoring
+        search_k = k * 3 if use_hybrid_scoring else k
         vector_results = self.vector_store.search_memories(
             agent_id=agent_id,
             query=query,
-            k=k,
+            k=search_k,
             filter_dict=filter_dict if filter_dict else None
         )
         
         # Load full memory objects from MongoDB
         db = get_database()
-        results = []
+        results_with_scores = []
         
-        for memory_id, content, metadata, score in vector_results:
+        # Get max access count for utility calculation
+        all_memories = await db[self.collection_name].find(
+            {"agent_id": agent_id}, {"access_count": 1}
+        ).to_list(None)
+        max_access = max([m.get('access_count', 0) for m in all_memories] + [1])
+        
+        now = datetime.utcnow()
+        
+        for memory_id, content, metadata, similarity_score in vector_results:
             # Get full memory from MongoDB
             memory_doc = await db[self.collection_name].find_one(
                 {"_id": ObjectId(memory_id)}
@@ -283,6 +298,28 @@ class AgentMemoryService:
             if memory_doc:
                 memory_doc['id'] = str(memory_doc['_id'])
                 memory = AgentMemory(**memory_doc)
+                
+                # Calculate hybrid score if enabled
+                if use_hybrid_scoring:
+                    # Calculate utility score
+                    utility_score = self._calculate_utility_score(
+                        memory_doc, now, max_access
+                    )
+                    
+                    # Combine scores: weighted average
+                    combined_score = (
+                        similarity_weight * similarity_score +
+                        utility_weight * utility_score
+                    )
+                    
+                    relevance_explanation = (
+                        f"Hybrid score: {combined_score:.3f} "
+                        f"(similarity: {similarity_score:.3f}, "
+                        f"utility: {utility_score:.3f})"
+                    )
+                else:
+                    combined_score = similarity_score
+                    relevance_explanation = f"Semantic similarity: {similarity_score:.3f}"
                 
                 # Update access count and last accessed
                 await db[self.collection_name].update_one(
@@ -293,11 +330,20 @@ class AgentMemoryService:
                     }
                 )
                 
-                results.append(MemorySearchResult(
-                    memory=memory,
-                    score=score,
-                    relevance_explanation=f"Semantic similarity: {score:.2f}"
-                ))
+                results_with_scores.append((memory, combined_score, relevance_explanation))
+        
+        # Sort by combined score and take top k
+        results_with_scores.sort(key=lambda x: x[1], reverse=True)
+        
+        # Return top k results
+        results = [
+            MemorySearchResult(
+                memory=memory,
+                score=score,
+                relevance_explanation=explanation
+            )
+            for memory, score, explanation in results_with_scores[:k]
+        ]
         
         return results
     
@@ -484,7 +530,7 @@ class AgentMemoryService:
         search_request: MemorySearchRequest
     ) -> List[MemorySearchResult]:
         """
-        Search memories with advanced filtering
+        Search memories with advanced filtering and hybrid scoring
         
         Args:
             agent_id: The agent's ID
@@ -493,13 +539,16 @@ class AgentMemoryService:
         Returns:
             List of matching memories
         """
-        # Use vector search with the query
+        # Use hybrid scoring by default for search
         results = await self.load_context(
             agent_id=agent_id,
             query=search_request.query,
             k=search_request.k,
             user_id=search_request.user_id,
-            content_types=search_request.content_types
+            content_types=search_request.content_types,
+            use_hybrid_scoring=True,
+            similarity_weight=0.8,
+            utility_weight=0.2
         )
         
         # Apply additional filters

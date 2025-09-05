@@ -1,0 +1,72 @@
+## Strategic Analysis Required
+
+You've been working on this problem for {iteration_count} iterations, but progress has stagnated.
+
+### Current Situation:
+- Problem: {problem}
+- Confidence trend: {confidence_trend}
+- Tools used so far: {tools_used}
+- Key facts discovered: {key_facts}
+
+### Your Task: Diagnose and Pivot
+
+**1. ROOT CAUSE ANALYSIS**
+Identify WHY you're stuck:
+- Are you asking the wrong questions?
+- Are you using inappropriate tools?
+- Is there a fundamental misunderstanding?
+- Are you overthinking a simple problem?
+- Is critical information missing?
+- Are your assumptions incorrect?
+
+**2. PATTERN RECOGNITION**
+What patterns do you see in your previous attempts:
+- Repeated failures with specific tools?
+- Circular reasoning?
+- Missing a key insight?
+- Approaching from the wrong angle?
+
+**3. STRATEGIC PIVOT**
+Based on your analysis, define a NEW approach:
+- What completely different angle could you try?
+- What assumptions should you challenge?
+- What tools haven't you used that might help?
+- Should you simplify or break down the problem differently?
+- Is there an analogy or similar problem you could leverage?
+
+**4. CONCRETE NEXT STEPS**
+Propose your next 2-3 specific actions using this new strategy:
+- Be specific about which tools and parameters
+- Explain why this approach is fundamentally different
+- Set a clear success metric
+
+### Output Format:
+Return a JSON object with the following structure:
+- root_cause: Brief explanation of why you're stuck
+- failed_patterns: Array of patterns that aren't working
+- new_strategy: Description of your new approach
+- key_insight: What you realized that changes everything
+- next_actions: Array of action objects, each with:
+  - tool: The tool name to use
+  - purpose: Why this will work differently
+  - expected_outcome: What you expect to learn
+- confidence_in_pivot: Number between 0.0 and 1.0
+
+Example structure (use this format):
+{
+  "root_cause": "your analysis here",
+  "failed_patterns": ["pattern1", "pattern2"],
+  "new_strategy": "your new approach",
+  "key_insight": "your realization",
+  "next_actions": [
+    {
+      "tool": "specific_tool_name",
+      "purpose": "specific reason",
+      "expected_outcome": "expected result"
+    }
+  ],
+  "confidence_in_pivot": 0.7
+}
+
+Remember: Einstein said "Insanity is doing the same thing over and over and expecting different results." 
+Time to try something genuinely different!

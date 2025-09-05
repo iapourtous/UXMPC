@@ -204,6 +204,8 @@ class AgentExecutor:
                 
                 # Prepare context for CoT
                 cot_context = {
+                    "agent_id": str(agent.id),  # Add agent_id for memory storage
+                    "conversation_id": execution_request.conversation_id if hasattr(execution_request, 'conversation_id') else None,
                     "memory_context": memory_context,
                     "available_tools": [tool["function"]["name"] for tool in tools] if tools else [],
                     "conversation_history": execution_request.conversation_history or [],

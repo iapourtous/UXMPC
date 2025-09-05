@@ -164,8 +164,13 @@ class AdaptiveChainOfThought:
             all_tool_results = []
             converged = False
             reason = "Not started"
+            strategic_pivots_count = 0
+            current_max_iterations = adjusted_max_iterations
             
-            for iteration_num in range(1, adjusted_max_iterations + 1):
+            iteration_num = 0
+            while iteration_num < current_max_iterations:
+                iteration_num += 1
+                
                 # Debug tools before passing to iteration
                 await unified_logger.debug(
                     f"About to execute iteration {iteration_num}",
@@ -192,10 +197,24 @@ class AdaptiveChainOfThought:
                 iterations.append(iteration)
                 all_tool_results.extend(iteration.tool_results)
                 
+                # Check if this was a strategic pivot
+                if iteration.reasoning_type == "strategic_pivot" and strategic_pivots_count < 2:
+                    strategic_pivots_count += 1
+                    # Add 2-3 more iterations after a strategic pivot to apply the new strategy
+                    additional_iterations = 3
+                    current_max_iterations = min(
+                        current_max_iterations + additional_iterations,
+                        adjusted_max_iterations + 5  # Cap total additions
+                    )
+                    await unified_logger.info(
+                        f"Strategic pivot detected, adding {additional_iterations} iterations",
+                        new_max=current_max_iterations
+                    )
+                
                 # Check convergence
                 converged, reason = self.convergence_detector.check_convergence(
                     iterations,
-                    adjusted_max_iterations,
+                    current_max_iterations,
                     has_tools=bool(combined_tools)
                 )
                 
