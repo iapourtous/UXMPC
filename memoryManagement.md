@@ -959,14 +959,344 @@ graph TD
 - Évite les recherches répétitives
 - Construit une base de connaissances personnalisée
 
+## 🌐 Mémoire Collective N4L - Semantic Spacetime
+
+### Vue d'Ensemble du Système Collectif
+
+Le système de mémoire collective implémente les principes du **Semantic Spacetime** de Mark Burgess, créant un graphe de connaissances partagé entre tous les agents au format N4L (Notes for Learning).
+
+```mermaid
+graph TD
+    subgraph "Architecture Mémoire Collective"
+        subgraph "Agents"
+            A1[Agent 1]
+            A2[Agent 2]
+            A3[Agent N]
+        end
+        
+        subgraph "Pipeline de Consolidation"
+            Consolidate[Consolidation des Mémoires]
+            Filter[Filtrage Collectif<br/>Extraction de Valeur]
+            Convert[Conversion N4L<br/>Semantic Spacetime]
+        end
+        
+        subgraph "Stockage Collectif"
+            WorldModel[world_model.n4l<br/>Fichier Unique]
+            MongoDB[(MongoDB<br/>Backup)]
+        end
+        
+        A1 --> Consolidate
+        A2 --> Consolidate
+        A3 --> Consolidate
+        
+        Consolidate --> Filter
+        Filter --> Convert
+        Convert --> WorldModel
+        Convert --> MongoDB
+        
+        WorldModel --> |Enrichissement| WorldModel
+    end
+    
+    style WorldModel fill:#e74c3c
+    style Convert fill:#3498db
+    style Filter fill:#f39c12
+```
+
+### Format N4L et Relations Sémantiques
+
+#### Les 4 Types de Relations N4L
+
+```mermaid
+classDiagram
+    class N4LRelationType {
+        <<enumeration>>
+        SIMILARITY: 0
+        CAUSALITY: 1  
+        CONTAINMENT: 2
+        PROPERTY: 3
+    }
+    
+    class N4LStatement {
+        +subject: str
+        +predicate: str
+        +object: str
+        +relation_type: N4LRelationType
+        +contexts: List[str]
+        +spatial_context: str
+        +temporal_context: str
+        +confidence: float
+        +contributing_agents: List[str]
+    }
+    
+    N4LStatement --> N4LRelationType: type
+```
+
+#### Structure du Format N4L
+
+```
+:: Domain Context ::                    # Espace conceptuel
+
++:: Intentional Stance ::               # Position intentionnelle
++:: @where: Spatial Context ::          # Localisation spatiale
++:: @when: Temporal Context ::          # Localisation temporelle
+
+Subject (predicate) Object              # Déclaration triplet
+# @confidence: 0.80                     # Score de confiance
+# @sources: [agent-123, agent-456]      # Agents contributeurs
+```
+
+### Principes du Semantic Spacetime Implémentés
+
+```mermaid
+graph LR
+    subgraph "Coordonnées Spacetime"
+        Space[Espace<br/>@where]
+        Time[Temps<br/>@when]
+        Intent[Intention<br/>+::]
+        Domain[Domaine<br/>::]
+    end
+    
+    subgraph "Propriétés"
+        Local[Localité<br/>Contexte situé]
+        Evolution[Évolution<br/>Changement temporel]
+        Consensus[Consensus<br/>Validation multi-agents]
+    end
+    
+    Space --> Local
+    Time --> Evolution
+    Intent --> Context[Contexte Sémantique]
+    Domain --> Context
+    Context --> Consensus
+    
+    style Space fill:#3498db
+    style Time fill:#2ecc71
+    style Intent fill:#e74c3c
+    style Domain fill:#f39c12
+```
+
+### Pipeline de Transformation N4L
+
+```mermaid
+sequenceDiagram
+    participant Memory as Mémoire Consolidée
+    participant Filter as Filtre Collectif
+    participant LLM as LLM Extractor
+    participant N4L as Convertisseur N4L
+    participant File as world_model.n4l
+    
+    Memory->>Filter: Contenu consolidé
+    Filter->>LLM: Extraction de valeur collective
+    LLM->>LLM: Identifier faits, relations, insights
+    LLM-->>Filter: Connaissances filtrées
+    Filter->>N4L: Contenu filtré
+    N4L->>N4L: Extraction entités et relations
+    N4L->>N4L: Classification relations (0-3)
+    N4L->>N4L: Extraction contextes spacetime
+    N4L->>File: Statements N4L
+    File->>File: Fusion avec existant
+    
+    Note over File: Déduplication par hash
+    Note over File: Augmentation confiance si doublon
+```
+
+### Exemple de World Model N4L
+
+```n4l
+# UXMCP Collective World Model
+# Last Updated: 2025-09-05T20:46:37
+# Total Statements: 143
+# Format: N4L (Notes for Learning) - Semantic Spacetime
+
+:: AI Research ::
+
++:: @where: Meta (company) ::
++:: @when: Recent research (2024) ::
+Meta (published) Llama models
+# @confidence: 0.80
+# @sources: [68865a0220455fc92b3f50f5]
+
+:: AI development ::
+
++:: @where: Global AI landscape ::
++:: @when: Current and future ::
+hybrid architectures (favored for) AGI development
+# @confidence: 0.90
+# @sources: [science-agent, tech-agent]
+```
+
+### Mécanisme de Consensus et Confiance
+
+```mermaid
+flowchart TD
+    Statement[Nouvelle Déclaration] --> Check{Existe déjà?}
+    Check -->|Non| Create[Créer avec confiance 0.8]
+    Check -->|Oui| Validate[Validation]
+    
+    Validate --> AddAgent[Ajouter agent contributeur]
+    AddAgent --> IncConf[Augmenter confiance +0.1]
+    IncConf --> MaxCheck{Confiance < 1.0?}
+    MaxCheck -->|Oui| Update[Mettre à jour]
+    MaxCheck -->|Non| Cap[Plafonner à 1.0]
+    
+    Create --> Store[(Stocker dans N4L)]
+    Update --> Store
+    Cap --> Store
+    
+    style Create fill:#2ecc71
+    style IncConf fill:#3498db
+    style Store fill:#e74c3c
+```
+
+### API Mémoire Collective
+
+```mermaid
+graph TD
+    subgraph "Endpoints Collective Memory"
+        Search[POST /collective-memory/search<br/>Recherche dans le graphe]
+        Entity[GET /collective-memory/entity/{entity}<br/>Graphe autour d'une entité]
+        Stats[GET /collective-memory/stats<br/>Statistiques du world model]
+        Export[GET /collective-memory/export/n4l<br/>Exporter le graphe N4L]
+        View[GET /collective-memory/world-model/view<br/>Visualiser le fichier]
+        Download[GET /collective-memory/world-model/download<br/>Télécharger N4L]
+        Consensus[POST /collective-memory/consensus<br/>Gérer le consensus]
+    end
+    
+    style Search fill:#3498db
+    style Entity fill:#2ecc71
+    style Stats fill:#f39c12
+    style Export fill:#9b59b6
+    style View fill:#2ecc71
+    style Download fill:#95a5a6
+    style Consensus fill:#e74c3c
+```
+
+### Analyse Semantic Spacetime du World Model
+
+#### Phénomènes Observés
+
+```mermaid
+graph TD
+    subgraph "Patterns Spacetime"
+        Locality[Localité Sémantique<br/>Connaissances situées]
+        Temporal[Trajectoires Temporelles<br/>Évolution des concepts]
+        Interference[Interférence Contextuelle<br/>Polysémie selon domaine]
+        Granularity[Granularité Variable<br/>Micro → Macro]
+    end
+    
+    subgraph "Exemples Concrets"
+        L1["@where: Meta company<br/>Connaissance localisée"]
+        T1["2024 → 2025 onwards<br/>Évolution temporelle"]
+        I1["hierarchical reasoning<br/>Sens variable par contexte"]
+        G1["Global → Organization → Company<br/>Niveaux de détail"]
+    end
+    
+    Locality --> L1
+    Temporal --> T1
+    Interference --> I1
+    Granularity --> G1
+    
+    style Locality fill:#3498db
+    style Temporal fill:#2ecc71
+    style Interference fill:#e74c3c
+    style Granularity fill:#f39c12
+```
+
+### Configuration du Système Collectif
+
+```yaml
+collective_memory:
+  storage_mode: "file"                    # Mode fichier N4L
+  file_path: "/data/world_model.n4l"      # Chemin du world model
+  enable_filtering: true                  # Filtrage collectif actif
+  filter_mode: "permissive"               # Mode permissif
+  deduplication: true                     # Déduplication par hash
+  consensus:
+    initial_confidence: 0.8               # Confiance initiale
+    confidence_increment: 0.1             # Incrément par validation
+    max_confidence: 1.0                   # Confiance maximale
+  n4l_relations:
+    similarity: 0                        # Similarité
+    causality: 1                         # Causalité
+    containment: 2                       # Contenance
+    property: 3                          # Propriété
+```
+
+### Avantages du Système N4L Collectif
+
+1. **Graphe de Connaissances Unifié** : Un seul modèle monde partagé
+2. **Coordonnées Spacetime** : Chaque connaissance est située dans l'espace-temps
+3. **Consensus Multi-Agents** : La validation croisée augmente la confiance
+4. **Évolution Temporelle** : Traçabilité de l'évolution des connaissances
+5. **Contextualisation Riche** : Domaines, spatial, temporel, intentionnel
+6. **Format Lisible** : N4L est human-readable et machine-processable
+7. **Fusion Automatique** : Enrichissement continu sans duplication
+
+### Cas d'Usage de la Mémoire Collective
+
+#### 1. Apprentissage Distribué
+- Les agents apprennent des expériences des autres
+- Accumulation de connaissances domaine par domaine
+- Patterns émergents depuis contributions multiples
+
+#### 2. Intelligence Collective
+- Résolution collaborative de problèmes
+- Validation croisée des faits
+- Construction consensuelle de la vérité
+
+#### 3. Navigation Spacetime
+- Recherche par coordonnées (où/quand)
+- Exploration de l'évolution temporelle
+- Analyse des contextes spatiaux
+
+### Statistiques du World Model
+
+```mermaid
+pie title Distribution des Domaines (Exemple)
+    "AI Research" : 25
+    "AI Development" : 20
+    "Computer Graphics" : 15
+    "System Architecture" : 12
+    "User Preferences" : 10
+    "Historical Events" : 8
+    "Technical Facts" : 10
+```
+
+### Monitoring de la Mémoire Collective
+
+```mermaid
+graph LR
+    subgraph "Métriques Clés"
+        Total[Statements: 143]
+        Domains[Domaines: 56]
+        Agents[Agents: 5]
+        Confidence[Confiance Moy: 0.82]
+        Size[Taille: 34.8 KB]
+    end
+    
+    subgraph "Croissance"
+        Day[+12/jour]
+        Week[+75/semaine]
+        Month[+287/mois]
+    end
+    
+    subgraph "Qualité"
+        High[Haute Conf: 45%]
+        Medium[Moy Conf: 40%]
+        Low[Basse Conf: 15%]
+    end
+```
+
 ## 🔮 Évolutions Futures
 
-- **Multi-Agent Memory Sharing**: Partage de mémoires entre agents
+- **Multi-Agent Memory Sharing**: ✅ Implémenté via N4L
 - **Memory Compression**: Compression intelligente des anciennes mémoires
-- **Semantic Clustering**: Regroupement automatique par thèmes
+- **Semantic Clustering**: ✅ Implémenté via domaines N4L
 - **Memory Templates**: Templates réutilisables pour types de mémoires
 - **Advanced Analytics**: Analyses prédictives basées sur l'historique
+- **Temporal Reasoning**: Raisonnement sur l'évolution temporelle
+- **Causal Inference**: Inférence causale depuis le graphe N4L
+- **Cross-Domain Learning**: Apprentissage inter-domaines
 
 ---
 
-> 📝 **Note**: Ce système de mémoire transforme les agents UXMCP en assistants véritablement contextuels et personnalisés, capables d'apprendre et d'évoluer avec chaque interaction.
+> 📝 **Note**: Le système de mémoire collective N4L transforme UXMCP en une véritable intelligence collective, où chaque agent contribue à un modèle monde partagé suivant les principes du Semantic Spacetime. Les connaissances sont situées dans l'espace-temps, évoluent par consensus, et s'enrichissent continuellement.

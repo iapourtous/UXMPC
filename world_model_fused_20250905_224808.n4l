@@ -1,0 +1,1062 @@
+# UXMCP Collective World Model
+# Last Updated: 2025-09-05T20:46:37.470465
+# Total Statements: 143
+# Format: N4L (Notes for Learning) - Semantic Spacetime
+
+
+:: AI Research ::
+
++:: @where: Meta (company) ::
++:: @when: Recent research (2024) ::
+Pursuit (relates_to) a
+# @confidence: 0.80
+# @sources: [68865a0220455fc92b3f50f5]
+
++:: @where: Meta (company) ::
++:: @when: Recent (implied from 'recent AI research') ::
+Meta (relates_to) researching
+# @confidence: 0.80
+# @sources: [68865a0220455fc92b3f50f5]
+
++:: @where: Meta (company) ::
++:: @when: Ongoing (recent research) ::
+Representations (relates_to) meta
+# @confidence: 0.80
+# @sources: [68865a0220455fc92b3f50f5]
+
++:: @where: Meta (company) ::
++:: @when: Recent publications (2024) ::
+Meta (relates_to) research
+# @confidence: 0.80
+# @sources: [68865a0220455fc92b3f50f5]
+
++:: @where: Meta (company) ::
++:: @when: Recent publications (2024) ::
+Meta (relates_to) published
+# @confidence: 0.80
+# @sources: [68865a0220455fc92b3f50f5]
+
+
+:: AI development ::
+
++:: @where: Global AI landscape ::
++:: @when: Current and future AI development ::
+hybrid architectures (favored for) AGI development
+# @confidence: 0.80
+# @sources: [68865a0220455fc92b3f50f5]
+
++:: @where: Global AI development landscape, with specific mention of China ::
++:: @when: Current AI development and competitive landscape ::
+OpenAI (faces challenges in balancing) intellectual property protection
+# @confidence: 0.80
+# @sources: [68865a0220455fc92b3f50f5]
+
++:: @where: Global ::
++:: @when: Ongoing ::
+Partnership on AI (crucial for addressing) AI alignment
+# @confidence: 0.80
+# @sources: [68865a0220455fc92b3f50f5]
+
+
+:: AI organizations ::
+
++:: @where: Leading AI organizations ::
++:: @when: Ongoing ::
+talent management (is critical challenge for) leading AI organizations
+# @confidence: 0.80
+# @sources: [68865a0220455fc92b3f50f5]
+
+
+:: AI/ML ::
+
++:: @where: academic and domain-specific sources ::
++:: @when: current knowledge base ::
+hierarchical reasoning model (may have distinct meanings across) cognitive science
+# @confidence: 0.80
+# @sources: [68865a0220455fc92b3f50f5]
+
+
+:: Artificial Intelligence ::
+
++:: @where: Meta AI ::
++:: @when: July 2025 onwards ::
+Meta AI (stated goal is to achieve) Artificial Superintelligence (ASI)
+# @confidence: 0.80
+# @sources: [68865a0220455fc92b3f50f5]
+
++:: @where: Meta AI ::
++:: @when: July 2025 onwards ::
+Meta AI (launched) Superintelligence Labs
+# @confidence: 0.80
+# @sources: [68865a0220455fc92b3f50f5]
+
++:: @where: Meta AI ::
++:: @when: 2025 onwards ::
+Superintelligence Labs (focusing on) Llama models
+# @confidence: 0.80
+# @sources: [68865a0220455fc92b3f50f5]
+
++:: @where: Meta AI ::
++:: @when: July 2025 onwards ::
+Meta AI (has not published) Peer-reviewed research
+# @confidence: 0.80
+# @sources: [68865a0220455fc92b3f50f5]
+
++:: @where: Meta AI ::
++:: @when: July 2025 onwards ::
+Expert skepticism (exists regarding) Meta AI
+# @confidence: 0.80
+# @sources: [68865a0220455fc92b3f50f5]
+
+
+:: Artificial Intelligence Research ::
+
++:: @where: Meta AI ::
++:: @when: July 2025 onwards ::
+Meta AI (researches) Thompson sampling
+# @confidence: 0.80
+# @sources: [68865a0220455fc92b3f50f5]
+
+
+:: Artificial Superintelligence ::
+
++:: @where: Meta AI ::
++:: @when: July 2025 onwards ::
+Meta AI (experienced) AI talent exodus
+# @confidence: 0.80
+# @sources: [68865a0220455fc92b3f50f5]
+
++:: @where: Meta AI ::
++:: @when: July 2025 onwards ::
+External researchers (have no consensus on) practical, scalable realization of recursive self-improvement by any organization
+# @confidence: 0.80
+# @sources: [68865a0220455fc92b3f50f5]
+
+
+:: Autonomous Systems ::
+
++:: @where: Meta AI ::
++:: @when: July 2025 onwards ::
+Meta AI (released) V-JEPA 2
+# @confidence: 0.80
+# @sources: [68865a0220455fc92b3f50f5]
+
++:: @where: Meta AI ::
++:: @when: July 2025 onwards ::
+Meta AI (is actively researching) Meta-learning
+# @confidence: 0.80
+# @sources: [68865a0220455fc92b3f50f5]
+
+
+:: Bandit Problems ::
+
++:: @where: Meta's AI research domain ::
++:: @when: Ongoing research, with specific papers dated 2024-06-20 and 2024-09-10 ::
+Learning (relates_to) a
+# @confidence: 0.80
+# @sources: [68865a0220455fc92b3f50f5]
+
+
+:: Cognitive Science ::
+
++:: @where: General academic and research domains ::
++:: @when: Current knowledge base and ongoing research ::
+hierarchical reasoning model (has potential connections to) cognitive architectures
+# @confidence: 0.80
+# @sources: [68865a0220455fc92b3f50f5]
+
+
+:: Competition ::
+
++:: @where: Global ::
++:: @when: Current ::
+Partnership on AI (crucial for addressing) energy efficiency
+# @confidence: 0.80
+# @sources: [68865a0220455fc92b3f50f5]
+
+
+:: German politics ::
+
++:: @where: North Rhine-Westphalia, Germany ::
++:: @when: Leading up to September 14, 2025 ::
+lack of comprehensive historical data (exists for) candidate deaths in German municipal elections
+# @confidence: 0.80
+# @sources: [68865a0220455fc92b3f50f5]
+
++:: @where: North Rhine-Westphalia ::
++:: @when: Weeks before September 14, 2025 ::
+AfD (Alternative für Deutschland) (is described as) far-right party
+# @confidence: 0.80
+# @sources: [68865a0220455fc92b3f50f5]
+
+
+:: Hybrid Architectures ::
+
++:: @where: General AI research and development ::
++:: @when: Current and future AI development ::
+AGI (can be developed using) hybrid architectures
+# @confidence: 0.80
+# @sources: [68865a0220455fc92b3f50f5]
+
+
+:: Information Retrieval ::
+
++:: @where: Academic and domain-specific sources ::
++:: @when: Current knowledge base ::
+hierarchical reasoning model (likely refers to) multi-level decision frameworks
+# @confidence: 0.80
+# @sources: [68865a0220455fc92b3f50f5]
+
++:: @where: General knowledge base, AI/ML domain ::
++:: @when: Current knowledge base ::
+hierarchical reasoning model (likely refers to) layered decision-making architectures
+# @confidence: 0.80
+# @sources: [68865a0220455fc92b3f50f5]
+
++:: @where: Academic and domain-specific web searches ::
++:: @when: Current knowledge base limitations ::
+hierarchical reasoning model (has potential connections in) AI/ML
+# @confidence: 0.80
+# @sources: [68865a0220455fc92b3f50f5]
+
++:: @where: General knowledge base, academic sources, domain-specific websites ::
++:: @when: Current knowledge base ::
+hierarchical reasoning model (has potential connections to) hierarchical reinforcement learning
+# @confidence: 0.80
+# @sources: [68865a0220455fc92b3f50f5]
+
+
+:: Learning Strategies ::
+
++:: To improve recall and organization of information within the N4L framework by leveraging cognitive principles of primacy. ::
++:: @where: Within the N4L system or any context where N4L is being used for knowledge management. ::
++:: @when: Applicable whenever a user is actively engaged in learning or organizing information using N4L. ::
+learning tip (for N4L is) place the item to be learned at the beginning of a line
+# @confidence: 0.80
+# @sources: [68865a0220455fc92b3f50f5]
+
++:: To improve cognitive processing efficiency and effectiveness ::
++:: @where: Within the N4L note-taking system ::
++:: @when: During the process of learning or knowledge acquisition ::
+place the item to be learned at the beginning of a line (is for better) cognitive processing
+# @confidence: 0.80
+# @sources: [68865a0220455fc92b3f50f5]
+
+
+:: Machine Learning ::
+
++:: @where: Meta AI ::
++:: @when: July 2025 onwards ::
+Meta AI (announced) Self-improvement
+# @confidence: 0.80
+# @sources: [68865a0220455fc92b3f50f5]
+
++:: @where: Meta AI ::
++:: @when: July 2025 onwards ::
+Meta AI (has published research on) Meta-learning frameworks
+# @confidence: 0.80
+# @sources: [68865a0220455fc92b3f50f5]
+
++:: @where: Meta AI ::
++:: @when: July 2025 onwards ::
+Meta AI (researches) Reinforcement learning
+# @confidence: 0.80
+# @sources: [68865a0220455fc92b3f50f5]
+
++:: @where: Meta AI ::
++:: @when: July 2025 onwards ::
+Meta AI (researches) Physics-informed loss functions
+# @confidence: 0.80
+# @sources: [68865a0220455fc92b3f50f5]
+
+
+:: Management Literature ::
+
++:: @where: Academic and business domains ::
++:: @when: Current knowledge base ::
+hierarchical reasoning model (may have distinct meanings across) management literature
+# @confidence: 0.80
+# @sources: [68865a0220455fc92b3f50f5]
+
+
+:: Meta ::
+
++:: @where: Meta's research domains ::
++:: @when: Recent and ongoing (2024) ::
+which (relates_to) the
+# @confidence: 0.80
+# @sources: [68865a0220455fc92b3f50f5]
+
++:: @where: Meta's research and publications ::
++:: @when: Recent research (2024) ::
+learning (relates_to) a
+# @confidence: 0.80
+# @sources: [68865a0220455fc92b3f50f5]
+
++:: @where: Meta's AI research initiatives ::
++:: @when: Recent publications (2024) ::
+Equations (relates_to) Physics
+# @confidence: 0.80
+# @sources: [68865a0220455fc92b3f50f5]
+
+
+:: Meta AI ::
+
++:: @where: Meta AI's operations and research domains ::
++:: @when: Ongoing, with significant announcements in July 2025 and lab launches in 2025 ::
+Meta AI (pursuit of) Artificial Superintelligence (ASI)
+# @confidence: 0.80
+# @sources: [68865a0220455fc92b3f50f5]
+
+
+:: N4L command-line interface ::
+
++:: To filter the generated Semantic Spacetime graph based on specific link attributes ::
++:: @where: N4L command-line tool execution environment ::
++:: @when: When using the N4L command-line tool to process N4L notes ::
+N4L command-line tool (has option) -adj string (filter graph by links)
+# @confidence: 0.80
+# @sources: [68865a0220455fc92b3f50f5]
+
+
+:: N4L data management ::
+
++:: To upload data to a database using the N4L command-line tool ::
++:: @where: N4L command-line execution environment ::
++:: @when: When the N4L command-line tool is invoked with the -u option ::
+N4L command-line tool (has option) -u (upload to database)
+# @confidence: 0.80
+# @sources: [68865a0220455fc92b3f50f5]
+
+
+:: N4L feature set ::
+
++:: To generate a summary of N4L notes or data ::
++:: @where: N4L command-line tool execution environment ::
++:: @when: When using the N4L command-line tool ::
+N4L command-line tool (has option) -s (generate summary)
+# @confidence: 0.80
+# @sources: [68865a0220455fc92b3f50f5]
+
+
+:: N4L options ::
+
++:: When configuring the verbosity of the N4L command-line tool's output ::
++:: @where: N4L command-line environment ::
++:: @when: During execution of the N4L command-line tool ::
+N4L command-line tool (has option) -v (verbose mode)
+# @confidence: 0.80
+# @sources: [68865a0220455fc92b3f50f5]
+
+
+:: Recursive Self-Improvement ::
+
++:: @where: Meta AI ::
++:: @when: 2025 onwards ::
+Superintelligence Labs (focusing on) World models
+# @confidence: 0.80
+# @sources: [68865a0220455fc92b3f50f5]
+
+
+:: Self-improvement ::
+
++:: @where: Meta AI systems ::
++:: @when: July 2025 ::
+Mark Zuckerberg (described) Self-improvement
+# @confidence: 0.80
+# @sources: [68865a0220455fc92b3f50f5]
+
++:: @where: Meta AI systems ::
++:: @when: July 2025 onwards ::
+Artificial Superintelligence (ASI) (defined as) AI exceeding human intelligence and capable of continuous self-improvement
+# @confidence: 0.80
+# @sources: [68865a0220455fc92b3f50f5]
+
+
+:: Semantic Spacetime Graph ::
+
++:: When organizing or structuring information within N4L, particularly when defining the components of notes. ::
++:: @where: Within the N4L system and its generated Semantic Spacetime graphs ::
++:: @when: Current and future versions of N4L ::
+structured notes (include) sections
+# @confidence: 0.80
+# @sources: [68865a0220455fc92b3f50f5]
+
++:: Understanding the structure and capabilities of N4L for knowledge organization and data representation, specifically how relationships are defined within structured notes. ::
++:: @where: N4L system and its generated Semantic Spacetime graphs ::
++:: @when: Current state of N4L technology ::
+structured notes (include) relationships
+# @confidence: 0.80
+# @sources: [68865a0220455fc92b3f50f5]
+
++:: Understanding the structure and classification of relationships within N4L and Semantic Spacetime. ::
++:: @where: Within the N4L system and its generated Semantic Spacetime graphs. ::
++:: @when: Current and future versions of the N4L system. ::
+relationships (can be classified into) Contains
+# @confidence: 0.80
+# @sources: [68865a0220455fc92b3f50f5]
+
++:: Organizing and reasoning with knowledge, data entry, and managing structured notes ::
++:: @where: N4L system and its generated Semantic Spacetime graphs ::
++:: @when: Current and future versions of N4L and Semantic Spacetime ::
+keywords (used as) lookup keys
+# @confidence: 0.80
+# @sources: [68865a0220455fc92b3f50f5]
+
+
+:: Semantic Spacetime Modeling ::
+
++:: Understanding the structure and organization of knowledge within N4L, specifically how relationships are categorized. ::
++:: @where: Within the N4L knowledge management system and its Semantic Spacetime graph representation. ::
++:: @when: Current and future versions of N4L that support relationship classification. ::
+relationships (can be classified into) Similarity/Nearness
+# @confidence: 0.80
+# @sources: [68865a0220455fc92b3f50f5]
+
++:: To understand how relationships are structured and classified within the N4L system for effective knowledge organization and reasoning. ::
++:: @where: Within the N4L knowledge management system and its Semantic Spacetime graph representation. ::
++:: @when: During the use and processing of N4L notes and the generation/analysis of Semantic Spacetime graphs. ::
+relationships (can be classified into) Properties
+# @confidence: 0.80
+# @sources: [68865a0220455fc92b3f50f5]
+
+
+:: Semantic Spacetime graph generation ::
+
++:: To transform N4L notes into a structured Semantic Spacetime graph for better organization and reasoning. ::
++:: @where: Within the N4L ecosystem and any environment where the N4L command-line tool can be executed. ::
++:: @when: Anytime the N4L command-line tool is used for conversion. ::
+N4L command-line tool (converts) N4L notes
+# @confidence: 0.80
+# @sources: [68865a0220455fc92b3f50f5]
+
+
+:: Semantic Spacetime graph organization ::
+
++:: To understand how N4L defines and stores relationship information, specifically for 'arrows'. ::
++:: @where: Within the N4L system and its associated Semantic Spacetime graph. ::
++:: @when: Current or ongoing use of N4L for knowledge management. ::
+SSTconfig directory (stores) definitions for relationship 'arrows'
+# @confidence: 0.80
+# @sources: [68865a0220455fc92b3f50f5]
+
+
+:: Semantic Spacetime graph representation ::
+
++:: When defining or understanding relationships within N4L notes and their representation in a Semantic Spacetime graph ::
++:: @where: N4L system and its generated Semantic Spacetime graphs ::
++:: @when: During the operation and use of the N4L system ::
+N4L (Notes for Learning) (uses) reserved symbols
+# @confidence: 0.80
+# @sources: [68865a0220455fc92b3f50f5]
+
+
+:: artificial intelligence ::
+
++:: @where: general scientific publications ::
++:: @when: 2014, 2015, 2016 ::
+Mark Burgess (authored) Spacetimes with Semantics
+# @confidence: 0.80
+# @sources: [68865a0220455fc92b3f50f5]
+
++:: @where: N4L/Semantic Spacetime framework ::
++:: @when: 2014, 2015, 2016 ::
+Mark Burgess (focuses on) establishing the geometry of invariant concepts, themes, and namespaces
+# @confidence: 0.80
+# @sources: [68865a0220455fc92b3f50f5]
+
++:: @where: Not specified in the relation, but implied to be within the domain of AI research. ::
++:: @when: Not specified in the relation, but the publication date of the work would be relevant. ::
+Yanjing Sun (authored) Triplet attention multiple spacetime-semantic graph convolutional network for skeleton-based action recognition
+# @confidence: 0.80
+# @sources: [68865a0220455fc92b3f50f5]
+
+
+:: business ::
+
++:: @where: French contexts ::
++:: @when: current ::
+Human Resource Management (is generally equivalent to) GRH
+# @confidence: 0.80
+# @sources: [68865a0220455fc92b3f50f5]
+
++:: @where: French contexts ::
++:: @when: general usage ::
+GRH (is primarily used for) Human Resource Management
+# @confidence: 0.80
+# @sources: [68865a0220455fc92b3f50f5]
+
++:: @where: France ::
++:: @when: general usage ::
+Multinational corporations (operating in) France
+# @confidence: 0.80
+# @sources: [68865a0220455fc92b3f50f5]
+
++:: @where: French contexts ::
++:: @when: general usage ::
+Multinational corporations (may retain) HRM
+# @confidence: 0.80
+# @sources: [68865a0220455fc92b3f50f5]
+
+
+:: candidate deaths ::
+
++:: @where: North Rhine-Westphalia ::
++:: @when: leading up to September 14, 2025 ::
+candidate deaths (sparked) conspiracy theories
+# @confidence: 0.80
+# @sources: [68865a0220455fc92b3f50f5]
+
+
+:: candidate management ::
+
++:: @where: North Rhine-Westphalia ::
++:: @when: weeks before September 14, 2025 ::
+deaths of candidates (necessitated) reprinting of ballots
+# @confidence: 0.80
+# @sources: [68865a0220455fc92b3f50f5]
+
+
+:: candidate mortality ::
+
++:: @where: North Rhine-Westphalia ::
++:: @when: prior to September 14, 2025 ::
+Seven candidates (died before) 2025 North Rhine-Westphalia municipal elections
+# @confidence: 0.80
+# @sources: [68865a0220455fc92b3f50f5]
+
++:: @where: North Rhine-Westphalia ::
++:: @when: leading up to September 14, 2025 ::
+deceased candidates (had) pre-existing medical conditions
+# @confidence: 0.80
+# @sources: [68865a0220455fc92b3f50f5]
+
+
+:: competition/intellectual_property ::
+
++:: @where: Global ::
++:: @when: Recent ::
+xAI (filed lawsuit against) Xuechen Li
+# @confidence: 0.80
+# @sources: [68865a0220455fc92b3f50f5]
+
+
+:: data entry ::
+
++:: when organizing knowledge, managing data, or performing reasoning tasks using N4L or Semantic Spacetime ::
++:: @where: N4L system and its associated Semantic Spacetime graph ::
++:: @when: current or ongoing use of N4L for knowledge management ::
+N4L (Notes for Learning) (is a) text-based language
+# @confidence: 0.80
+# @sources: [68865a0220455fc92b3f50f5]
+
++:: organizing and managing knowledge, facilitating data entry, and enabling reasoning through structured notes and semantic graphs ::
++:: @where: N4L system and its associated graph ::
++:: @when: current or ongoing use ::
+N4L (Notes for Learning) (is used for) knowledge management
+# @confidence: 0.80
+# @sources: [68865a0220455fc92b3f50f5]
+
++:: organizing and reasoning with structured data ::
++:: @where: N4L system and its associated Semantic Spacetime graph ::
++:: @when: current or ongoing use ::
+N4L (Notes for Learning) (is used for) data entry
+# @confidence: 0.80
+# @sources: [68865a0220455fc92b3f50f5]
+
++:: When organizing or structuring information within N4L, or when analyzing the relationships and organization provided by the Semantic Spacetime graph. ::
++:: @where: N4L system and its generated Semantic Spacetime graph ::
++:: @when: During the use or processing of N4L notes ::
+structured notes (include) context management
+# @confidence: 0.80
+# @sources: [68865a0220455fc92b3f50f5]
+
++:: organizing and reasoning with knowledge ::
++:: @where: N4L (Notes for Learning) system ::
++:: @when: current versions of N4L ::
+structured notes (include) item declarations
+# @confidence: 0.80
+# @sources: [68865a0220455fc92b3f50f5]
+
++:: Understanding how relationships are structured and classified within the N4L framework for knowledge organization and reasoning. ::
++:: @where: N4L system and its generated Semantic Spacetime graphs ::
++:: @when: Current and future applications of N4L for knowledge representation ::
+relationships (can be classified into) Leads to
+# @confidence: 0.80
+# @sources: [68865a0220455fc92b3f50f5]
+
++:: when managing knowledge, organizing data, or performing reasoning within a N4L-based system ::
++:: @where: N4L system and its generated graphs ::
++:: @when: during the operation of N4L and semantic spacetime graph generation ::
+context management (involves using) keywords
+# @confidence: 0.80
+# @sources: [68865a0220455fc92b3f50f5]
+
++:: to structure and organize knowledge, enabling efficient data entry and facilitating database organization and reasoning ::
++:: @where: N4L system and its generated Semantic Spacetime graph ::
++:: @when: when managing knowledge or data within the N4L system ::
+context management (involves using) phrases
+# @confidence: 0.80
+# @sources: [68865a0220455fc92b3f50f5]
+
++:: organizing and retrieving information, managing data, and enabling reasoning ::
++:: @where: N4L system and its associated Semantic Spacetime graph ::
++:: @when: current and future applications of N4L for knowledge representation ::
+phrases (used as) lookup keys
+# @confidence: 0.80
+# @sources: [68865a0220455fc92b3f50f5]
+
++:: When organizing information, managing data, or building knowledge graphs ::
++:: @where: N4L system and its generated Semantic Spacetime graph ::
++:: @when: During the use and development of N4L ::
+N4L (Notes for Learning) (encourages) iterative refinement
+# @confidence: 0.80
+# @sources: [68865a0220455fc92b3f50f5]
+
+
+:: data organization ::
+
++:: When seeking to organize and manage data within databases, or when exploring methods for knowledge representation and retrieval. ::
++:: @where: N4L system and its generated Semantic Spacetime graphs ::
++:: @when: current and future applications of N4L for data organization ::
+Semantic Spacetime graph (facilitates) organization for databases
+# @confidence: 0.80
+# @sources: [68865a0220455fc92b3f50f5]
+
++:: When organizing information, creating structured notes, or managing knowledge bases ::
++:: @where: N4L system and its generated graphs ::
++:: @when: During the use of N4L for creating and managing notes ::
+N4L (Notes for Learning) (supports) structured notes
+# @confidence: 0.80
+# @sources: [68865a0220455fc92b3f50f5]
+
+
+:: data representation ::
+
++:: When structuring and analyzing information, particularly for database organization and enabling reasoning processes. ::
++:: @where: N4L system and its generated Semantic Spacetime graphs ::
++:: @when: During the operation and use of the N4L system ::
+Semantic Spacetime graph (facilitates) reasoning
+# @confidence: 0.80
+# @sources: [68865a0220455fc92b3f50f5]
+
+
+:: distributed intelligence ::
+
++:: @where: within a 'Semantic Spacetime' framework ::
++:: @when: not specified ::
+consensus (relates_to) achieved
+# @confidence: 0.80
+# @sources: [68865a0220455fc92b3f50f5]
+
++:: @where: within a 'Semantic Spacetime' framework ::
++:: @when: not specified ::
+fragility (relates_to) achieved
+# @confidence: 0.80
+# @sources: [68865a0220455fc92b3f50f5]
+
++:: @where: within a 'Semantic Spacetime' framework ::
++:: @when: not specified ::
+intelligence (relates_to) achieved
+# @confidence: 0.80
+# @sources: [68865a0220455fc92b3f50f5]
+
++:: @where: Within a 'Semantic Spacetime' framework ::
++:: @when: Not specified ::
+system (relates_to) founded
+# @confidence: 0.80
+# @sources: [68865a0220455fc92b3f50f5]
+
+
+:: election administration ::
+
++:: @where: North Rhine-Westphalia ::
++:: @when: leading up to September 14, 2025 ::
+officials (publicly dismissed) conspiracy theories
+# @confidence: 0.80
+# @sources: [68865a0220455fc92b3f50f5]
+
++:: @where: North Rhine-Westphalia ::
++:: @when: around the 2025 North Rhine-Westphalia municipal elections ::
+administrative adjustments (included) requests for postal voters to recast ballots
+# @confidence: 0.80
+# @sources: [68865a0220455fc92b3f50f5]
+
+
+:: general ::
+
++:: @where: AI/ML domain ::
++:: @when: current knowledge base ::
+hierarchical reasoning model (may have distinct meanings across) AI/ML
+# @confidence: 0.80
+# @sources: [68865a0220455fc92b3f50f5]
+
+
+:: information retrieval ::
+
++:: @where: knowledge base ::
++:: @when: current ::
+hierarchical reasoning model (is not recognized in) knowledge base
+# @confidence: 0.80
+# @sources: [68865a0220455fc92b3f50f5]
+
++:: @where: general knowledge base, academic sources, domain-specific sources ::
++:: @when: current knowledge base ::
+information gathering for hierarchical reasoning model (should prioritize) targeted web searches
+# @confidence: 0.80
+# @sources: [68865a0220455fc92b3f50f5]
+
++:: @where: web ::
++:: @when: current ::
+targeted web searches (should use) academic sources
+# @confidence: 0.80
+# @sources: [68865a0220455fc92b3f50f5]
+
++:: @where: web ::
++:: @when: current ::
+targeted web searches (should use) domain-specific keywords
+# @confidence: 0.80
+# @sources: [68865a0220455fc92b3f50f5]
+
++:: @where: search engines, knowledge bases ::
++:: @when: during search query formulation ::
+correcting spelling (is essential for) accurate search results
+# @confidence: 0.80
+# @sources: [68865a0220455fc92b3f50f5]
+
++:: @where: current knowledge base ::
++:: @when: general ::
+previous search attempts for hierarchical reasoning model (were hampered by) missing search parameters
+# @confidence: 0.80
+# @sources: [68865a0220455fc92b3f50f5]
+
++:: @where: knowledge base ::
++:: @when: current ::
+previous search attempts for hierarchical reasoning model (were hampered by) spelling errors
+# @confidence: 0.80
+# @sources: [68865a0220455fc92b3f50f5]
+
++:: @where: knowledge base, web, academic sources, domain-specific sources ::
++:: @when: current knowledge base, when dealing with unfamiliar terms ::
+ambiguity across different fields (necessitates) careful disambiguation
+# @confidence: 0.80
+# @sources: [68865a0220455fc92b3f50f5]
+
++:: @where: current knowledge base ::
++:: @when: when defining terms ::
+careful disambiguation (is needed when defining) terms like 'hierarchical reasoning model'
+# @confidence: 0.80
+# @sources: [68865a0220455fc92b3f50f5]
+
+
+:: knowledge representation ::
+
++:: @where: general scientific discourse ::
++:: @when: 1994, 2014, 2015, 2016 ::
+semantic space time (appears in) scientific publications
+# @confidence: 0.80
+# @sources: [68865a0220455fc92b3f50f5]
+
++:: @where: general scientific publications, philosophy of science, physics, artificial intelligence ::
++:: @when: 1994, 2014, 2015, 2016 ::
+semantic space time (has potential applications in) functional knowledge representation
+# @confidence: 0.80
+# @sources: [68865a0220455fc92b3f50f5]
+
++:: @where: general scientific publications ::
++:: @when: 1994, 2014, 2015, 2016 ::
+semantic space time (has potential applications in) artificial reasoning
+# @confidence: 0.80
+# @sources: [68865a0220455fc92b3f50f5]
+
++:: @where: General scientific publications and specific works by Majer & Schmidt and Burgess ::
++:: @when: 1994, 2014, 2015, 2016 ::
+semantic space time (has potential applications in) understanding and representing complex spatio-temporal data
+# @confidence: 0.80
+# @sources: [68865a0220455fc92b3f50f5]
+
++:: @where: Scientific publications and academic works ::
++:: @when: 1994, 2014, 2015, 2016 ::
+N4L (did not appear in search results for) semantic space time
+# @confidence: 0.80
+# @sources: [68865a0220455fc92b3f50f5]
+
+
+:: language ::
+
++:: @where: French contexts ::
++:: @when: around the 2025 North Rhine-Westphalia municipal elections ::
+HRM (is equivalent to) GRH
+# @confidence: 0.80
+# @sources: [68865a0220455fc92b3f50f5]
+
++:: @where: French contexts ::
++:: @when: around the 2025 North Rhine-Westphalia municipal elections ::
+HRM (can be used interchangeably with) GRH
+# @confidence: 0.80
+# @sources: [68865a0220455fc92b3f50f5]
+
+
+:: natural language processing ::
+
++:: @where: Mark Burgess's work ::
++:: @when: 2014, 2015, and 2016 ::
+Mark Burgess (work includes) testing quantitative spacetime hypotheses using artificial narrative comprehension
+# @confidence: 0.80
+# @sources: [68865a0220455fc92b3f50f5]
+
++:: @where: N4L/Semantic Spacetime framework ::
++:: @when: 2014, 2015, 2016 ::
+Mark Burgess (focuses on) bootstrapping meaning from episodic narrative
+# @confidence: 0.80
+# @sources: [68865a0220455fc92b3f50f5]
+
++:: @where: general scientific publications, artificial intelligence research ::
++:: @when: 2014-2016 (Mark Burgess's work), general scientific publications ::
+semantic space time (has potential applications in) skeleton-based action recognition
+# @confidence: 0.80
+# @sources: [68865a0220455fc92b3f50f5]
+
++:: @where: Artificial Narrative Comprehension ::
++:: @when: Ongoing research and development ::
+semantic space time (has potential applications in) artificial narrative comprehension
+# @confidence: 0.80
+# @sources: [68865a0220455fc92b3f50f5]
+
+
+:: physics ::
+
++:: @where: Semantical Aspects of Spacetime Theories ::
++:: @when: 1994 ::
+Ulrich Majer (authored) Semantical Aspects of Spacetime Theories
+# @confidence: 0.80
+# @sources: [68865a0220455fc92b3f50f5]
+
+
+:: political parties ::
+
++:: @where: North Rhine-Westphalia ::
++:: @when: weeks before September 14, 2025 ::
+AfD (Alternative für Deutschland) (is described as) right-wing populist party
+# @confidence: 0.80
+# @sources: [68865a0220455fc92b3f50f5]
+
+
+:: politics ::
+
++:: @where: North Rhine-Westphalia ::
++:: @when: leading up to September 14, 2025 ::
+Seven candidates (from) AfD party
+# @confidence: 0.80
+# @sources: [68865a0220455fc92b3f50f5]
+
++:: @where: North Rhine-Westphalia ::
++:: @when: weeks before September 14, 2025 ::
+deaths of candidates (attributed to) natural causes
+# @confidence: 0.80
+# @sources: [68865a0220455fc92b3f50f5]
+
++:: @where: North Rhine-Westphalia ::
++:: @when: weeks before September 14, 2025 ::
+deaths of candidates (attributed to) illness
+# @confidence: 0.80
+# @sources: [68865a0220455fc92b3f50f5]
+
++:: @where: North Rhine-Westphalia ::
++:: @when: weeks before September 14, 2025 ::
+deaths of candidates (attributed to) suicide
+# @confidence: 0.80
+# @sources: [68865a0220455fc92b3f50f5]
+
++:: @where: North Rhine-Westphalia ::
++:: @when: leading up to September 14, 2025 ::
+authorities (found no evidence of) foul play
+# @confidence: 0.80
+# @sources: [68865a0220455fc92b3f50f5]
+
++:: @where: North Rhine-Westphalia ::
++:: @when: leading up to September 14, 2025 ::
+authorities (found no evidence of) criminal activity
+# @confidence: 0.80
+# @sources: [68865a0220455fc92b3f50f5]
+
++:: @where: North Rhine-Westphalia ::
++:: @when: leading up to September 14, 2025 ::
+mortality rate (among) candidates
+# @confidence: 0.80
+# @sources: [68865a0220455fc92b3f50f5]
+
++:: @where: North Rhine-Westphalia ::
++:: @when: leading up to September 14, 2025 ::
+mortality rate (considered within) statistical expectations
+# @confidence: 0.80
+# @sources: [68865a0220455fc92b3f50f5]
+
++:: @where: North Rhine-Westphalia ::
++:: @when: leading up to September 14, 2025 ::
+candidate deaths (sparked) online speculation
+# @confidence: 0.80
+# @sources: [68865a0220455fc92b3f50f5]
+
++:: @where: North Rhine-Westphalia ::
++:: @when: leading up to September 14, 2025 ::
+officials (publicly dismissed) online speculation
+# @confidence: 0.80
+# @sources: [68865a0220455fc92b3f50f5]
+
++:: @where: North Rhine-Westphalia ::
++:: @when: leading up to September 14, 2025 ::
+deaths of candidates (led to) administrative adjustments
+# @confidence: 0.80
+# @sources: [68865a0220455fc92b3f50f5]
+
++:: @where: North Rhine-Westphalia ::
++:: @when: leading up to September 14, 2025 ::
+administrative adjustments (included) ballot reprints
+# @confidence: 0.80
+# @sources: [68865a0220455fc92b3f50f5]
+
++:: @where: North Rhine-Westphalia ::
++:: @when: weeks before September 14, 2025 ::
+candidates (participated in) North Rhine-Westphalia local elections
+# @confidence: 0.80
+# @sources: [68865a0220455fc92b3f50f5]
+
++:: @where: North Rhine-Westphalia ::
++:: @when: weeks before September 14, 2025 ::
+candidates (died before) North Rhine-Westphalia local elections
+# @confidence: 0.80
+# @sources: [68865a0220455fc92b3f50f5]
+
++:: @where: North Rhine-Westphalia ::
++:: @when: September 14, 2025 ::
+AfD (Alternative für Deutschland) (had candidates who died) candidates
+# @confidence: 0.80
+# @sources: [68865a0220455fc92b3f50f5]
+
++:: @where: North Rhine-Westphalia, Germany ::
++:: @when: Weeks before September 14, 2025 ::
+German state agencies (classify) AfD (Alternative für Deutschland)
+# @confidence: 0.80
+# @sources: [68865a0220455fc92b3f50f5]
+
++:: @where: North Rhine-Westphalia ::
++:: @when: weeks before September 14, 2025 ::
+mortality rate among candidates (considered within) expected statistical ranges
+# @confidence: 0.80
+# @sources: [68865a0220455fc92b3f50f5]
+
++:: @where: North Rhine-Westphalia ::
++:: @when: weeks before September 14, 2025 ::
+mortality rate among candidates (despite) online speculation
+# @confidence: 0.80
+# @sources: [68865a0220455fc92b3f50f5]
+
+
+:: public safety ::
+
++:: @where: North Rhine-Westphalia ::
++:: @when: September 14, 2025 ::
+deaths of candidates (no evidence of) foul play
+# @confidence: 0.80
+# @sources: [68865a0220455fc92b3f50f5]
+
+
+:: semantic spacetime modeling ::
+
++:: to organize and reason about information within N4L ::
++:: @where: N4L system and its generated Semantic Spacetime graph ::
++:: @when: when using N4L for knowledge management or data entry ::
+structured notes (include) comments
+# @confidence: 0.80
+# @sources: [68865a0220455fc92b3f50f5]
+
++:: defining relationships within N4L notes ::
++:: @where: N4L knowledge representation ::
++:: @when: current and future applications ::
+N4L (Notes for Learning) (defines relationships in) parentheses
+# @confidence: 0.80
+# @sources: [68865a0220455fc92b3f50f5]
+
+
+:: semantic web ::
+
++:: organizing information, facilitating database management, and enabling reasoning ::
++:: @where: N4L system and its generated Semantic Spacetime graphs ::
++:: @when: current and future applications of knowledge management tools ::
+N4L (Notes for Learning) (encourages) organization of notes
+# @confidence: 0.80
+# @sources: [68865a0220455fc92b3f50f5]
+
+
+:: strategy ::
+
++:: @where: General AI Development ::
++:: @when: Current and Future AI Development ::
+Artificial General Intelligence (strategy evolving beyond) model size
+# @confidence: 0.80
+# @sources: [68865a0220455fc92b3f50f5]
+
+
+:: technology/AI ::
+
++:: @where: General AI Development ::
++:: @when: Current and Future AI Development ::
+hybrid architectures (combining) LLMs
+# @confidence: 0.80
+# @sources: [68865a0220455fc92b3f50f5]
+
+
+:: technology/competition ::
+
++:: @where: OpenAI ::
++:: @when: Before joining OpenAI ::
+Xuechen Li (joined) OpenAI
+# @confidence: 0.80
+# @sources: [68865a0220455fc92b3f50f5]
+
++:: @where: China ::
++:: @when: current ::
+China (is competitor in) LLM landscape
+# @confidence: 0.80
+# @sources: [68865a0220455fc92b3f50f5]
+
++:: @where: China ::
++:: @when: current ::
+Alibaba (developed) Qwen
+# @confidence: 0.80
+# @sources: [68865a0220455fc92b3f50f5]
+
++:: @where: China ::
++:: @when: current ::
+Baidu (developed) ERNIE
+# @confidence: 0.80
+# @sources: [68865a0220455fc92b3f50f5]
+
++:: @where: Global ::
++:: @when: Current ::
+Partnership on AI (involves) AI companies
+# @confidence: 0.80
+# @sources: [68865a0220455fc92b3f50f5]
+
++:: @where: Global ::
++:: @when: Current ::
+intellectual property disputes (is critical challenge for) leading AI organizations
+# @confidence: 0.80
+# @sources: [68865a0220455fc92b3f50f5]
+
++:: @where: Global ::
++:: @when: Present ::
+RAG (is relevant to) AGI development
+# @confidence: 0.80
+# @sources: [68865a0220455fc92b3f50f5]
+
+
+:: voting ::
+
++:: @where: North Rhine-Westphalia ::
++:: @when: weeks before September 14, 2025 ::
+deaths of candidates (necessitated) recasting of postal votes
+# @confidence: 0.80
+# @sources: [68865a0220455fc92b3f50f5]
+

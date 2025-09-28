@@ -6,7 +6,7 @@ from app.core.config import get_settings
 from app.core.database import connect_to_mongo, close_mongo_connection
 from app.core.dynamic_router import mount_all_active_services
 from app.core.mcp_manager import mcp_manager
-from app.api import services, llms, docs, chat, mcp_debug, logs, agents, agent, agent_memory, meta_agent, demos, dependencies, conversations, mcp_connections, documents, workspaces, test_complexity, collective_memory
+from app.api import services, llms, docs, chat, mcp_debug, logs, agents, agent, agent_memory, meta_agent, demos, dependencies, conversations, mcp_connections, documents, workspaces, test_complexity, collective_memory, export
 from app.api import settings as settings_api
 # Initialize dynamic dependencies on startup
 import app.startup
@@ -112,6 +112,7 @@ app.include_router(documents.router, prefix="/api", tags=["Documents"])
 app.include_router(workspaces.router, prefix="/api", tags=["Workspaces"])
 app.include_router(test_complexity.router, prefix="/api", tags=["Tests"])
 app.include_router(collective_memory.router, prefix="/api", tags=["Collective Memory"])
+app.include_router(export.router, prefix="/export", tags=["Export"])
 
 # Mount MCP server
 mcp_server = mcp_manager.get_mcp_server()

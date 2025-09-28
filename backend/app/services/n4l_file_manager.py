@@ -92,6 +92,10 @@ class N4LFileManager:
         current_spatial = None
         current_temporal = None
         
+        # Handle case where file is empty or newly created
+        if not os.path.exists(self.filepath) or os.path.getsize(self.filepath) == 0:
+            return statements
+        
         with open(self.filepath, 'r', encoding='utf-8') as f:
             lines = f.readlines()
         

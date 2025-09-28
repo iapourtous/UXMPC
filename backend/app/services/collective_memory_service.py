@@ -73,9 +73,22 @@ class CollectiveMemoryService:
             logger.error("No active LLM profile available for N4L conversion")
             return None
         
-        # Convert to N4L format (without filtering for now)
+        # STEP 1: Filter and extract valuable knowledge for collective memory
+        filtered_content = await self._filter_collective_knowledge(
+            consolidated_content, 
+            llm_profile
+        )
+        
+        if not filtered_content:
+            logger.info("No valuable collective knowledge found to extract")
+            # Fallback: use original content if filtering returns nothing
+            filtered_content = consolidated_content
+        
+        logger.info(f"Knowledge extraction complete")
+        
+        # STEP 2: Convert filtered content to N4L format
         collective_memory = await n4l_converter.convert_to_n4l(
-            consolidated_content,
+            filtered_content,
             agent_id,
             source_memory_ids,
             llm_profile

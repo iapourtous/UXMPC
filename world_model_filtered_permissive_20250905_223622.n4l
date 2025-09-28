@@ -1,0 +1,487 @@
+# UXMCP Collective World Model
+# Last Updated: 2025-09-05T20:35:30.281264
+# Total Statements: 66
+# Format: N4L (Notes for Learning) - Semantic Spacetime
+
+
+:: AI Research ::
+
++:: @where: Meta (company) ::
++:: @when: Recent research (2024) ::
+Pursuit (relates_to) a
+# @confidence: 0.80
+# @sources: [68865a0220455fc92b3f50f5]
+
++:: @where: Meta (company) ::
++:: @when: Recent (implied from 'recent AI research') ::
+Meta (relates_to) researching
+# @confidence: 0.80
+# @sources: [68865a0220455fc92b3f50f5]
+
++:: @where: Meta (company) ::
++:: @when: Ongoing (recent research) ::
+Representations (relates_to) meta
+# @confidence: 0.80
+# @sources: [68865a0220455fc92b3f50f5]
+
++:: @where: Meta (company) ::
++:: @when: Recent publications (2024) ::
+Meta (relates_to) research
+# @confidence: 0.80
+# @sources: [68865a0220455fc92b3f50f5]
+
++:: @where: Meta (company) ::
++:: @when: Recent publications (2024) ::
+Meta (relates_to) published
+# @confidence: 0.80
+# @sources: [68865a0220455fc92b3f50f5]
+
+
+:: AI development ::
+
++:: @where: Global AI landscape ::
++:: @when: Current and future AI development ::
+hybrid architectures (favored for) AGI development
+# @confidence: 0.80
+# @sources: [68865a0220455fc92b3f50f5]
+
++:: @where: Global AI development landscape, with specific mention of China ::
++:: @when: Current AI development and competitive landscape ::
+OpenAI (faces challenges in balancing) intellectual property protection
+# @confidence: 0.80
+# @sources: [68865a0220455fc92b3f50f5]
+
++:: @where: Global ::
++:: @when: Ongoing ::
+Partnership on AI (crucial for addressing) AI alignment
+# @confidence: 0.80
+# @sources: [68865a0220455fc92b3f50f5]
+
+
+:: AI organizations ::
+
++:: @where: Leading AI organizations ::
++:: @when: Ongoing ::
+talent management (is critical challenge for) leading AI organizations
+# @confidence: 0.80
+# @sources: [68865a0220455fc92b3f50f5]
+
+
+:: Bandit Problems ::
+
++:: @where: Meta's AI research domain ::
++:: @when: Ongoing research, with specific papers dated 2024-06-20 and 2024-09-10 ::
+Learning (relates_to) a
+# @confidence: 0.80
+# @sources: [68865a0220455fc92b3f50f5]
+
+
+:: Competition ::
+
++:: @where: Global ::
++:: @when: Current ::
+Partnership on AI (crucial for addressing) energy efficiency
+# @confidence: 0.80
+# @sources: [68865a0220455fc92b3f50f5]
+
+
+:: German politics ::
+
++:: @where: North Rhine-Westphalia, Germany ::
++:: @when: Leading up to September 14, 2025 ::
+lack of comprehensive historical data (exists for) candidate deaths in German municipal elections
+# @confidence: 0.80
+# @sources: [68865a0220455fc92b3f50f5]
+
++:: Context of candidate deaths during an election period ::
++:: @where: North Rhine-Westphalia ::
++:: @when: Weeks before September 14, 2025 ::
+AfD (Alternative für Deutschland) (is described as) far-right party
+# @confidence: 0.80
+# @sources: [68865a0220455fc92b3f50f5]
+
+
+:: Hybrid Architectures ::
+
++:: @where: General AI research and development ::
++:: @when: Current and future AI development ::
+AGI (can be developed using) hybrid architectures
+# @confidence: 0.80
+# @sources: [68865a0220455fc92b3f50f5]
+
+
+:: Meta ::
+
++:: @where: Meta's research domains ::
++:: @when: Recent and ongoing (2024) ::
+which (relates_to) the
+# @confidence: 0.80
+# @sources: [68865a0220455fc92b3f50f5]
+
++:: @where: Meta's research and publications ::
++:: @when: Recent research (2024) ::
+learning (relates_to) a
+# @confidence: 0.80
+# @sources: [68865a0220455fc92b3f50f5]
+
++:: @where: Meta's AI research initiatives ::
++:: @when: Recent publications (2024) ::
+Equations (relates_to) Physics
+# @confidence: 0.80
+# @sources: [68865a0220455fc92b3f50f5]
+
+
+:: business ::
+
++:: @where: French contexts ::
++:: @when: current ::
+Human Resource Management (is generally equivalent to) GRH
+# @confidence: 0.80
+# @sources: [68865a0220455fc92b3f50f5]
+
++:: @where: French contexts ::
++:: @when: general usage ::
+GRH (is primarily used for) Human Resource Management
+# @confidence: 0.80
+# @sources: [68865a0220455fc92b3f50f5]
+
++:: @where: France ::
++:: @when: general usage ::
+Multinational corporations (operating in) France
+# @confidence: 0.80
+# @sources: [68865a0220455fc92b3f50f5]
+
++:: @where: French contexts ::
++:: @when: general usage ::
+Multinational corporations (may retain) HRM
+# @confidence: 0.80
+# @sources: [68865a0220455fc92b3f50f5]
+
+
+:: candidate deaths ::
+
++:: @where: North Rhine-Westphalia ::
++:: @when: leading up to September 14, 2025 ::
+candidate deaths (sparked) conspiracy theories
+# @confidence: 0.80
+# @sources: [68865a0220455fc92b3f50f5]
+
++:: pre-election period, candidate mortality ::
++:: @where: North Rhine-Westphalia ::
++:: @when: September 14, 2025 ::
+North Rhine-Westphalia local elections (occurred on) September 14, 2025
+# @confidence: 0.80
+# @sources: [68865a0220455fc92b3f50f5]
+
+
+:: candidate management ::
+
++:: candidate death leading to ballot reprinting ::
++:: @where: North Rhine-Westphalia ::
++:: @when: weeks before September 14, 2025 ::
+deaths of candidates (necessitated) reprinting of ballots
+# @confidence: 0.80
+# @sources: [68865a0220455fc92b3f50f5]
+
+
+:: candidate mortality ::
+
++:: @where: North Rhine-Westphalia ::
++:: @when: prior to September 14, 2025 ::
+Seven candidates (died before) 2025 North Rhine-Westphalia municipal elections
+# @confidence: 0.80
+# @sources: [68865a0220455fc92b3f50f5]
+
++:: @where: North Rhine-Westphalia ::
++:: @when: leading up to September 14, 2025 ::
+deceased candidates (had) pre-existing medical conditions
+# @confidence: 0.80
+# @sources: [68865a0220455fc92b3f50f5]
+
+
+:: competition/intellectual_property ::
+
++:: @where: Global ::
++:: @when: Recent ::
+xAI (filed lawsuit against) Xuechen Li
+# @confidence: 0.80
+# @sources: [68865a0220455fc92b3f50f5]
+
+
+:: election administration ::
+
++:: @where: North Rhine-Westphalia ::
++:: @when: leading up to September 14, 2025 ::
+officials (publicly dismissed) conspiracy theories
+# @confidence: 0.80
+# @sources: [68865a0220455fc92b3f50f5]
+
++:: @where: North Rhine-Westphalia ::
++:: @when: around the 2025 North Rhine-Westphalia municipal elections ::
+administrative adjustments (included) requests for postal voters to recast ballots
+# @confidence: 0.80
+# @sources: [68865a0220455fc92b3f50f5]
+
+
+:: language ::
+
++:: @where: French contexts ::
++:: @when: around the 2025 North Rhine-Westphalia municipal elections ::
+HRM (is equivalent to) GRH
+# @confidence: 0.80
+# @sources: [68865a0220455fc92b3f50f5]
+
++:: @where: French contexts ::
++:: @when: around the 2025 North Rhine-Westphalia municipal elections ::
+HRM (can be used interchangeably with) GRH
+# @confidence: 0.80
+# @sources: [68865a0220455fc92b3f50f5]
+
+
+:: mortality_rate ::
+
++:: relevance of candidate deaths during election campaign ::
++:: @where: North Rhine-Westphalia, Germany ::
++:: @when: weeks before September 14, 2025 ::
+Germany's annual mortality rate (is approximately) 1%
+# @confidence: 0.80
+# @sources: [68865a0220455fc92b3f50f5]
+
+
+:: political parties ::
+
++:: Understanding the circumstances surrounding election candidates' deaths and their party affiliations. ::
++:: @where: North Rhine-Westphalia ::
++:: @when: weeks before September 14, 2025 ::
+AfD (Alternative für Deutschland) (is described as) right-wing populist party
+# @confidence: 0.80
+# @sources: [68865a0220455fc92b3f50f5]
+
+
+:: politics ::
+
++:: @where: North Rhine-Westphalia ::
++:: @when: leading up to September 14, 2025 ::
+Seven candidates (from) AfD party
+# @confidence: 0.80
+# @sources: [68865a0220455fc92b3f50f5]
+
++:: @where: North Rhine-Westphalia ::
++:: @when: leading up to September 14, 2025 ::
+deaths of candidates (attributed to) natural causes
+# @confidence: 0.80
+# @sources: [68865a0220455fc92b3f50f5]
+
++:: @where: North Rhine-Westphalia ::
++:: @when: leading up to September 14, 2025 ::
+deaths of candidates (attributed to) illness
+# @confidence: 0.80
+# @sources: [68865a0220455fc92b3f50f5]
+
++:: @where: North Rhine-Westphalia ::
++:: @when: leading up to September 14, 2025 ::
+deaths of candidates (attributed to) suicide
+# @confidence: 0.80
+# @sources: [68865a0220455fc92b3f50f5]
+
++:: @where: North Rhine-Westphalia ::
++:: @when: leading up to September 14, 2025 ::
+authorities (found no evidence of) foul play
+# @confidence: 0.80
+# @sources: [68865a0220455fc92b3f50f5]
+
++:: @where: North Rhine-Westphalia ::
++:: @when: leading up to September 14, 2025 ::
+authorities (found no evidence of) criminal activity
+# @confidence: 0.80
+# @sources: [68865a0220455fc92b3f50f5]
+
++:: @where: North Rhine-Westphalia ::
++:: @when: leading up to September 14, 2025 ::
+mortality rate (among) candidates
+# @confidence: 0.80
+# @sources: [68865a0220455fc92b3f50f5]
+
++:: @where: North Rhine-Westphalia ::
++:: @when: leading up to September 14, 2025 ::
+mortality rate (considered within) statistical expectations
+# @confidence: 0.80
+# @sources: [68865a0220455fc92b3f50f5]
+
++:: @where: North Rhine-Westphalia ::
++:: @when: leading up to September 14, 2025 ::
+candidate deaths (sparked) online speculation
+# @confidence: 0.80
+# @sources: [68865a0220455fc92b3f50f5]
+
++:: @where: North Rhine-Westphalia ::
++:: @when: leading up to September 14, 2025 ::
+officials (publicly dismissed) online speculation
+# @confidence: 0.80
+# @sources: [68865a0220455fc92b3f50f5]
+
++:: @where: North Rhine-Westphalia ::
++:: @when: leading up to September 14, 2025 ::
+deaths of candidates (led to) administrative adjustments
+# @confidence: 0.80
+# @sources: [68865a0220455fc92b3f50f5]
+
++:: @where: North Rhine-Westphalia ::
++:: @when: leading up to September 14, 2025 ::
+administrative adjustments (included) ballot reprints
+# @confidence: 0.80
+# @sources: [68865a0220455fc92b3f50f5]
+
++:: candidate deaths during election period ::
++:: @where: North Rhine-Westphalia ::
++:: @when: weeks before September 14, 2025 ::
+candidates (participated in) North Rhine-Westphalia local elections
+# @confidence: 0.80
+# @sources: [68865a0220455fc92b3f50f5]
+
++:: candidate mortality ::
++:: @where: North Rhine-Westphalia ::
++:: @when: weeks before September 14, 2025 ::
+candidates (died before) North Rhine-Westphalia local elections
+# @confidence: 0.80
+# @sources: [68865a0220455fc92b3f50f5]
+
++:: Information about candidate deaths in the context of elections and political parties. ::
++:: @where: North Rhine-Westphalia ::
++:: @when: September 14, 2025 ::
+AfD (Alternative für Deutschland) (had candidates who died) candidates
+# @confidence: 0.80
+# @sources: [68865a0220455fc92b3f50f5]
+
++:: investigation into causes of candidate deaths ::
++:: @where: North Rhine-Westphalia ::
++:: @when: weeks before September 14, 2025 ::
+deaths of candidates (attributed to) natural causes
+# @confidence: 0.80
+# @sources: [68865a0220455fc92b3f50f5]
+
++:: candidate mortality during election periods ::
++:: @where: North Rhine-Westphalia ::
++:: @when: weeks before September 14, 2025 ::
+deaths of candidates (attributed to) illness
+# @confidence: 0.80
+# @sources: [68865a0220455fc92b3f50f5]
+
++:: investigation of candidate deaths ::
++:: @where: North Rhine-Westphalia ::
++:: @when: weeks before September 14, 2025 ::
+deaths of candidates (attributed to) suicide
+# @confidence: 0.80
+# @sources: [68865a0220455fc92b3f50f5]
+
++:: Circumstances surrounding candidate deaths in elections, classification of political parties by state agencies ::
++:: @where: North Rhine-Westphalia, Germany ::
++:: @when: Weeks before September 14, 2025 ::
+German state agencies (classify) AfD (Alternative für Deutschland)
+# @confidence: 0.80
+# @sources: [68865a0220455fc92b3f50f5]
+
++:: monitoring candidate mortality during election periods ::
++:: @where: North Rhine-Westphalia ::
++:: @when: weeks before September 14, 2025 ::
+mortality rate among candidates (considered within) expected statistical ranges
+# @confidence: 0.80
+# @sources: [68865a0220455fc92b3f50f5]
+
++:: unusual number of candidate deaths during an election period, leading to public speculation about causes ::
++:: @where: North Rhine-Westphalia ::
++:: @when: weeks before September 14, 2025 ::
+mortality rate among candidates (despite) online speculation
+# @confidence: 0.80
+# @sources: [68865a0220455fc92b3f50f5]
+
++:: candidate mortality during election period ::
++:: @where: North Rhine-Westphalia ::
++:: @when: weeks before September 14, 2025 ::
+20,000 people over one month (statistically expected deaths) around 16-17 deaths
+# @confidence: 0.80
+# @sources: [68865a0220455fc92b3f50f5]
+
+
+:: public safety ::
+
++:: investigation of candidate deaths ::
++:: @where: North Rhine-Westphalia ::
++:: @when: September 14, 2025 ::
+deaths of candidates (no evidence of) foul play
+# @confidence: 0.80
+# @sources: [68865a0220455fc92b3f50f5]
+
+
+:: strategy ::
+
++:: @where: General AI Development ::
++:: @when: Current and Future AI Development ::
+Artificial General Intelligence (strategy evolving beyond) model size
+# @confidence: 0.80
+# @sources: [68865a0220455fc92b3f50f5]
+
+
+:: technology/AI ::
+
++:: @where: General AI Development ::
++:: @when: Current and Future AI Development ::
+hybrid architectures (combining) LLMs
+# @confidence: 0.80
+# @sources: [68865a0220455fc92b3f50f5]
+
+
+:: technology/competition ::
+
++:: @where: OpenAI ::
++:: @when: Before joining OpenAI ::
+Xuechen Li (joined) OpenAI
+# @confidence: 0.80
+# @sources: [68865a0220455fc92b3f50f5]
+
++:: @where: China ::
++:: @when: current ::
+China (is competitor in) LLM landscape
+# @confidence: 0.80
+# @sources: [68865a0220455fc92b3f50f5]
+
++:: @where: China ::
++:: @when: current ::
+Alibaba (developed) Qwen
+# @confidence: 0.80
+# @sources: [68865a0220455fc92b3f50f5]
+
++:: @where: China ::
++:: @when: current ::
+Baidu (developed) ERNIE
+# @confidence: 0.80
+# @sources: [68865a0220455fc92b3f50f5]
+
++:: @where: Global ::
++:: @when: Current ::
+Partnership on AI (involves) AI companies
+# @confidence: 0.80
+# @sources: [68865a0220455fc92b3f50f5]
+
++:: @where: Global ::
++:: @when: Current ::
+intellectual property disputes (is critical challenge for) leading AI organizations
+# @confidence: 0.80
+# @sources: [68865a0220455fc92b3f50f5]
+
++:: @where: Global ::
++:: @when: Present ::
+RAG (is relevant to) AGI development
+# @confidence: 0.80
+# @sources: [68865a0220455fc92b3f50f5]
+
+
+:: voting ::
+
++:: candidate deaths impacting election procedures ::
++:: @where: North Rhine-Westphalia ::
++:: @when: weeks before September 14, 2025 ::
+deaths of candidates (necessitated) recasting of postal votes
+# @confidence: 0.80
+# @sources: [68865a0220455fc92b3f50f5]
+
