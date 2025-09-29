@@ -29,7 +29,7 @@ export default function ServiceLogs({ serviceId, serviceName, onClose, execution
       
       if (executionId) {
         // If executionId is provided, fetch logs for that specific execution
-        url = `http://localhost:8000/logs/execution/${executionId}`;
+        url = `/logs/execution/${executionId}`;
       } else {
         // Otherwise fetch logs for the service
         if (filter !== 'ALL') {
@@ -40,7 +40,7 @@ export default function ServiceLogs({ serviceId, serviceName, onClose, execution
           params.append('search', search);
         }
         
-        url = `http://localhost:8000/logs/services/${serviceId}?${params}`;
+        url = `/logs/services/${serviceId}?${params}`;
       }
 
       const response = await fetch(url);
@@ -58,7 +58,7 @@ export default function ServiceLogs({ serviceId, serviceName, onClose, execution
 
   const fetchStats = async () => {
     try {
-      const response = await fetch(`http://localhost:8000/logs/services/stats/${serviceId}?hours=24`);
+      const response = await fetch(`/logs/services/stats/${serviceId}?hours=24`);
       if (!response.ok) throw new Error('Failed to fetch stats');
       
       const data = await response.json();
@@ -114,7 +114,7 @@ export default function ServiceLogs({ serviceId, serviceName, onClose, execution
     if (!window.confirm('Delete logs older than 7 days?')) return;
     
     try {
-      const response = await fetch(`http://localhost:8000/logs/services/${serviceId}/old?days=7`, {
+      const response = await fetch(`/logs/services/${serviceId}/old?days=7`, {
         method: 'DELETE'
       });
       

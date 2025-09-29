@@ -24,7 +24,7 @@ class ToolAnalyzer:
     
     def __init__(self, llm_profile):
         self.llm_profile = llm_profile
-        self.base_url = "http://localhost:8000"
+        self.base_url = "http://api:8000"
     
     async def analyze_required_tools(
         self,

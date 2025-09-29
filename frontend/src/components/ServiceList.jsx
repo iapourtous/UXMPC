@@ -44,7 +44,7 @@ export default function ServiceList() {
   const handleTest = async (service) => {
     try {
       setTestingServiceId(service.id);
-      const response = await fetch(`http://localhost:8000/services/${service.id}/test`, {
+      const response = await fetch(`/services/${service.id}/test`, {
         method: 'POST',
       });
       

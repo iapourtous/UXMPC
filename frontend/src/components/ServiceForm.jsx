@@ -80,8 +80,8 @@ export default function ServiceForm({ service, onClose }) {
     const fetchData = async () => {
       try {
         const [settingsResponse, jsonProfilesResponse] = await Promise.all([
-          fetch('http://localhost:8000/settings'),
-          fetch('http://localhost:8000/settings/llm-profiles-json')
+          fetch('/settings'),
+          fetch('/settings/llm-profiles-json')
         ]);
         
         if (settingsResponse.ok) {
@@ -180,7 +180,7 @@ export default function ServiceForm({ service, onClose }) {
     try {
       setIsGenerating(true);
       
-      const response = await fetch('http://localhost:8000/services/generate', {
+      const response = await fetch('/services/generate', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

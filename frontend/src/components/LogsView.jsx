@@ -135,11 +135,11 @@ const LogsView = () => {
 
       let url;
       if (logType === 'service') {
-        url = `http://localhost:8000/logs/services/${selectedService}?${params}`;
+        url = `/logs/services/${selectedService}?${params}`;
       } else if (logType === 'agent') {
-        url = `http://localhost:8000/logs/agents/${selectedAgent}?${params}`;
+        url = `/logs/agents/${selectedAgent}?${params}`;
       } else if (logType === 'cot') {
-        url = `http://localhost:8000/logs/cot?${params}`;
+        url = `/logs/cot?${params}`;
       }
 
       const response = await fetch(url);
@@ -161,7 +161,7 @@ const LogsView = () => {
     try {
       let url;
       if (logType === 'service') {
-        url = `http://localhost:8000/logs/services/stats/${selectedService}?hours=24`;
+        url = `/logs/services/stats/${selectedService}?hours=24`;
       } else {
         // For agent and COT, we'll calculate stats from the fetched logs
         return;
@@ -207,7 +207,7 @@ const LogsView = () => {
     if (!window.confirm(`Delete logs older than ${days} days?`)) return;
     
     try {
-      const response = await fetch(`http://localhost:8000/logs/services/${selectedService}/old?days=${days}`, {
+      const response = await fetch(`/logs/services/${selectedService}/old?days=${days}`, {
         method: 'DELETE'
       });
       

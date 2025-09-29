@@ -3,8 +3,9 @@ version: "3.8"
 services:
   api:
     build: ./backend
-    ports:
-      - "8000:8000"
+    # Port interne uniquement, accessible via le réseau Docker
+    expose:
+      - "8000"
     environment:
       - MONGODB_URL=mongodb://mongo:27017
       - DATABASE_NAME=uxmcp
@@ -23,9 +24,8 @@ services:
   frontend:
     build: ./frontend
     ports:
-      - "5173:5173"
-    environment:
-      - VITE_API_URL=http://localhost:8000
+      - "5174:5173"
+    # Pas de VITE_API_URL - le proxy Vite gère la redirection
     volumes:
       - ./frontend:/app
       - /app/node_modules
@@ -33,8 +33,9 @@ services:
 
   mongo:
     image: mongo:7
-    ports:
-      - "27018:27017"
+    # Port interne uniquement
+    expose:
+      - "27017"
     environment:
       - MONGO_INITDB_DATABASE=uxmcp
     volumes:
@@ -42,8 +43,9 @@ services:
 
   redis:
     image: redis:7-alpine
-    ports:
-      - "6379:6379"
+    # Port interne uniquement
+    expose:
+      - "6379"
     volumes:
       - redis_data:/data
     command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru

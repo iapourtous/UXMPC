@@ -107,9 +107,9 @@ const CotAgentLogs = ({ agentId = null }) => {
 
       let url;
       if (activeTab === 'cot') {
-        url = `http://localhost:8000/logs/cot?${params}`;
+        url = `/logs/cot?${params}`;
       } else {
-        url = `http://localhost:8000/logs/agents/${agentId}?${params}`;
+        url = `/logs/agents/${agentId}?${params}`;
       }
 
       const response = await fetch(url);

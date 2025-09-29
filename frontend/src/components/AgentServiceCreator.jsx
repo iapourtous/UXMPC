@@ -74,7 +74,7 @@ const AgentServiceCreator = () => {
 
   const fetchGlobalSettings = async () => {
     try {
-      const response = await fetch('http://localhost:8000/settings/');
+      const response = await fetch('/settings/');
       if (response.ok) {
         const settings = await response.json();
         setGlobalSettings(settings);
@@ -134,7 +134,7 @@ const AgentServiceCreator = () => {
 
     try {
       // Use POST with EventSource by sending data through fetch
-      const response = await fetch('http://localhost:8000/agent/create-service', {
+      const response = await fetch('/agent/create-service', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

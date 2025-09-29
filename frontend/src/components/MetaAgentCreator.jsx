@@ -90,7 +90,7 @@ const MetaAgentCreator = () => {
 
   const fetchTemplates = async () => {
     try {
-      const response = await fetch('http://localhost:8000/meta-agent/templates');
+      const response = await fetch('/meta-agent/templates');
       const data = await response.json();
       setTemplates(data.templates);
     } catch (error) {
@@ -104,7 +104,7 @@ const MetaAgentCreator = () => {
     setAnalysis(null);
 
     try {
-      const response = await fetch('http://localhost:8000/meta-agent/analyze', {
+      const response = await fetch('/meta-agent/analyze', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -178,7 +178,7 @@ const MetaAgentCreator = () => {
     setAgentId(null);
 
     try {
-      const response = await fetch('http://localhost:8000/meta-agent/create', {
+      const response = await fetch('/meta-agent/create', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

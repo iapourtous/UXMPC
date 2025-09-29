@@ -11,9 +11,49 @@ export default defineConfig({
     },
     proxy: {
       '/api': {
-        target: 'http://localhost:8000',
-        changeOrigin: true,
-        rewrite: (path) => path.replace(/^\/api/, '')
+        target: 'http://api:8000',
+        changeOrigin: true
+      },
+      '/ws': {
+        target: 'http://api:8000',
+        ws: true,
+        changeOrigin: true
+      },
+      '/logs': {
+        target: 'http://api:8000',
+        changeOrigin: true
+      },
+      '/mcp': {
+        target: 'http://api:8000',
+        changeOrigin: true
+      },
+      '/services': {
+        target: 'http://api:8000',
+        changeOrigin: true
+      },
+      '/agents': {
+        target: 'http://api:8000',
+        changeOrigin: true
+      },
+      '/settings': {
+        target: 'http://api:8000',
+        changeOrigin: true
+      },
+      '/meta-agent': {
+        target: 'http://api:8000',
+        changeOrigin: true
+      },
+      '/agent': {
+        target: 'http://api:8000',
+        changeOrigin: true
+      },
+      '/demos': {
+        target: 'http://api:8000',
+        changeOrigin: true
+      },
+      '/llms': {
+        target: 'http://api:8000',
+        changeOrigin: true
       }
     }
   }

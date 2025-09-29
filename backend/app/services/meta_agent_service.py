@@ -40,7 +40,7 @@ class MetaAgentService:
         self.llm_profile = llm_profile
         self.app = app
         self.tool_analyzer = ToolAnalyzer(llm_profile)
-        self.base_url = "http://localhost:8000"
+        self.base_url = "http://api:8000"
     
     async def create_agent_from_requirement(
         self,

@@ -331,7 +331,7 @@ class ToolManager:
             return {"error": f"Service '{tool_name}' not found"}
         
         # Build URL
-        url = f"http://localhost:8000{service.route}"
+        url = f"http://api:8000{service.route}"
         
         # Replace path parameters
         for param_name, param_value in tool_args.items():

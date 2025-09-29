@@ -1,4 +1,4 @@
-# Utilise une image Python standard (CPU ou CUDA selon l'environnement)
+# Dockerfile sans support GPU - CPU uniquement
 FROM python:3.11-slim
 
 WORKDIR /app
@@ -38,16 +38,12 @@ RUN pip install --upgrade pip setuptools wheel
 
 COPY requirements.txt .
 
-# Installation de PyTorch avec CUDA 12.8 pour RTX 5080
-# Utilise l'index PyTorch pour CUDA 12.8 avec timeout et retry
-RUN pip install torch==2.7.0 torchvision==0.19.0 --index-url https://download.pytorch.org/whl/cu128 \
-    --timeout 600 \
-    --retries 5 \
-    || pip install torch torchvision --index-url https://download.pytorch.org/whl/cu128 \
+# Installation de PyTorch CPU uniquement (sans CUDA)
+RUN pip install torch torchvision --index-url https://download.pytorch.org/whl/cpu \
     --timeout 600 \
     --retries 5
 
-# Installation des autres dépendances (sans torch car déjà installé)
+# Installation des autres dépendances
 RUN pip install --no-cache-dir -r requirements.txt \
     --timeout 600 \
     --retries 5 \
@@ -57,7 +53,7 @@ RUN pip install --no-cache-dir -r requirements.txt \
 # Install Playwright
 RUN pip install playwright
 
-# Install Chromium browser only (sans --with-deps car on a déjà les dépendances)
+# Install Chromium browser only
 RUN playwright install chromium
 
 COPY . .

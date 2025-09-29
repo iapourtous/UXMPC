@@ -11,7 +11,9 @@ pytest-asyncio==0.25.2
 pytest-cov==6.0.0
 chromadb==0.4.22
 redis==5.0.1
-sentence-transformers==5.0.0
+# Note: PyTorch est installé séparément dans le Dockerfile avec CUDA 12.8
+# sentence-transformers utilise le PyTorch préinstallé
+sentence-transformers==5.1.1
 numpy==1.26.4
 groq>=0.4.0
 playwright==1.40.0

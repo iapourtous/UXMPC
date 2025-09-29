@@ -172,7 +172,7 @@ class TestService:
         """Execute a single test case"""
         try:
             # Build the URL
-            url = f"http://localhost:8000{service.route}"
+            url = f"http://api:8000{service.route}"
             params = test_case.get("params", {})
             
             # Store execution_id for log retrieval

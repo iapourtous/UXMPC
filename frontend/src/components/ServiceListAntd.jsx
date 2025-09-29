@@ -90,7 +90,7 @@ const ServiceListAntd = () => {
   const handleTest = async (service) => {
     setTestingServiceId(service.id);
     try {
-      const response = await fetch(`http://localhost:8000/services/${service.id}/test`, {
+      const response = await fetch(`/services/${service.id}/test`, {
         method: 'POST',
       });
       

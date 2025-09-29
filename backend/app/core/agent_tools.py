@@ -25,7 +25,7 @@ class AgentTools:
     
     def __init__(self, app: FastAPI):
         self.app = app
-        self.base_url = "http://localhost:8000"
+        self.base_url = "http://api:8000"
     
     async def create_service(
         self,

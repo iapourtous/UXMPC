@@ -1,6 +1,8 @@
 import axios from 'axios';
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+// Use relative URLs to leverage Vite proxy configuration
+// Force empty string to use relative URLs
+const API_URL = '';
 
 const api = axios.create({
   baseURL: API_URL,
@@ -12,7 +14,7 @@ const api = axios.create({
 
 // Services API
 export const servicesApi = {
-  list: (activeOnly = false) => api.get('/services', { params: { active_only: activeOnly } }),
+  list: (activeOnly = false) => api.get('/services/', { params: { active_only: activeOnly } }),
   get: (id) => api.get(`/services/${id}`),
   create: (data) => api.post('/services/', data),
   update: (id, data) => api.put(`/services/${id}`, data),
@@ -23,7 +25,7 @@ export const servicesApi = {
 
 // LLM Profiles API
 export const llmApi = {
-  list: (activeOnly = false) => api.get('/llms', { params: { active_only: activeOnly } }),
+  list: (activeOnly = false) => api.get('/llms/', { params: { active_only: activeOnly } }),
   get: (id) => api.get(`/llms/${id}`),
   create: (data) => api.post('/llms/', data),
   update: (id, data) => api.put(`/llms/${id}`, data),
@@ -32,12 +34,12 @@ export const llmApi = {
 
 // Documentation API
 export const docsApi = {
-  getMarkdown: () => api.get('/docs', { responseType: 'text' }),
+  getMarkdown: () => api.get('/docs/', { responseType: 'text' }),
 };
 
 // Agents API
 export const agentsApi = {
-  list: (activeOnly = false) => api.get('/agents', { params: { active_only: activeOnly } }),
+  list: (activeOnly = false) => api.get('/agents/', { params: { active_only: activeOnly } }),
   get: (id) => api.get(`/agents/${id}`),
   create: (data) => api.post('/agents/', data),
   update: (id, data) => api.put(`/agents/${id}`, data),
@@ -60,7 +62,7 @@ export const agentsApi = {
 
 // Conversations API
 export const conversationsApi = {
-  list: (params = {}) => api.get('/conversations', { params }),
+  list: (params = {}) => api.get('/conversations/', { params }),
   get: (id) => api.get(`/conversations/${id}`),
   create: (data) => api.post('/conversations/', data),
   update: (id, data) => api.put(`/conversations/${id}`, data),

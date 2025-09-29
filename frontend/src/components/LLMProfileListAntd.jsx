@@ -44,9 +44,11 @@ const LLMProfileListAntd = () => {
     setLoading(true);
     try {
       const response = await llmApi.list();
-      setProfiles(response.data);
+      // Ensure we always have an array
+      setProfiles(Array.isArray(response.data) ? response.data : []);
     } catch (error) {
       message.error('Failed to fetch LLM profiles');
+      setProfiles([]); // Set to empty array on error
     } finally {
       setLoading(false);
     }

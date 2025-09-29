@@ -36,7 +36,7 @@ class CacheService:
         """Connect to Redis server"""
         try:
             # Try to connect to Redis if URL is configured
-            redis_url = getattr(settings, 'redis_url', 'redis://localhost:6379')
+            redis_url = getattr(settings, 'redis_url', 'redis://redis:6379')
             if redis_url:
                 self.client = redis.from_url(
                     redis_url,
