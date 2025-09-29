@@ -7,12 +7,12 @@ services:
     expose:
       - "8000"
     environment:
-      - MONGODB_URL=mongodb://mongo:27017
+      - MONGODB_URL=mongodb://mongodb-uxmpc:27017
       - DATABASE_NAME=uxmcp
       - MCP_SERVER_URL=http://api:8000/mcp
       - REDIS_URL=redis://redis:6379
     depends_on:
-      - mongo
+      - mongodb-uxmpc
       - redis
     volumes:
       - ./backend:/app
@@ -31,7 +31,7 @@ services:
       - /app/node_modules
     command: npm run dev -- --host
 
-  mongo:
+  mongodb-uxmpc:
     image: mongo:7
     # Port interne uniquement
     expose:
